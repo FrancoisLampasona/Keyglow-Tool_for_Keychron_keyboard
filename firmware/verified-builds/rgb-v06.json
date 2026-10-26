@@ -1,0 +1,33 @@
+{
+  "capabilities": [
+    "rgb-ble-v2",
+    "rgb-ble-v3-direct",
+    "rgb-ble-persistent",
+    "atomic-rgb-transition",
+    "reactive-idle-65520"
+  ],
+  "target": "keychron/q6_max/iso_encoder:tastiera_bt",
+  "sourceCommit": "2b493ff95f2665db719b1e95c91babb5036e72f3",
+  "binary": "keychron_q6_max_iso_encoder_tastiera_bt.bin",
+  "bytesIncludingDFUSuffix": 110844,
+  "sha256": "e8cbf5d1a81591915dd7f1163c4eb549d13ed9e7cc4427027bc9f800d83c3ffc",
+  "initialStackPointer": "0x20000400",
+  "resetVector": "0x800811d",
+  "USB": "3434:0861",
+  "bcdDevice": "1.1.1",
+  "dfuSuffixCRCValid": true,
+  "eepromRegionWillBeOverwritten": true,
+  "buildTimestamp": "2026-10-26-22:25:16",
+  "toolchain": "Arm GNU Toolchain 13.3.Rel1 darwin-arm64",
+  "sourceFilesSHA256": {
+    "ble_rgb_protocol.c": "d5d291d60eb9b530c6eb7b4f4480bcdae3e048f9725334478c6d2139729163a4",
+    "ble_rgb_protocol.h": "06380844a29ef167af9ba042c846fedfb28ea08a55e78db1eddf8880432c3ba4",
+    "qmk_rgb_ble_bridge.c": "1a460ffbfac068fddd17c8bee6cea6ed40b7bf2163e941bb1298b94db4175ba3",
+    "qmk_rgb_ble_bridge.h": "03e1f9e5385919df8e3420d375870462aae2e834d56874ddd195115f34ef1878",
+    "qmk_responsive_idle.c": "fe88ac493bae848650d2b677ec2785f9907b812d523c1689fda1fdef924efdc2",
+    "qmk_responsive_idle.h": "bd624b08efa26ea7937f1a9cd46af771601b7feaad77261780d808ebea0ef02f",
+    "integration-hooks.example.c": "abd7438464d27b63b3eb00e48aa7b09a35c6d705b7600a5c55a9e84e70755640",
+    "apply-qmk-patch.py": "e15bd7efa9d549956e542bd3f28c5c67675504620cab964758b5283afcdc5835"
+  },
+  "status": "Compiled and statically validated. This check does not flash or prove Bluetooth delivery."
+}

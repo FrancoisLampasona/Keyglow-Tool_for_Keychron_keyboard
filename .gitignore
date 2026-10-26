@@ -1,0 +1,27 @@
+# Device backups, personal profiles/macros, downloaded research and credentials
+/research/
+/build/
+/dist/
+/.agents/
+/.codex/
+/.aws/
+.DS_Store
+.env
+.env.*
+*.log
+*.p12
+*.p8
+*.mobileprovision
+__pycache__/
+*.pyc
+# Internal Launcher extraction helper (requires unpublished third-party capture)
+/scripts/extract-launcher.cjs
+
+# Native test and experimental loader outputs
+/firmware/ota/build/
+*.dSYM/
+
+# Internal design history and user reference captures
+/.impeccable/
+/PRODUCT.md
+/DESIGN.md

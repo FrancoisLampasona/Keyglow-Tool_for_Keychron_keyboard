@@ -1,0 +1,120 @@
+{
+  "protocol": "BLE3",
+  "crc": "CRC16/CCITT-FALSE, poly=0x1021, init=0xFFFF, refin=false, refout=false, xorout=0, big-endian",
+  "crcReference": "Python binascii.crc_hqx(payload, 0xffff)",
+  "symbolMilliseconds": 80,
+  "symbolTimeoutMilliseconds": 400,
+  "armMilliseconds": 30000,
+  "frames": [
+    {
+      "name": "v1-red",
+      "version": 1,
+      "command": 1,
+      "mode": 1,
+      "hue": 0,
+      "saturation": 255,
+      "value": 255,
+      "speed": null,
+      "hex": "4B 52 47 42 01 01 00 FF FF E3 C0"
+    },
+    {
+      "name": "v1-sample",
+      "version": 1,
+      "command": 1,
+      "mode": 1,
+      "hue": 85,
+      "saturation": 192,
+      "value": 128,
+      "speed": null,
+      "hex": "4B 52 47 42 01 01 55 C0 80 CC 2D"
+    },
+    {
+      "name": "v1-off",
+      "version": 1,
+      "command": 2,
+      "mode": 0,
+      "hue": 0,
+      "saturation": 0,
+      "value": 0,
+      "speed": null,
+      "hex": "4B 52 47 42 01 02 00 00 00 65 13"
+    },
+    {
+      "name": "v2-red",
+      "version": 2,
+      "command": 3,
+      "mode": 1,
+      "hue": 0,
+      "saturation": 255,
+      "value": 255,
+      "speed": 127,
+      "hex": "4B 52 47 42 02 03 01 00 FF FF 7F A2 1A"
+    },
+    {
+      "name": "v2-nexus",
+      "version": 2,
+      "command": 3,
+      "mode": 20,
+      "hue": 85,
+      "saturation": 192,
+      "value": 128,
+      "speed": 200,
+      "hex": "4B 52 47 42 02 03 14 55 C0 80 C8 6A A6"
+    },
+    {
+      "name": "v2-off",
+      "version": 2,
+      "command": 3,
+      "mode": 0,
+      "hue": 0,
+      "saturation": 0,
+      "value": 0,
+      "speed": 0,
+      "hex": "4B 52 47 42 02 03 00 00 00 00 00 4B AF"
+    },
+    {
+      "name": "v2-solid-splash",
+      "version": 2,
+      "command": 3,
+      "mode": 22,
+      "hue": 255,
+      "saturation": 255,
+      "value": 255,
+      "speed": 255,
+      "hex": "4B 52 47 42 02 03 16 FF FF FF FF 1B BF"
+    },
+    {
+      "name": "v3-preview-breathing",
+      "version": 3,
+      "command": 3,
+      "mode": 2,
+      "hue": 85,
+      "saturation": 255,
+      "value": 239,
+      "speed": 127,
+      "hex": "4B 52 47 42 03 03 02 55 FF EF 7F 3E A4"
+    },
+    {
+      "name": "v3-save-breathing",
+      "version": 3,
+      "command": 4,
+      "mode": 2,
+      "hue": 85,
+      "saturation": 255,
+      "value": 239,
+      "speed": 127,
+      "hex": "4B 52 47 42 03 04 02 55 FF EF 7F F6 E5"
+    },
+    {
+      "name": "v3-save-off",
+      "version": 3,
+      "command": 4,
+      "mode": 0,
+      "hue": 0,
+      "saturation": 0,
+      "value": 0,
+      "speed": 0,
+      "hex": "4B 52 47 42 03 04 00 00 00 00 00 3B 8F"
+    }
+  ]
+}

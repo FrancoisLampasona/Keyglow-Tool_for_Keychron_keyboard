@@ -1,0 +1,49 @@
+name: Build and host tests
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  macos:
+    name: Apple Silicon app and host tests
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check compiler
+        run: xcrun swiftc --version
+      - name: Swift unit and transport tests
+        shell: zsh {0}
+        run: |
+          set -euo pipefail
+          zsh scripts/test-protocol.sh
+          zsh scripts/test-energy.sh
+          zsh scripts/test-via.sh
+          zsh scripts/test-workspace.sh
+          zsh scripts/test-quick-launch.sh
+          zsh scripts/test-launcher-backup.sh
+          zsh scripts/test-launcher-macros.sh
+          sh macOS/Tests/Onboarding/run.sh
+      - name: Fetch pinned QMK source for host integration tests
+        run: zsh scripts/setup-firmware.sh --source-only
+      - name: RGB firmware host tests
+        run: sh firmware/test.sh
+      - name: Experimental OTA host fault tests
+        run: make -C firmware/ota test
+      - name: Build app and verify local signature
+        run: zsh scripts/build-app.sh
+
+      # These tests do not open a HID device, flash firmware, or validate TCC
+      # prompts. No ad-hoc signed CI binary is published as a release.
