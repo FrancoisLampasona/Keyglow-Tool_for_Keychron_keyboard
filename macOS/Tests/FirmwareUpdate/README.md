@@ -43,3 +43,12 @@ The live setup button is explicit and independent of update verification. It
 creates or reuses a private 64-byte owner-key slot with mode 0600 and a dedicated
 Keychain entry. Actual Keychain/provisioning, native rendering, and hardware OTA
 remain separate integration checks; passing this suite does not prove them.
+
+## Complete-stage resumption
+
+The workflow tests also cover a matching READY stage and a stage that changes
+after review. Only a fresh, complete matching stage can skip preparation; its
+finalization still uses FINISH, COMMIT and authenticated post-boot identity.
+`../FirmwareEngine/run.sh` exercises this path against the real C engine with
+RAM flash, including lost DATA/FINISH replies and wrong-key rejection. It does
+not access a physical keyboard.

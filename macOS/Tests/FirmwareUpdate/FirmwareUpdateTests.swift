@@ -199,8 +199,23 @@ struct FirmwareUpdateTests {
         let pendingWorker = pendingMatch.worker(baseline: old)
         let pendingReview = try pendingWorker.review(selected, cancellation: .init())
         _ = try pendingWorker.install(pendingReview, replace: false, cancellation: .init())
-        precondition(pendingMatch.replaceFlags == [false] && pendingMatch.eraseCount == 0)
+        precondition(pendingMatch.replaceFlags.isEmpty && pendingMatch.eraseCount == 0)
         precondition(!pendingMatch.operations.contains(2) && !pendingMatch.operations.contains(6))
+        precondition(pendingMatch.operations == [8, 3, 8, 3, 4, 5, 8])
+        // Only a fresh matching READY stage takes the short finalization path.
+        for changedSinceReview in [false, true] {
+            let complete = try Device(old)
+            try complete.seedStage(next, build: 9, committed: false, installed: false)
+            complete.ready = true
+            let worker = complete.worker(baseline: old)
+            let reviewed = try worker.review(selected, cancellation: .init())
+            precondition(reviewed.hasReadyTarget)
+            if changedSinceReview { complete.ready = false; complete.missing = [1] }
+            _ = try worker.install(reviewed, replace: false, cancellation: .init())
+            precondition(complete.operations.contains(7) == changedSinceReview)
+            precondition(complete.eraseCount == 0 && complete.build == 9)
+            if !changedSinceReview { precondition(complete.operations == [8, 3, 8, 3, 4, 5, 8]) }
+        }
         for matching in [false, true] {
             let pending = try Device(old)
             try pending.seedStage(matching ? next : image(seed: 8), build: 9, committed: true, installed: false)

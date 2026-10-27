@@ -52,6 +52,17 @@ after each reply receipt and indicator restoration, exceeding the firmware's
 during that interval; its effect on the observed timeout still needs hardware
 verification.
 
+When a fresh STATUS reports the exact selected image as READY and complete,
+0.8.2 can finalize that durable stage without repeating AUTH_BEGIN or sending
+blocks. This path still requires a fresh owner-authenticated HELLO, unchanged
+controller identity, exact manifest match, FINISH and COMMIT responses, and a
+fresh authenticated target identity after reboot. The firmware checks the
+persisted owner HMAC and image contents for both finalization commands. Selecting
+replacement, an incomplete stage or a different stage keeps the full workflow.
+The production Swift coordinator has passed this path against the real C
+staging/loader engine in RAM, including a lost FINISH reply and wrong-key
+rejection with no flash changes. Hardware completion remains unverified.
+
 The stock firmware and the earlier RGB-only custom firmware cannot acquire the loader through an app update alone. Builds do not flash hardware. The app keeps RGB sending separate from firmware transfer and does not silently retry failed flash mutations.
 
 ## Wake and battery behavior

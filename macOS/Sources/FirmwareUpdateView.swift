@@ -89,13 +89,19 @@ struct FirmwareUpdateView: View {
                         Text("La verifica legge soltanto identità e sessione: non prepara né installa un aggiornamento.")
                             .font(.system(size: 12)).foregroundColor(Studio.muted)
                             .fixedSize(horizontal: false, vertical: true)
-                        detail("Da trasferire", ByteCountFormatter.string(fromByteCount: Int64(review.plan.literalBytes), countStyle: .file))
+                        detail("Da trasferire", review.hasReadyTarget && !model.replaceUncommitted ? "Nessun blocco: immagine già completa" : ByteCountFormatter.string(fromByteCount: Int64(review.plan.literalBytes), countStyle: .file))
+                        if review.hasReadyTarget && !model.replaceUncommitted {
+                            Text("La ripresa verifica di nuovo identità, autorizzazione salvata e immagine, poi completa l’installazione senza preparare nuovamente il trasferimento.")
+                                .font(.system(size: 12)).foregroundColor(Studio.muted).fixedSize(horizontal: false, vertical: true)
+                        }
                         detail("Riutilizzati sulla tastiera", ByteCountFormatter.string(fromByteCount: Int64(review.plan.copiedBytes), countStyle: .file))
                         if review.plan.baselineUse != .verified {
                             Text("La base locale non è verificata: verrà trasferita l’intera immagine.")
                                 .font(.system(size: 12)).foregroundColor(Studio.muted)
                         }
-                        if let estimate = model.estimate { detail("Durata stimata", estimate) }
+                        if review.hasReadyTarget && !model.replaceUncommitted {
+                            detail("Operazione", "Verifica finale, installazione e lettura dopo il riavvio")
+                        } else if let estimate = model.estimate { detail("Durata stimata", estimate) }
                         Text("Stima basata sulle prove brevi: può variare. Include verifiche, riconnessione e un margine; digitazione e interruzioni possono allungarla. 20 ms è stato provato su scambi brevi, non su un aggiornamento completo.")
                             .font(.system(size: 12)).foregroundColor(Studio.muted).fixedSize(horizontal: false, vertical: true)
                         if !review.isAlreadyInstalled {
@@ -130,7 +136,7 @@ struct FirmwareUpdateView: View {
                     } else {
                         Button("Verifica tastiera") { model.verifyKeyboard() }
                             .buttonStyle(StudioButton()).disabled(model.artifact == nil || (model.cooldownUntil.map { context.date < $0 } ?? false))
-                        Button("Avvia aggiornamento") { model.start() }
+                        Button(model.review?.hasReadyTarget == true && !model.replaceUncommitted ? "Completa installazione" : "Avvia aggiornamento") { model.start() }
                             .buttonStyle(StudioButton(primary: true)).disabled(!model.canStart)
                     }
                 }

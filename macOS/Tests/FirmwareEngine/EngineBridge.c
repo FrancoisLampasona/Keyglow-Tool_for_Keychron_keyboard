@@ -31,6 +31,15 @@ int main(int argc,char **argv){
         size_t n=strcspn(line,"\r\n");assert(n%2==0&&n/2<=KG_OTA_FRAME_MAX);uint8_t request[KG_OTA_FRAME_MAX],reply[KG_BLE_ACK_MAX];size_t written=0;
         for(size_t i=0;i<n/2;i++){unsigned value;assert(sscanf(line+i*2,"%2x",&value)==1);request[i]=(uint8_t)value;}
         assert(kg_ble_request_valid(request,n/2));uint32_t id=(uint32_t)request[8]|(uint32_t)request[9]<<8|(uint32_t)request[10]<<16|(uint32_t)request[11]<<24;
+        if(request[5]==KG_OTA_FINISH||request[5]==KG_OTA_COMMIT){
+            /* A durable READY stage must not bypass owner authentication when
+             * the host omits a redundant AUTH_BEGIN during finalization. */
+            uint8_t wrong_key[32]={0},before[32],after[32],rejected[120];size_t rejected_size=0;
+            kg_ota_sha256(flash,sizeof flash,before);
+            assert(kg_ota_handle_authenticated_frame(&io,wrong_key,request,n/2,rejected,sizeof rejected,&rejected_size));
+            uint32_t result=(uint32_t)rejected[12]|(uint32_t)rejected[13]<<8|(uint32_t)rejected[14]<<16|(uint32_t)rejected[15]<<24;
+            assert(result==KG_OTA_AUTH_ERROR);kg_ota_sha256(flash,sizeof flash,after);assert(!memcmp(before,after,32));
+        }
         if(request[5]==KG_OTA_HELLO){uint8_t payload[96];assert(kg_ota_hello(&io,key,current_length,current_build,request+12,payload)==KG_OTA_OK);assert(kg_ble_ack_encode(8,id,0,0,payload,96,reply,sizeof reply,&written));}
         else {uint8_t legacy[120];size_t length=0;assert(kg_ota_handle_authenticated_frame(&io,key,request,n/2,legacy,sizeof legacy,&length));assert(kg_ble_ack_from_legacy(legacy,length,request[5]==3,reply,sizeof reply,&written));}
         for(size_t i=0;i<written;i++)printf("%02x",reply[i]);puts("");fflush(stdout);

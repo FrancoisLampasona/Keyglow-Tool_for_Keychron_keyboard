@@ -75,6 +75,10 @@ struct FirmwareUpdateReview: Sendable {
         controller.image.length == artifact.manifest.length && controller.image.sha256 == artifact.manifest.sha256 &&
             controller.build == artifact.manifest.build
     }
+    var hasReadyTarget: Bool {
+        staging?.manifest == artifact.manifest && staging?.ready == true &&
+            staging?.missing.isEmpty == true && staging?.installed == false
+    }
 }
 
 struct FirmwareStagingStatus: Equatable, Sendable {
@@ -170,14 +174,26 @@ final class FirmwareUpdateCoordinator {
         let previous = try transact(operation: 3, acceptedResults: [0, 2], cancellation: cancellation)
         let replaceStage = try Self.replacementPolicy(previous, controller: fresh,
                                                       target: review.artifact.manifest, userReplace: replace)
-        let key = try ownerKey(for: fresh.keyID, totalBytes: total)
-        let auth = try FirmwareAuthorization.makePayload(manifest: review.artifact.manifest, source: fresh.image,
-                                                         reportedCurrentImage: fresh.image, nonce: nonce(),
-                                                         replace: replaceStage, ownerKey: key)
-        progress(.init(stage: .authorizing, completedBytes: 0, totalBytes: total))
-        _ = try transact(operation: 7, payload: Array(auth), cancellation: cancellation)
-        progress(.init(stage: .status, completedBytes: 0, totalBytes: total))
-        let status = try transact(operation: 3, cancellation: cancellation)
+        let saved = try Self.stage(previous)
+        let status: BluetoothOTAWire.Reply
+        if !replaceStage, let saved, saved.manifest == review.artifact.manifest,
+           saved.ready, saved.missing.isEmpty, !saved.installed {
+            // Resume a complete durable stage without preparing it again.
+            // Fresh HELLO above still authenticates the device/current image.
+            // FINISH and COMMIT below each verify the persisted owner HMAC and
+            // the complete staged image in the firmware; READY alone is never
+            // authorization. No unauthenticated fallback or mutation retry.
+            status = previous
+        } else {
+            let key = try ownerKey(for: fresh.keyID, totalBytes: total)
+            let auth = try FirmwareAuthorization.makePayload(manifest: review.artifact.manifest, source: fresh.image,
+                                                             reportedCurrentImage: fresh.image, nonce: nonce(),
+                                                             replace: replaceStage, ownerKey: key)
+            progress(.init(stage: .authorizing, completedBytes: 0, totalBytes: total))
+            _ = try transact(operation: 7, payload: Array(auth), cancellation: cancellation)
+            progress(.init(stage: .status, completedBytes: 0, totalBytes: total))
+            status = try transact(operation: 3, cancellation: cancellation)
+        }
         let missing = try Self.missingChunks(status, manifest: review.artifact.manifest)
         var completed = review.plan.chunks.filter { !missing.contains($0.destinationOffset / 256) }.reduce(0) { $0 + $1.length }
         let operations = Self.pendingChunks(review.plan.chunks, missing: missing)
