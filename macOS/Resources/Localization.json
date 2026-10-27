@@ -47,9 +47,9 @@
     "en": "This is the last available reading. Refresh to get the current level.",
     "fr": "Il s’agit de la dernière lecture disponible. Actualisez pour obtenir le niveau actuel."
   },
-  "La percentuale viene letta automaticamente mentre usi Keyglow in Bluetooth.": {
-    "en": "The percentage is read automatically while you use Keyglow over Bluetooth.",
-    "fr": "Le pourcentage est lu automatiquement lorsque vous utilisez Keyglow en Bluetooth."
+  "La percentuale si aggiorna anche mentre usi altre app. Lascia Keyglow aperta e la tastiera in Bluetooth.": {
+    "en": "The level updates while you use other apps. Keep Keyglow open and the keyboard connected over Bluetooth.",
+    "fr": "Le niveau se met à jour pendant que vous utilisez d’autres apps. Gardez Keyglow ouverte et le clavier connecté en Bluetooth."
   },
   "Batteria tastiera, {0}": {
     "en": "Keyboard battery, {0}",
@@ -83,9 +83,9 @@
     "en": "Refresh battery",
     "fr": "Actualiser la batterie"
   },
-  "Aggiornamento ogni minuto quando l’app è attiva. Lo stato di ricarica non è esposto dalla tastiera.": {
-    "en": "Updates every minute while the app is active. Charging status is not exposed by the keyboard.",
-    "fr": "Actualisation chaque minute lorsque l’app est active. Le clavier ne fournit pas l’état de charge."
+  "Aggiornamento ogni minuto, anche con Keyglow in background o ridotta. Si ferma durante le operazioni e la sospensione del Mac. Lo stato di ricarica non è disponibile.": {
+    "en": "Updates every minute, even with Keyglow in the background or minimized. Pauses during operations and when the Mac sleeps. Charging status is unavailable.",
+    "fr": "Actualisation chaque minute, même avec Keyglow en arrière-plan ou réduite. En pause pendant les opérations et la veille du Mac. L’état de charge est indisponible."
   },
   "La tua configurazione": {
     "en": "Your configuration",

@@ -19,13 +19,22 @@ struct BatteryReading: Equatable {
 
 struct BatteryRefreshContext: Equatable {
     var connected: Bool
-    var active: Bool
     var paused: Bool
+    var sleeping: Bool = false
+    var deviceID: UInt64? = nil
+    var usbConnected: Bool = false
     // Discovery must also run when disconnected, so a newly connected keyboard
     // can become eligible without a manual scan or app restart.
-    var shouldRefreshConnection: Bool { active && !paused }
-    var canRead: Bool { connected && active && !paused }
+    var shouldRefreshConnection: Bool { !sleeping && !paused }
+    var canRead: Bool { connected && !sleeping && !paused }
     func shouldRefresh(authorized: Bool, running: Bool, lastAttempt: Date?, now: Date) -> Bool {
         canRead && authorized && !running && (lastAttempt.map { now.timeIntervalSince($0) >= 60 } ?? true)
     }
+}
+
+@MainActor protocol BatteryStatusReading: AnyObject {
+    var isRunning: Bool { get }
+    var onFinish: ((BluetoothFirmwareInspection?, String, Bool) -> Void)? { get set }
+    func start(batteryOnly: Bool)
+    func cancel()
 }

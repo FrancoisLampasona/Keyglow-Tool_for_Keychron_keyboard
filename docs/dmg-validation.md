@@ -80,3 +80,28 @@ Times are Europe/Rome. The initial stale reading was replaced automatically, the
 ![Bluetooth restored and the battery refreshed automatically at 23:23](screenshots/battery-cycle-bluetooth.png)
 
 Before/after digests of `workspace.v3`, `profiles.v3` and `app.language` matched. The same color, effect and profile data were preserved. No firmware, RGB setting or keyboard configuration was written during this test. No app rebuild or DMG replacement was necessary.
+
+
+## Background monitoring — 0.11.1, build 25
+
+Connection and battery monitoring now belong to the app model, rather than the sidebar view or foreground activation. The monitor checks public connection metadata about every five seconds and reads the battery about once a minute, using an existing Bluetooth grant. It remains running while Keyglow is behind another app or minimized. It does not scan for new peripherals, write HID reports, access the owner key or automatically request permission. An explicit first battery read may still request consent; a pending consent prompt is not cancelled by the polling timer.
+
+Device operations and the Firmware page pause monitoring. System sleep cancels a pending read; wake makes a fresh read eligible. A scoped `ProcessInfo` activity keeps this requested monitoring from being deferred by App Nap while allowing idle system sleep, and is released on pause, sleep or termination. See Apple's [activity options](https://developer.apple.com/documentation/foundation/processinfo/activityoptions) and [activity guidance](https://developer.apple.com/library/archive/documentation/Performance/Conceptual/power_efficiency_guidelines_osx/PrioritizeWorkAtTheAppLevel.html). These scheduling choices are not a measurement of energy use or a guarantee while the Mac is asleep or Keyglow has quit.
+
+The installed app was physically tested on the same Q6 Max ISO on October 27, 2026. The owner kept another app active for the final cycle. Local debug events recorded `NSApplication.isActive == false` at each connection transition and battery completion below; reading the accessibility state did not activate Keyglow.
+
+| Time (Europe/Rome) | Observed automatically in background |
+| --- | --- |
+| 23:37:56 | Bluetooth detected after removing USB |
+| 23:37:57 | Battery **92%** |
+| 23:38:57 | Next battery read **90%**, without activation or Refresh |
+| 23:39:51 | USB/Cable detected; sidebar changed to **Battery —** |
+| 23:41:22 | Bluetooth detected again; fresh battery read **93%** |
+
+The [sanitized event record](validation/background-status-20261027.json) contains timestamps, connection flags, percentages and the foreground flag only. An earlier USB transition occurred while macOS still considered Keyglow active; it was excluded from this background proof and repeated. The final Bluetooth → USB → Bluetooth cycle used one uninterrupted app process, no manual Detect/Refresh action and no permission reset. Digests of `workspace.v3`, `profiles.v3` and `app.language` matched before and after. No keyboard settings or firmware were written. Percentages are the device's reports, not a charging-state or battery-life estimate.
+
+The monitor tests use a fake reader and clock to cover first consent, permission denial, one-minute retry spacing, unchanged percentage with a fresh timestamp, Cable transitions, replacement identity, operation cancellation, sleep/wake and stop/restart without hardware access. Bluetooth identity/parser tests, localization checks, onboarding checks, workspace preservation tests and the Live RGB suite passed; the final app compiled in Swift 6 and retained its stable signing requirement. Sleep/wake policy was covered by software tests; this session did not suspend the physical Mac.
+
+The 0.11.1 DMG was mounted read-only: all 24 app files matched `/Applications/Keyglow.app`, strict signature verification passed, and the bundled USB helper launched. The public firmware and corresponding source archive remain unchanged. Apple notarization and the integrated first-install hardware limits are unchanged.
+
+DMG SHA-256: `ceb45027426d1ba953d4afb5f7e0a1daf4d0f133048b40c0d24358bc782a9d90`.

@@ -3,7 +3,8 @@ import SwiftUI
 import Combine
 
 @MainActor final class StudioModel: ObservableObject {
-    @Published var section = 0 { didSet { refreshLiveRGBContext() } }
+    @Published var section = 0 { didSet { refreshLiveRGBContext(); batteryMonitor.reconcile() } }
+    let batteryMonitor = KeyboardStatusMonitor()
     @Published var workspace = KeyboardWorkspace() { didSet {
         if !loadingWorkspace {
             saveWorkspaceLocally()
@@ -62,7 +63,7 @@ import Combine
     @Published var saveBluetoothOnKeyboard = UserDefaults.standard.object(forKey: "bluetooth.saveOnKeyboard") as? Bool ?? true {
         didSet { UserDefaults.standard.set(saveBluetoothOnKeyboard, forKey: "bluetooth.saveOnKeyboard"); refreshLiveRGBContext() }
     }
-    @Published var busy = false { didSet { refreshLiveRGBContext(); if !busy { resumeDeferredAccessRefresh() } } }
+    @Published var busy = false { didSet { batteryMonitor.reconcile(); refreshLiveRGBContext(); if !busy { resumeDeferredAccessRefresh() } } }
     @Published var transmitting = false
     @Published var progress = 0.0
     @Published var message = "Scegli un colore. L’anteprima cambia solo nell’app."
@@ -90,6 +91,11 @@ import Combine
             brightness = min(100, max(0, UserDefaults.standard.double(forKey: "studio.brightness")))
         }
         restoreWorkspaceLocally()
+        batteryMonitor.configure(snapshot: { [weak self] in
+            guard let self else { return BatteryRefreshContext(connected:false,paused:true) }
+            return BatteryRefreshContext(connected:self.available && self.selectedUSBID == nil,
+                paused:self.busy || self.section == 7, deviceID:self.deviceID, usbConnected:self.selectedUSBID != nil)
+        }, refreshConnection: { [weak self] in self?.refreshConnectionMetadata() })
     }
     var nsColor: NSColor {
         let sector = (hue * 6).truncatingRemainder(dividingBy: 6)
@@ -205,6 +211,7 @@ import Combine
         guard !busy else { return }
         scanUSB()
         identifyBluetoothDevice()
+        batteryMonitor.reconcile()
     }
     private func identifyBluetoothDevice() {
         do {
@@ -361,6 +368,7 @@ import Combine
     private let model = StudioModel()
     private let onboarding = OnboardingCoordinator()
     private var wakeSubscription: AnyCancellable?
+    private var sleepSubscription: AnyCancellable?
     private var languageSubscription: AnyCancellable?
     private var setupReady = false
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -404,10 +412,17 @@ import Combine
             self.model.refreshBluetoothAccess()
         }
         model.scan()
+        model.batteryMonitor.start()
         _ = QuickLaunchService.shared
         setupReady = true
         wakeSubscription = NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.didWakeNotification).sink { [weak self] _ in
-            Task { @MainActor in self?.model.refreshBluetoothAccess(forceRead: true) }
+            Task { @MainActor in
+                self?.model.refreshBluetoothAccess(forceRead: true)
+                self?.model.batteryMonitor.setSleeping(false)
+            }
+        }
+        sleepSubscription = NSWorkspace.shared.notificationCenter.publisher(for:NSWorkspace.willSleepNotification).sink { [weak self] _ in
+            Task { @MainActor in self?.model.batteryMonitor.setSleeping(true) }
         }
         onboarding.showIfNeeded(parent: window)
     }
@@ -417,6 +432,7 @@ import Combine
         model.refreshBluetoothAccess()
     }
     func applicationDidResignActive(_ notification: Notification) { model.stopCapture() }
+    func applicationWillTerminate(_ notification: Notification) { model.batteryMonitor.stop() }
     func windowDidResize(_ notification: Notification) { if let window { onboarding.fitToParent(window) } }
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
     func windowShouldClose(_ sender: NSWindow) -> Bool { mayClose() }

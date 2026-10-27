@@ -58,13 +58,14 @@ struct BluetoothFirmwareInspection: Sendable {
 /// Delegate conformances defer isolation checking because CoreBluetooth's ObjC
 /// protocols are not actor annotated; all callbacks are requested on `.main`.
 @MainActor
-final class BluetoothFirmwareInspector: NSObject, ObservableObject,
+final class BluetoothFirmwareInspector: NSObject, ObservableObject, BatteryStatusReading,
     @preconcurrency CBCentralManagerDelegate, @preconcurrency CBPeripheralDelegate {
     @Published private(set) var isRunning = false
     @Published private(set) var message = "Leggi modello, firmware radio e batteria direttamente via Bluetooth."
     @Published private(set) var inspection: BluetoothFirmwareInspection?
     @Published private(set) var permissionDenied = false
     private(set) var wasCancelled = false
+    var onFinish: ((BluetoothFirmwareInspection?, String, Bool) -> Void)?
 
     private var central: CBCentralManager?
     private var target: CBPeripheral?
@@ -137,6 +138,7 @@ final class BluetoothFirmwareInspector: NSObject, ObservableObject,
         guard isRunning else { return }
         isRunning = false; message = text
         cleanUp()
+        onFinish?(inspection, text, wasCancelled)
     }
 
     func centralManagerDidUpdateState(_ central: CBCentralManager) {

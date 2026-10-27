@@ -1,0 +1,57 @@
+{
+  "appVersion": "0.11.1",
+  "build": 25,
+  "date": "2026-10-27",
+  "timezone": "Europe/Rome",
+  "device": "Keychron Q6 Max ISO",
+  "sameProcessForAllEvents": true,
+  "manualRefreshOrDetection": false,
+  "profilesAndWorkspaceUnchanged": true,
+  "events": [
+    {
+      "time": "2026-10-27 23:34:46.236848+0100",
+      "event": "Connection changed: bluetooth=true usb=false foreground=false"
+    },
+    {
+      "time": "2026-10-27 23:34:51.776134+0100",
+      "event": "Battery read: percent=88 foreground=false"
+    },
+    {
+      "time": "2026-10-27 23:37:52.247717+0100",
+      "event": "Connection changed: bluetooth=false usb=false foreground=false"
+    },
+    {
+      "time": "2026-10-27 23:37:56.859850+0100",
+      "event": "Connection changed: bluetooth=true usb=false foreground=false"
+    },
+    {
+      "time": "2026-10-27 23:37:57.086411+0100",
+      "event": "Battery read: percent=92 foreground=false"
+    },
+    {
+      "time": "2026-10-27 23:38:57.057262+0100",
+      "event": "Battery read: percent=90 foreground=false"
+    },
+    {
+      "time": "2026-10-27 23:39:51.947144+0100",
+      "event": "Connection changed: bluetooth=false usb=true foreground=false"
+    },
+    {
+      "time": "2026-10-27 23:41:17.249556+0100",
+      "event": "Connection changed: bluetooth=false usb=false foreground=false"
+    },
+    {
+      "time": "2026-10-27 23:41:22.248490+0100",
+      "event": "Connection changed: bluetooth=true usb=false foreground=false"
+    },
+    {
+      "time": "2026-10-27 23:41:22.451224+0100",
+      "event": "Battery read: percent=93 foreground=false"
+    },
+    {
+      "time": "2026-10-27 23:42:22.405082+0100",
+      "event": "Battery read: percent=91 foreground=false"
+    }
+  ],
+  "scope": "Local debug events emitted by the installed app; foreground=false records NSApplication.isActive == false. No typing, keys, addresses or owner credentials are logged."
+}

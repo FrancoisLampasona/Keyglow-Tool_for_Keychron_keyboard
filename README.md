@@ -4,7 +4,7 @@
 
 Keyglow brings RGB controls, a visual keyboard editor and firmware tools into one desktop app. The current release supports **Keychron Q6 Max ISO with encoder** on Apple Silicon Macs running macOS 13 or later. The interface is available in **Italian, English and French**; the keyboard preview retains the real Italian ISO legends.
 
-[Download the DMG](https://github.com/FrancoisLampasona/Keyglow-Tool_for_Keychron_keyboard/releases/tag/v0.11.0) · [Guida in italiano](docs/it.md) · [Firmware details](docs/firmware.md)
+[Download the DMG](https://github.com/FrancoisLampasona/Keyglow-Tool_for_Keychron_keyboard/releases/tag/v0.11.1) · [Guida in italiano](docs/it.md) · [Firmware details](docs/firmware.md)
 
 ![Keyglow lighting workspace with the Q6 Max ISO layout, color picker and effect controls](docs/screenshots/lighting.png)
 
@@ -14,9 +14,11 @@ Keyglow brings RGB controls, a visual keyboard editor and firmware tools into on
 
 Choose a color or effect, adjust brightness and speed, and save the result on your keyboard. With the custom Keyglow firmware installed, RGB changes can travel over **Bluetooth**, without plugging in USB or pressing a keyboard shortcut each time. Optional automatic preview sends your latest edits; it is not an instantaneous video stream.
 
-**Battery level** is visible in the sidebar, read from the connected Q6 Max over Bluetooth. It refreshes once a minute while the app is active and idle. Missing, old and unavailable readings are labeled; Cable mode and charging status are not exposed by this reader. Bluetooth permission is requested only when you choose to read it. A normal pause during another operation keeps the last valid reading and resumes automatically when the app can read again.
+**Battery level** is visible in the sidebar, read from the connected Q6 Max over Bluetooth. From 0.11.1, it refreshes once a minute while Keyglow is open, including in the background or minimized. Connection changes are checked about every five seconds. Monitoring pauses during device operations, on the Firmware page and while the Mac sleeps; it resumes automatically afterward. Missing, old and unavailable readings are labeled; Cable mode and charging status are not exposed by this reader. Bluetooth permission is requested only when you choose to read it. A normal pause during another operation keeps the last valid reading and resumes automatically when the app can read again.
 
 The complete **Bluetooth → USB → Bluetooth** cycle was physically verified on one Q6 Max ISO with Keyglow 0.11.0, without restarting the app or pressing Refresh/Detect. The sidebar changed from **88%** in Bluetooth to **Battery —** in Cable, then read **92%** after reconnecting in Bluetooth and **91%** automatically the following minute. Profiles and the local configuration stayed unchanged. See the [validation record](docs/dmg-validation.md#physical-bluetooth--usb--bluetooth-cycle--0110).
+
+In **0.11.1**, the cycle was repeated with Keyglow in the background: battery reads of **92% → 90%**, USB detection with the old value cleared, then Bluetooth reconnection and a fresh **93%** reading. Local events confirmed the app was inactive throughout those observations. See the [background validation](docs/dmg-validation.md#background-monitoring--0111-build-25).
 
 Over **USB**, Keyglow also lets you edit four keymap layers, the encoder, macros, per-key RGB, mixed effects and supported power settings. Profiles stay on your Mac. You can prepare a draft without a keyboard and apply it explicitly when connected.
 
@@ -24,7 +26,7 @@ Keyglow is an independent, open-source project, **not affiliated with or endorse
 
 ## Install the app
 
-1. Download **Keyglow-0.11.0-macOS-arm64.dmg** from the [release page](https://github.com/FrancoisLampasona/Keyglow-Tool_for_Keychron_keyboard/releases/tag/v0.11.0).
+1. Download **Keyglow-0.11.1-macOS-arm64.dmg** from the [release page](https://github.com/FrancoisLampasona/Keyglow-Tool_for_Keychron_keyboard/releases/tag/v0.11.1).
 2. Open the DMG and drag **Keyglow** into **Applications**.
 3. Open Keyglow from Applications, then eject the installation disk.
 4. Choose **Italiano**, **English** or **Français** in the first-run assistant, then follow **Keyboard → Permissions → Firmware → Summary**.
