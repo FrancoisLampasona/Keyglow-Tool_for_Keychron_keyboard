@@ -27,6 +27,8 @@ Generated Swift caches, icon intermediates and host-test executables can be recr
 
 ## Installed-app cleanup (2026-10-27)
 
-For the release validation, the exact DMG app was installed in `/Applications/Keyglow.app`. Private app preferences, device profiles, controller backups and firmware recovery artifacts were verified and preserved outside the checkout under the user’s Application Support directory. The checkout’s generated `build`, `dist` and downloaded `research` material was then selected for recoverable removal, leaving the source tree and one installed app. This is a one-time release cleanup, not a change to the conservative script allowlist above.
+For the release validation, the exact DMG app was installed in `/Applications/Keyglow.app`. Private app preferences, device profiles, controller backups and firmware recovery artifacts were verified and preserved outside the checkout under the user’s Application Support directory. The checkout’s generated `build`, `dist` and downloaded `research` material was then moved to the Trash for recoverable removal, leaving the source tree and one installed app. This is a one-time release cleanup, not a change to the conservative script allowlist above.
 
 Do not empty the Trash until you no longer need its build history. To build again, run the source setup/build commands; the Apple/Arm toolchain and QMK dependencies may need to be obtained again. Production profiles and owner keys remain outside the checkout and must not be deleted as build outputs.
+
+The completed cleanup moved approximately **2.21 GB** of generated files (including `firmware/ota/build`) to the Trash. The Trash was not emptied, so this does not claim reclaimed disk space. The installed final version is **0.10.1 build 23**; the latest DMG and verified private recovery material were retained separately before the move.
