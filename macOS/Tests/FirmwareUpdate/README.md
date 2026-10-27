@@ -52,3 +52,11 @@ finalization still uses FINISH, COMMIT and authenticated post-boot identity.
 `../FirmwareEngine/run.sh` exercises this path against the real C engine with
 RAM flash, including lost DATA/FINISH replies and wrong-key rejection. It does
 not access a physical keyboard.
+
+Ambiguous COMMIT transport failures (disconnect, deadline or indicator
+restoration failure) wait for pending replies to expire, then perform bounded
+authenticated identity reads. The tests require exactly one COMMIT and reject
+success when the old image still runs, identity is invalid, or the action is
+cancelled. Input activity is not automatically retried. The C-engine integration
+also covers an applied COMMIT whose indicator restoration fails, followed by
+authenticated confirmation of the installed target.

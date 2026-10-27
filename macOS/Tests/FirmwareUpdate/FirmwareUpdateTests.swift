@@ -37,6 +37,9 @@ struct FirmwareUpdateTests {
         var copyLengths: [Int] = []
         var failBefore: UInt8?
         var failAfter: UInt8?
+        var failure: Error = OTAChannelFailure.disconnected
+        var waits: [TimeInterval] = []
+        var cancelDuringRecovery = false
         var corrupt: UInt8?
         var wrongStatus = false
         var wrongInstalledBuild = false
@@ -67,14 +70,18 @@ struct FirmwareUpdateTests {
                                       },
                                       baseline: { _ in baseline },
                                       nonce: { [self] in nonceCounter &+= 1; return Data(repeating: nonceCounter, count: 16) },
-                                      wait: { _, cancellation in if cancellation.isCancelled { throw OTAChannelFailure.cancelled } },
+                                      wait: { [self] seconds, cancellation in
+                                          waits.append(seconds)
+                                          if cancelDuringRecovery && seconds == 61 { cancellation.cancel() }
+                                          if cancellation.isCancelled { throw OTAChannelFailure.cancelled }
+                                      },
                                       progress: { [self] in progressStages.append($0.stage) })
         }
         func exchange(_ frame: [UInt8], _ cancellation: OTAUpdateCancellation) throws -> BluetoothOTAExchangeResult {
             let request = try BluetoothOTAWire.parseRequest(frame)
             let op = request.operation; operations.append(op)
             if typingBefore == op { throw BluetoothOTAWire.Failure.inputActivity }
-            if failBefore == op { throw OTAChannelFailure.disconnected }
+            if failBefore == op { throw failure }
             var payload: [UInt8] = []; var flags: UInt8 = 1; var result: UInt8 = 0
             switch op {
             case 8:
@@ -145,7 +152,7 @@ struct FirmwareUpdateTests {
                 if forgeAfterCommit { forgeHello = true }
             default: preconditionFailure("Unexpected operation")
             }
-            if failAfter == op { throw OTAChannelFailure.disconnected }
+            if failAfter == op { throw failure }
             if cancelAfter == op { cancellation.cancel() }
             let encoded = try BluetoothOTAWire.reply(operation: op, requestID: request.requestID, result: result, flags: flags, payload: payload)
             var reply = try BluetoothOTAWire.parseReply(encoded)
@@ -259,7 +266,7 @@ struct FirmwareUpdateTests {
         rejects { _ = try changedWorker.install(changedReview, replace: false, cancellation: .init()) }
         precondition(changed.operations == [8, 3, 8] && changed.keyLoads == 2)
 
-        for failure: UInt8 in [7, 3, 2, 4, 5] {
+        for failure: UInt8 in [7, 3, 2, 4] {
             let interrupted = try Device(old)
             let worker = interrupted.worker()
             let originalReview = try worker.review(selected, cancellation: .init())
@@ -269,6 +276,36 @@ struct FirmwareUpdateTests {
             precondition(interrupted.operations.filter { $0 == failure }.count == previousOperations + 1)
             if failure != 5 { precondition(!interrupted.operations.contains(5)) }
         }
+        // A COMMIT transport failure is ambiguous. Never repeat COMMIT; wait
+        // out pending replies and accept only an authenticated target identity.
+        for transport: OTAChannelFailure in [.restoreFailed, .disconnected, .deadline] {
+            for applied in [false, true] {
+                let uncertain = try Device(old)
+                let worker = uncertain.worker()
+                let reviewed = try worker.review(selected, cancellation: .init())
+                uncertain.failure = transport
+                if applied { uncertain.failAfter = 5 } else { uncertain.failBefore = 5 }
+                if applied {
+                    let result = try worker.install(reviewed, replace: false, cancellation: .init())
+                    precondition(result.build == 9 && result.image.sha256 == selected.manifest.sha256)
+                } else { rejects { _ = try worker.install(reviewed, replace: false, cancellation: .init()) } }
+                precondition(uncertain.operations.filter { $0 == 5 }.count == 1)
+                precondition(uncertain.waits.first == 61)
+                precondition(uncertain.operations.filter { $0 == 8 }.count == (applied ? 3 : 5))
+            }
+        }
+        for failure: Error in [BluetoothOTAWire.Failure.inputActivity, OTAChannelFailure.cancelled, FirmwareUpdateFailure.replyMismatch] {
+            let halted = try Device(old); let worker = halted.worker()
+            let reviewed = try worker.review(selected, cancellation: .init())
+            halted.failure = failure; halted.failAfter = 5
+            rejects { _ = try worker.install(reviewed, replace: false, cancellation: .init()) }
+            precondition(halted.waits.isEmpty && halted.operations.filter { $0 == 8 }.count == 2)
+        }
+        let cancelledRecovery = try Device(old); let recoveryWorker = cancelledRecovery.worker()
+        let recoveryReview = try recoveryWorker.review(selected, cancellation: .init())
+        cancelledRecovery.failAfter = 5; cancelledRecovery.cancelDuringRecovery = true
+        rejects { _ = try recoveryWorker.install(recoveryReview, replace: false, cancellation: .init()) }
+        precondition(cancelledRecovery.waits == [61] && cancelledRecovery.operations.filter { $0 == 8 }.count == 2)
         let corrupt = try Device(old)
         let corruptWorker = corrupt.worker()
         let corruptReview = try corruptWorker.review(selected, cancellation: .init())
@@ -325,6 +362,10 @@ struct FirmwareUpdateTests {
         precondition(alreadyReview.isAlreadyInstalled)
         _ = try alreadyWorker.install(alreadyReview, replace: false, cancellation: .init())
         precondition(already.operations == [8, 3, 8] && already.keyLoads == 2)
+        let confirmedModel = FirmwareUpdateModel(reviewAction: { _, _, _ in alreadyReview })
+        confirmedModel.selectArtifact(selected); confirmedModel.verifyKeyboard()
+        for _ in 0..<100 where confirmedModel.isBusy { try await Task.sleep(for: .milliseconds(10)) }
+        precondition(confirmedModel.phase == .complete && !confirmedModel.canStart)
 
         // Read-only review distinguishes an AUTH that prepared staging from
         // an empty/previous stage without issuing AUTH again or writing blocks.

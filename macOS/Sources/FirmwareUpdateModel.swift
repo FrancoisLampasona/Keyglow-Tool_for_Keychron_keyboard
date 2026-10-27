@@ -211,8 +211,20 @@ final class FirmwareUpdateCoordinator {
         progress(.init(stage: .verifying, completedBytes: completed, totalBytes: total))
         _ = try transact(operation: 4, cancellation: cancellation)
         progress(.init(stage: .committing, completedBytes: completed, totalBytes: total))
-        _ = try transact(operation: 5, cancellation: cancellation)
+        var commitOutcomeUncertain = false
+        do { _ = try transact(operation: 5, cancellation: cancellation) }
+        catch {
+            // Reboot can disconnect the radio during receipt/restoration after
+            // COMMIT succeeded. Never resend a mutation. Only transport loss
+            // permits a later identity read; typing/cancellation/auth failures
+            // still stop immediately. A matching authenticated HELLO is proof.
+            guard !cancellation.isCancelled,
+                  let transport = error as? OTAChannelFailure,
+                  [.restoreFailed, .disconnected, .deadline].contains(transport) else { throw error }
+            commitOutcomeUncertain = true
+        }
         progress(.init(stage: .reconnecting, completedBytes: completed, totalBytes: total))
+        if commitOutcomeUncertain { try wait(61, cancellation) }
         // No mutation retries. Only a bounded fresh authenticated identity read
         // can establish installation after the COMMIT receipt and reboot.
         for attempt in 0..<3 {
@@ -642,7 +654,7 @@ final class FirmwareUpdateModel: ObservableObject {
         endBusy()
         switch result {
         case .success(let value):
-            review = value; phase = .review
+            review = value; phase = value.isAlreadyInstalled ? .complete : .review
             message = value.isAlreadyInstalled ? "Questa immagine è già installata: identità, hash e build verificati via Bluetooth." : "Tastiera verificata. Controlla il riepilogo e avvia quando sei pronto."
         case .failure(let error): fail(error)
         }

@@ -13,7 +13,7 @@ import Foundation
         let package = try Data(contentsOf: URL(fileURLWithPath: CommandLine.arguments[3]))
         let artifact = try FirmwareUpdateArtifact.parse(package, fileName: "build-b.kgfw", isPackage: true)
         let key = try FirmwareOwnerKey(rawRepresentation: Data(1...32))
-        var interrupted = false, finishInterrupted = false, requests = [UInt8](), copyOperations = 0
+        var interrupted = false, finishInterrupted = false, commitInterrupted = false, requests = [UInt8](), copyOperations = 0
         let worker = FirmwareUpdateCoordinator(exchange: { frame, token in
             let request = try BluetoothOTAWire.parseRequest(frame); requests.append(request.operation)
             if request.operation == 6 { copyOperations += 1 }
@@ -34,6 +34,9 @@ import Foundation
             if request.operation == 4 && reply.result == 0 && !finishInterrupted {
                 finishInterrupted = true; throw OTAChannelFailure.disconnected
             }
+            if request.operation == 5 && reply.result == 0 && !commitInterrupted {
+                commitInterrupted = true; throw OTAChannelFailure.restoreFailed
+            }
             return .init(reply: reply, duration: 0, outputReports: 0, receiptSubmitted: true)
         }, loadKey: { $0 == key.keyID ? key : nil }, baseline: { _ in old }, wait: { _, _ in })
         let first = try worker.review(artifact, cancellation: .init())
@@ -51,8 +54,9 @@ import Foundation
         let beforeFinalization = requests.count
         let result = try worker.install(finished, replace: false, cancellation: .init())
         precondition(Array(requests.dropFirst(beforeFinalization)) == [8, 3, 4, 5, 8])
+        precondition(commitInterrupted)
         precondition(result.image.sha256 == artifact.manifest.sha256 && result.build == artifact.manifest.build)
         precondition(requests.filter { $0 == 5 }.count == 1 && copyOperations > 0)
-        print("Swift coordinator -> real C auth/staging/loader engine: A -> lost DATA -> resumed B -> lost FINISH -> READY finalization without AUTH/DATA -> authenticated post-boot hash/build PASS. RAM flash and public fixture key only.")
+        print("Swift coordinator -> real C auth/staging/loader engine: A -> lost DATA/FINISH -> READY finalization -> COMMIT restoration failure -> authenticated B identity PASS, one COMMIT only. RAM flash and public fixture key only.")
     }
 }

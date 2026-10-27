@@ -6,9 +6,11 @@ and reserved-byte Bluetooth return path. Owner HMAC authorization is mandatory.
 No request can mutate flash without a valid private keyslot and authorization.
 On 2026-10-27, both USB bootstrap phases were written and independently read
 back on one Q6 Max ISO. The loader installed build 8, which booted normally; the
-saved profile was restored and verified over USB. The complete Bluetooth A→B
-update, physical power-loss recovery and independent BOOT0/SWD recovery remain
-unverified. Short nonce/CRC exchanges do not establish reliable bulk delivery.
+saved profile was restored and verified over USB. Build 8 → 9 later completed
+via resumed Bluetooth transfers, with finalization and authenticated target
+identity verification at 20 ms. This was not an uninterrupted 20 ms bulk transfer.
+Physical power-loss recovery and independent BOOT0/SWD recovery remain unverified.
+See [hardware evidence](../../../docs/firmware.md) for the precise scope.
 Nothing here is flashed or copied into `dist/` by a build.
 
 ## Build and inspect

@@ -17,7 +17,7 @@ Keyglow is an independent community project, not affiliated with or endorsed by 
 | Profiles, import/export, keyboard preview and foreground key test | Local app | Available without a connected keyboard |
 | Quick Launch shortcuts for apps and websites | Local app | Opt-in; Keyglow must remain open |
 | Automatic RGB preview while editing | Bluetooth with custom v3 firmware | Blue Breathing confirmed on the physical keyboard at 20 ms; preference remembered in 0.8.2 |
-| Firmware update over Bluetooth | Custom Keyglow loader and owner key | Experimental 0.8 app workflow implemented; initial loader installed and verified on one unit; full Bluetooth update still under validation |
+| Firmware update over Bluetooth | Custom Keyglow loader and owner key | Build 8 → 9 completed on one unit through resumed transfers; finalization and authenticated post-boot verification at 20 ms; still experimental |
 
 Hardware validation covers **one Q6 Max ISO encoder, Italian layout**, USB VID `3434`, PID `0861`. It does not establish support for ANSI, JIS, other Keychron models, or every effect individually. Stock firmware does not interpret Keyglow's Bluetooth RGB commands. The 2.4 GHz receiver is not a configuration backend in this app.
 

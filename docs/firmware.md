@@ -36,32 +36,28 @@ The app validates a relocated Q6 Max ISO `.kgfw` package, authenticates the keyb
 
 Initial provisioning requires USB/DFU and an owner key generated explicitly by the app. The key is stored in the user's Keychain and a private local bootstrap file. The personalized loader contains that secret and must never be published, bundled with the public app, or attached to issues. Public firmware packages are owner-authorized when sent; they are not publisher-signed releases or an anti-rollback system.
 
-Hardware evidence so far covers a nonce/CRC return-channel probe at 80, 40 and 20 ms downlink timing; the return path used 100 ms symbols. The two bootstrap phases were written and independently read back on one Q6 Max ISO. Build 8 then booted, and the saved profile was restored and verified over USB. **A complete Bluetooth A→B update has not yet been verified.** A 20 ms attempt reached at least 31,488 staged bytes before an input-report guard stopped it; the user reported no keyboard or knob activity. This does not establish the cause or a completed update. Separately, manual amber Breathing and automatic blue Breathing at 20 ms were physically confirmed with USB unplugged.
+**A Bluetooth build 8 → 9 update completed on one Q6 Max ISO on 2026-10-27.** A fresh owner-authenticated HELLO verified build 9, its 90,632-byte length and target SHA-256; STATUS confirmed all 355 chunks and installation completed. The application image hash was `bc4074b7ac4059608a8a91d8c438f4a39dc1ef2d966cfe2759cb80761d76f53c`. USB remained disconnected. The transfer resumed across interrupted 20/80 ms attempts; finalization and post-boot verification succeeded at 20 ms. This does not establish an uninterrupted bulk transfer at 20 ms or general reliability.
+
+The READY stage also survived a real keyboard power cycle before finalization. COMMIT ended with an indicator-restoration error; after the pending-reply cooldown, a separate read-only verification proved installation. The app now automates that bounded identity reconciliation for ambiguous COMMIT transport failures, without repeating COMMIT. Typing, cancellation and invalid authentication still stop the operation. This automatic recovery is covered with the real C engine in RAM; the physical proof used the same read-only verification as a separate action.
+
+Earlier evidence includes nonce/CRC exchanges at 80, 40 and 20 ms (100 ms return symbols), a USB bootstrap written and independently read back, and the profile restored and verified over USB. Manual amber Breathing and automatic blue Breathing at 20 ms were separately confirmed with USB unplugged.
 
 Offline tests include authenticated staging, simulated power interruptions, wire framing, typing/disconnect cancellation and the production Swift coordinator connected to the C engine and loader in memory. These do not establish physical power-loss recovery. The initial loader-sector write is not interruption-safe, and independent BOOT0/SWD recovery has not been verified on the test unit. See [the integration notes](../firmware/ota/integration/README.md) before attempting another bootstrap.
 
 In 0.8.2 the review reads authenticated identity and staging STATUS before enabling an update. It shows saved blocks and session flags without preparing or committing an image. Owner-key access is scoped to each explicit action; post-reboot identity remains freshly authenticated.
 
-A later controlled 80 ms attempt completed all 355 chunks (90,632 bytes) and
-FINISH. The COMMIT exchange timed out. A subsequent authenticated identity read
-still reported build 8, while STATUS reported build 9 complete and READY, but
-neither committed nor installed. The saved stage can be resumed; this is not a
-successful installation. The host now leaves a guarded 600 ms quiet interval
-after each reply receipt and indicator restoration, exceeding the firmware's
-400 ms parser timeout. Offline tests cover cancellation and unexpected input
-during that interval; its effect on the observed timeout still needs hardware
-verification.
+The host leaves a guarded 600 ms quiet interval after each reply receipt and indicator restoration, exceeding the firmware's 400 ms parser timeout. Cancellation and unexpected input remain guarded during that interval. It was present in the successful finalization, but its individual effect on earlier timeouts has not been isolated.
 
 When a fresh STATUS reports the exact selected image as READY and complete,
 0.8.2 can finalize that durable stage without repeating AUTH_BEGIN or sending
 blocks. This path still requires a fresh owner-authenticated HELLO, unchanged
-controller identity, exact manifest match, FINISH and COMMIT responses, and a
+controller identity, exact manifest match, FINISH and COMMIT processing, and a
 fresh authenticated target identity after reboot. The firmware checks the
 persisted owner HMAC and image contents for both finalization commands. Selecting
 replacement, an incomplete stage or a different stage keeps the full workflow.
 The production Swift coordinator has passed this path against the real C
 staging/loader engine in RAM, including a lost FINISH reply and wrong-key
-rejection with no flash changes. Hardware completion remains unverified.
+rejection with no flash changes. The complete-stage finalization also succeeded on the physical test unit.
 
 The stock firmware and the earlier RGB-only custom firmware cannot acquire the loader through an app update alone. Builds do not flash hardware. The app keeps RGB sending separate from firmware transfer and does not silently retry failed flash mutations.
 
