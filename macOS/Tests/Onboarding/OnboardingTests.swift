@@ -23,6 +23,34 @@ import Foundation
         let suite = "Keyglow.OnboardingTests.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
+        var inventory:[SetupKeyboard]=[]
+        let flow=KeyboardSetupModel(defaults:defaults,inventory:{inventory})
+        expect(flow.needsPresentation && !flow.supportsSelection, "first-run requires model setup even when macOS already granted access")
+        flow.advance(permissionGranted:true)
+        expect(flow.step == 0, "missing hardware cannot pass model validation")
+        inventory=[SetupKeyboard(id:1,name:"Keychron Q6 Max",vendor:0x3434,product:0x0860,transport:"Bluetooth")]
+        flow.scan(); expect(!flow.supportsSelection, "ANSI is never treated as supported ISO")
+        inventory=[SetupKeyboard(id:2,name:"Keychron Q6 Max",vendor:0x3434,product:0x0861,transport:"Bluetooth")]
+        flow.scan(); expect(flow.supportsSelection, "exact ISO identity can proceed")
+        flow.advance(permissionGranted:false); expect(flow.step == 1, "hardware precedes permission step")
+        flow.advance(permissionGranted:false); expect(flow.step == 1, "permissions gate firmware planning")
+        flow.advance(permissionGranted:true); expect(flow.step == 2, "granted permissions reach firmware explanation, not the workspace")
+        flow.advance(permissionGranted:true); expect(flow.step == 3, "firmware plan has an explicit summary")
+        inventory=[]
+        expect(!flow.complete(permissionGranted:true) && flow.step == 0, "completion rechecks disconnected hardware")
+        let supported=SetupKeyboard(id:3,name:"Keychron Q6 Max",vendor:0x3434,product:0x0861,transport:"USB")
+        inventory=[supported,SetupKeyboard(id:4,name:"Keychron Q6 Max",vendor:0x3434,product:0x0861,transport:"USB")]
+        flow.scan(); expect(flow.selectedID == nil, "multiple keyboards require a user selection")
+        flow.selectedID=3; flow.step=3
+        expect(!flow.complete(permissionGranted:false) && flow.step == 1, "revoked access cannot complete the wizard")
+        flow.step=3; flow.firmwareChoice = .install
+        expect(flow.destination == 7, "stock firmware routes to preparation instead of live RGB")
+        flow.firmwareChoice = .usb; expect(flow.destination == 6, "USB choice routes to connection")
+        flow.firmwareChoice = .installed; expect(flow.destination == 0, "explicit installed choice routes to lighting")
+        expect(flow.complete(permissionGranted:true) && !flow.needsPresentation, "completed setup is remembered")
+        expect(!SetupKeyboard(id:5,name:"Another keyboard",vendor:0x3434,product:0x0861,transport:"Bluetooth").supported, "PID alone is insufficient")
+        expect(!SetupKeyboard(id:5,name:"Keychron Q6 Max",vendor:0x3434,product:0x0861,transport:"Receiver").supported, "unsupported transport is blocked")
+
         let service = FakePermissions()
         let model = OnboardingModel(permissions: service, defaults: defaults,
                                     appURL: URL(fileURLWithPath: "/Applications/Keyglow.app"), appName: "Keyglow")

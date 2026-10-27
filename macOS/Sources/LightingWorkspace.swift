@@ -3,6 +3,7 @@ import SwiftUI
 struct LightingWorkspaceView:View {
     @ObservedObject var model:StudioModel
     @Environment(\.studioContentWidth) private var contentWidth
+    @State private var previewExpanded = false
     private var hasSideInspector: Bool { contentWidth >= 1060 }
     var body:some View {
         Group {
@@ -15,20 +16,32 @@ struct LightingWorkspaceView:View {
             } else {
                 ScrollView { workspace.studioPage() }
             }
-        }.onChange(of:model.lightingTab) { tab in
-            if tab==1 { model.workspace.lighting.effect=23 }
-            else if tab==2 { model.workspace.lighting.effect=24 }
-            else if tab==0 && model.workspace.lighting.effect>=23 { model.workspace.lighting.effect=1 }
         }
     }
     private var workspace: some View {
-        VStack(alignment:.leading,spacing:28) {
-            WorkspaceKeyboardHeader(model:model)
-            if !hasSideInspector { ColorInspectorView(model:model,inline:true) }
+        VStack(alignment:.leading,spacing:hasSideInspector ? 28:20) {
+            if hasSideInspector || model.lightingTab == 1 || model.lightingTab == 2 {
+                WorkspaceKeyboardHeader(model:model,selectionEnabled:model.lightingTab == 1 || model.lightingTab == 2)
+            } else {
+                DisclosureGroup("Anteprima Q6 Max · ISO italiano",isExpanded:$previewExpanded) {
+                    WorkspaceKeyboardHeader(model:model,selectionEnabled:false).padding(.top,14)
+                }.font(.system(size:13,weight:.medium)).foregroundColor(Studio.muted)
+            }
             Picker("Tipo di illuminazione",selection:$model.lightingTab) {
                 Text("Effetti").tag(0); Text("RGB per tasto").tag(1); Text("Mix RGB").tag(2); Text("Indicatori").tag(3)
             }.pickerStyle(.segmented).labelsHidden().controlSize(.large)
-            if model.lightingTab==0 { effects }
+            if model.lightingTab==0 {
+                effectPicker
+                if hasSideInspector { livePreview }
+            } else {
+                Label("Questa sezione si applica via USB. Puoi prepararla nella bozza.", systemImage:"cable.connector")
+                    .font(.system(size:12)).foregroundColor(Studio.muted).fixedSize(horizontal:false,vertical:true)
+            }
+            if !hasSideInspector { ColorInspectorView(model:model,inline:true) }
+            if model.lightingTab==0 {
+                if !hasSideInspector { livePreview }
+                effects
+            }
             else if model.lightingTab==1 { perKey }
             else if model.lightingTab==2 { mix }
             else { indicators }
@@ -36,13 +49,6 @@ struct LightingWorkspaceView:View {
     }
     private var effects:some View {
         VStack(alignment:.leading,spacing:18) {
-            HStack(alignment:.firstTextBaseline) {
-                Text("Effetti").font(.system(size:20,weight:.semibold)); Spacer()
-                Picker("Effetto RGB",selection:$model.workspace.lighting.effect) {
-                    ForEach(RGBEffect.all.filter { $0.id<23 }) { Text($0.name).tag($0.id) }
-                }.labelsHidden().controlSize(.large).frame(width:190)
-            }
-            livePreview
             // The custom layout adapts columns without hiding native buttons from VoiceOver.
             StudioGrid(minimumCellWidth:160,cellHeight:56,spacing:8) {
                 ForEach(RGBEffect.all.filter { $0.id < 23 }) { effect in
@@ -61,42 +67,47 @@ struct LightingWorkspaceView:View {
                         .accessibilityRepresentation { Button(effect.name) { model.workspace.lighting.effect=effect.id }.buttonStyle(.plain).accessibilityAddTraits(model.workspace.lighting.effect==effect.id ? .isSelected:[]) }
                 }
             }
-            VStack(alignment: .leading, spacing: 14) {
-                Text(model.liveRGBEnabled ? "Puoi continuare a scegliere: verrà inviata solo l’ultima modifica in attesa." : "Gli effetti animati si vedono sulla tastiera dopo Applica o attivando l’anteprima.").font(.system(size:12)).foregroundColor(Studio.muted).lineSpacing(3)
-                if model.directBluetooth && model.selectedUSBID == nil {
-                    BluetoothSaveChoice(model: model).frame(maxWidth: 340, alignment: .leading)
-                }
-            }
+        }
+    }
+    private var effectPicker: some View {
+        HStack(spacing:16) {
+            Text("Effetto").font(.system(size:18,weight:.semibold))
+            Spacer()
+            Picker("Effetto RGB",selection:$model.workspace.lighting.effect) {
+                if model.workspace.lighting.effect >= 23 { Text("Scegli un effetto").tag(model.workspace.lighting.effect) }
+                ForEach(RGBEffect.all.filter { $0.id<23 }) { Text($0.name).tag($0.id) }
+            }.labelsHidden().controlSize(.large).frame(width:230).disabled(model.lightingControlsDisabled)
         }
     }
     private var livePreview: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 12) {
-                Image(systemName: "antenna.radiowaves.left.and.right").foregroundColor(model.liveRGBEnabled ? Studio.accent : Studio.muted)
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Anteprima sulla tastiera").font(.system(size: 13, weight: .semibold))
-                    Text("Invia automaticamente colori ed effetti via Bluetooth.").font(.system(size: 11)).foregroundColor(Studio.muted)
+        VStack(alignment:.leading,spacing:12) {
+            HStack(spacing:12) {
+                Image(systemName:"antenna.radiowaves.left.and.right").foregroundColor(Studio.accent)
+                VStack(alignment:.leading,spacing:4) {
+                    Text("Anteprima sulla tastiera").font(.system(size:13,weight:.semibold))
+                    Text(model.liveRGBEnabled ? "Le modifiche vengono inviate automaticamente via Bluetooth." : "Attivala per inviare colori ed effetti mentre li scegli.")
+                        .font(.system(size:12)).foregroundColor(Studio.muted).fixedSize(horizontal:false,vertical:true)
                 }
-                Spacer(minLength: 8)
-                Toggle("Anteprima sulla tastiera", isOn: Binding(get: { model.liveRGBEnabled }, set: { model.setLiveRGBEnabled($0) }))
-                    .labelsHidden().toggleStyle(.switch)
-                    .help("La scelta viene ricordata. L’apertura dell’app non invia colori: servono nuove modifiche nell’editor.")
-                    .disabled(!model.liveRGBEnabled && !model.canEnableLiveRGB)
+                Spacer(minLength:0)
+                Toggle("Anteprima sulla tastiera",isOn:Binding(get:{model.liveRGBEnabled},set:{model.setLiveRGBEnabled($0)}))
+                    .labelsHidden().toggleStyle(.switch).disabled(!model.liveRGBEnabled && !model.canEnableLiveRGB)
             }
-            Text(model.liveRGBEnabled || model.transmitting ? model.liveRGBStatus : model.canEnableLiveRGB ? "Modalità rapida sperimentale: attendi il cambiamento sulla tastiera. Durante l’invio evita Caps Lock e Num Lock." : model.liveRGBUnavailableReason)
-                .font(.system(size: 11)).foregroundColor(model.liveRGBQueued ? Studio.accent : Studio.muted)
-                .lineSpacing(3).fixedSize(horizontal: false, vertical: true)
-            if model.liveRGBEnabled && model.saveBluetoothOnKeyboard {
-                Text("Durante le regolazioni gli invii sono temporanei. Lo stato finale viene salvato dopo una pausa; un salvataggio già avviato termina anche se continui a modificare.")
-                    .font(.system(size: 11)).foregroundColor(Studio.muted).lineSpacing(3).fixedSize(horizontal: false, vertical: true)
+            if !model.canEnableLiveRGB && !model.liveRGBEnabled {
+                Text(model.liveRGBUnavailableReason).font(.system(size:12)).foregroundColor(Studio.muted)
+                    .fixedSize(horizontal:false,vertical:true)
             }
-        }.padding(14).frame(maxWidth: .infinity, alignment: .leading)
-            .background(Studio.accent.opacity(model.liveRGBEnabled ? 0.07 : 0.025))
-            .clipShape(RoundedRectangle(cornerRadius: 10))
-            .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Studio.accent.opacity(model.liveRGBEnabled ? 0.25 : 0.10)))
+            DisclosureGroup("Invio e salvataggio") {
+                VStack(alignment:.leading,spacing:12) {
+                    Text("L’anteprima rapida è sperimentale. Gli invii vengono raggruppati: continua a regolare, verrà inviato l’ultimo stato. Evita Caps Lock e Num Lock durante l’invio. Il canale non conferma la ricezione: controlla il risultato sulla Q6 Max.")
+                    Text("Con il salvataggio attivo, il colore finale viene conservato dopo una pausa. L’apertura dell’app e la navigazione non inviano colori.")
+                }.font(.system(size:12)).foregroundColor(Studio.muted).lineSpacing(3).padding(.top,10)
+                    .fixedSize(horizontal:false,vertical:true)
+            }.font(.system(size:12)).foregroundColor(Studio.muted)
+        }.padding(16).background(Studio.panel).clipShape(RoundedRectangle(cornerRadius:12))
     }
     private var perKey:some View {
         VStack(alignment:.leading,spacing:20) {
+            modeActivation(effect:23, title:"Usa RGB per tasto")
             HStack {
                 PanelTitle(title:"Colore per tasto",subtitle:"Seleziona i tasti, scegli un colore e applicalo alla selezione.")
                 Spacer()
@@ -120,6 +131,7 @@ struct LightingWorkspaceView:View {
     }
     private var mix:some View {
         VStack(alignment:.leading,spacing:20) {
+            modeActivation(effect:24, title:"Usa Mix RGB")
             HStack { PanelTitle(title:"Zone e sequenze",subtitle:"Raggruppa i tasti e combina effetti e colori."); Spacer(); Button("Aggiungi zona") { model.addMixRegion() }.buttonStyle(StudioButton()).disabled(model.workspace.lighting.mix.count >= (model.usbSnapshot?.customRGB?.effects.count ?? 16)) }
             if model.workspace.lighting.mix.isEmpty { CapabilityNote(text:"Crea la prima zona, poi seleziona i tasti da includere.") }
             else {
@@ -146,6 +158,15 @@ struct LightingWorkspaceView:View {
                 Text(model.usbSnapshot?.customRGB == nil ? "Mix RGB richiede un firmware compatibile. Puoi preparare la bozza senza collegamento. I tasti non assegnati usano la prima zona." : "Zone e passaggi rispettano le capacità lette dalla tastiera. I tasti non assegnati usano la prima zona.")
                     .padding(.top,6).fixedSize(horizontal:false,vertical:true).lineSpacing(3)
             }.font(.system(size:12)).foregroundColor(Studio.muted)
+        }
+    }
+    private func modeActivation(effect:Int, title:String) -> some View {
+        HStack(spacing:16) {
+            Text(model.workspace.lighting.effect == effect ? "Modalità selezionata nella bozza" : "Aprire questa sezione non cambia l’effetto attuale.")
+                .font(.system(size:12)).foregroundColor(Studio.muted).fixedSize(horizontal:false,vertical:true)
+            Spacer(minLength:0)
+            Button(title) { model.workspace.lighting.effect=effect }.buttonStyle(StudioButton())
+                .disabled(model.workspace.lighting.effect == effect || model.busy)
         }
     }
     private var mixStepLimit:Int {
@@ -229,7 +250,7 @@ struct ColorInspectorView:View {
     private var colorControls:some View {
                 VStack(alignment:.leading,spacing:14) {
                 HStack { Text("Colore").font(.system(size:20,weight:.semibold));Spacer();ColorPicker("Selettore colore",selection:Binding(get:{model.color},set:{model.setColor($0)}),supportsOpacity:false).labelsHidden() }
-                colorField.frame(height:inline ? 130:160)
+                colorField.frame(height:inline ? 100:160)
                 ZStack {
                     LinearGradient(colors:(0...6).map { Color(hue:Double($0)/6,saturation:0.85,brightness:1) },startPoint:.leading,endPoint:.trailing).frame(height:8).clipShape(Capsule())
                     Slider(value:Binding(get:{model.hue},set:{model.hue=$0;model.colorChanged()}),in:0...1).tint(.clear).accessibilityLabel("Tonalità")
@@ -264,11 +285,13 @@ struct ColorInspectorView:View {
                         Text("Disponibile per gli effetti animati.").font(.system(size:12)).foregroundColor(Studio.muted).lineSpacing(3)
                     }
                 }
-                Divider()
-                VStack(alignment:.leading,spacing:10) {
-                    Label("Bluetooth",systemImage:"antenna.radiowaves.left.and.right").font(.system(size:13,weight:.semibold))
-                    Text("Richiede firmware dedicato e verifica sulla tastiera.").font(.system(size:12)).foregroundColor(Studio.muted).lineSpacing(3)
-                    Button("Configura Bluetooth") {model.section=6}.buttonStyle(StudioButton())
+                if model.lightingTab == 0 && !model.currentEffect.usesColor {
+                    Text(model.workspace.lighting.effect == 0 ? "Luci spente. Scegli un effetto per riaccenderle." : "Questo effetto usa colori propri. Il colore scelto resta disponibile per gli altri effetti.")
+                        .font(.system(size:12)).foregroundColor(Studio.muted).fixedSize(horizontal:false,vertical:true)
+                }
+                if model.lightingTab == 0 && model.directBluetooth { BluetoothSaveChoice(model:model) }
+                if !model.accessVerified && model.selectedUSBID == nil {
+                    Button("Configura collegamento") {model.section=6}.buttonStyle(StudioButton())
                 }
         }
     }

@@ -32,12 +32,13 @@ import Combine
     @Published var usbMessage = "Leggi la configurazione della Q6 Max per abilitare l’applicazione delle modifiche."
     @Published var projectMessage = ""
     @Published var firmwareFileDescription = ""
+    @Published var showFirmwareSetup = false
     @Published var cableModeConfirmed = false
     @Published var lastBluetoothSend: Date?
     @Published var lastBluetoothEffect = ""
     @Published var radioVersion: RadioVersionResult?
     @Published var radioMessage = "La versione radio è distinta dal firmware della tastiera. La lettura richiede USB."
-    @Published var lightingTab = 0
+    @Published var lightingTab = 0 { didSet { refreshLiveRGBContext() } }
     @Published var previewAnimation = false
     var loadingWorkspace = false
     var localEventMonitor: Any?
@@ -111,14 +112,14 @@ import Combine
     var bluetoothApplyTitle: String { directBluetooth && saveBluetoothOnKeyboard ? "Applica e salva RGB" : "Applica RGB" }
     var bluetoothEffectSupported: Bool { (0...22).contains(workspace.lighting.effect) }
     var lightingControlsDisabled: Bool { busy && !transmitting }
-    var liveRGBEligible: Bool { available && accessVerified && directBluetooth && selectedUSBID == nil && bluetoothEffectSupported && !recording && !testing }
+    var liveRGBEligible: Bool { available && accessVerified && directBluetooth && selectedUSBID == nil && lightingTab == 0 && bluetoothEffectSupported && !recording && !testing }
     var canEnableLiveRGB: Bool { liveRGBEligible && !busy && section == 0 }
     var liveRGBUnavailableReason: String {
         if selectedUSBID != nil { return "L’anteprima automatica usa Bluetooth. Scollega USB e seleziona BT sulla tastiera." }
         if !available { return "Collega la Q6 Max via Bluetooth per attivare l’anteprima." }
         if !directBluetooth { return "In Connessione seleziona il firmware compatibile con RGB diretti." }
         if !accessVerified { return "Verifica l’accesso Bluetooth nella pagina Connessione." }
-        if !bluetoothEffectSupported { return "L’anteprima Bluetooth supporta gli effetti generali. RGB per tasto e Mix richiedono USB." }
+        if lightingTab != 0 || !bluetoothEffectSupported { return "L’anteprima Bluetooth supporta gli effetti generali. RGB per tasto e Mix richiedono USB." }
         return "Attendi il termine dell’operazione in corso."
     }
     func setLiveRGBEnabled(_ enabled: Bool) {
@@ -145,12 +146,12 @@ import Combine
         liveRGBWake?.cancel(); liveRGBWake = nil
         liveRGBQueued = liveRGB.hasQueuedChange
         if let active = liveRGB.active {
-            liveRGBStatus = active.save ? "Salvataggio finale in corso · invio rapido sperimentale." : "Anteprima in invio · modalità rapida sperimentale."
+            liveRGBStatus = active.save ? "Salvataggio del colore finale in corso…" : "Invio dell’anteprima…"
             if liveRGBQueued { liveRGBStatus += " Seguirà l’ultima modifica scelta." }
             else if !liveRGBEnabled { liveRGBStatus += " L’invio già avviato terminerà; i successivi sono annullati." }
         } else if liveRGBQueued { liveRGBStatus = "Ultima modifica in attesa di invio…" }
         else if liveRGB.waitingToSave { liveRGBStatus = "Anteprima inviata · attendo prima di salvare l’ultimo stato." }
-        else if liveRGBEnabled && liveRGB.allowed { liveRGBStatus = "Anteprima rapida sperimentale attiva · attendi il cambiamento sulla tastiera; il canale non conferma la ricezione." }
+        else if liveRGBEnabled && liveRGB.allowed { liveRGBStatus = "Anteprima attiva · pronta alla prossima modifica." }
         else if liveRGBEnabled { liveRGBStatus = liveRGBUnavailableReason }
         else { liveRGBStatus = "L’anteprima sulla tastiera è disattivata." }
         guard !busy, let due = liveRGB.nextDeadline else { return }
@@ -386,7 +387,13 @@ import Combine
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
         model.onBluetoothAccessStateChanged = { [weak self] state in self?.onboarding.model.updateDeviceState(state) }
-        onboarding.onCompletion = { [weak self] in self?.model.refreshBluetoothAccess() }
+        onboarding.onCompletion = { [weak self] choice,destination in
+            guard let self else { return }
+            self.model.directBluetooth = choice == .installed
+            self.model.showFirmwareSetup = choice == .install
+            self.model.section = destination
+            self.model.refreshBluetoothAccess()
+        }
         model.scan()
         _ = QuickLaunchService.shared
         setupReady = true
@@ -415,7 +422,7 @@ import Combine
         let menu = NSMenu(); let item = NSMenuItem(); menu.addItem(item)
         let app = NSMenu(); item.submenu = app
         app.addItem(withTitle: "Informazioni su Keyglow", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
-        let setup = app.addItem(withTitle: "Configura accessi…", action: #selector(showSetup(_:)), keyEquivalent: ",")
+        let setup = app.addItem(withTitle: "Configura tastiera e accessi…", action: #selector(showSetup(_:)), keyEquivalent: ",")
         setup.target = self
         app.addItem(.separator())
         app.addItem(withTitle: "Esci da Keyglow", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
@@ -424,7 +431,23 @@ import Combine
         edit.addItem(withTitle: "Copia", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
         edit.addItem(withTitle: "Incolla", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
         edit.addItem(withTitle: "Seleziona tutto", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
+        let windowItem=NSMenuItem(); let windowMenu=NSMenu(title:"Finestra"); windowItem.submenu=windowMenu; menu.addItem(windowItem)
+        windowMenu.addItem(withTitle:"Contrai",action:#selector(NSWindow.performMiniaturize(_:)),keyEquivalent:"m")
+        windowMenu.addItem(.separator())
+        let compact=windowMenu.addItem(withTitle:"Dimensione compatta",action:#selector(compactWindow(_:)),keyEquivalent:""); compact.target=self
+        let comfortable=windowMenu.addItem(withTitle:"Dimensione comoda",action:#selector(comfortableWindow(_:)),keyEquivalent:""); comfortable.target=self
+        NSApp.windowsMenu=windowMenu
         NSApp.mainMenu = menu
+    }
+    @objc private func compactWindow(_ sender:Any?) { resizeWindow(to:NSSize(width:900,height:640)) }
+    @objc private func comfortableWindow(_ sender:Any?) { resizeWindow(to:NSSize(width:1400,height:900)) }
+    private func resizeWindow(to size:NSSize) {
+        guard !window.styleMask.contains(.fullScreen), let screen=window.screen?.visibleFrame else { return }
+        var frame=window.frame
+        frame.size=NSSize(width:min(size.width,screen.width),height:min(size.height,screen.height))
+        frame.origin.x=max(screen.minX,min(frame.minX,screen.maxX-frame.width))
+        frame.origin.y=max(screen.minY,min(window.frame.maxY-frame.height,screen.maxY-frame.height))
+        window.setFrame(frame,display:true,animate:!NSWorkspace.shared.accessibilityDisplayShouldReduceMotion)
     }
     @objc private func showSetup(_ sender: Any?) { onboarding.show(parent: window) }
 }

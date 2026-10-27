@@ -36,22 +36,26 @@ Move the **whole `Keyglow.app` bundle** to Applications or another folder before
 
 ## First run and permissions
 
-When access is missing, the setup assistant starts the macOS request automatically and opens the relevant privacy pane if access is denied. Returning to Keyglow rechecks the result without repeating the request. macOS controls the permission: Keyglow can request access and open settings, but only the user can grant it.
+The first-run assistant separates keyboard identity, macOS access and firmware setup. It appears even when another build has already received Input Monitoring permission. Its four steps are:
 
-1. Pair the Q6 Max in macOS and select BT on the keyboard.
-2. Follow the setup assistant to **System Settings → Privacy & Security → Input Monitoring** and enable Keyglow. If necessary, add the actual `Keyglow.app` you intend to use.
-3. Reopen the app if macOS requests it. Keyglow checks the granted permission and automatically verifies a uniquely connected Q6 Max with a read-only request.
-4. Select the compatible custom firmware only if it is actually installed on the keyboard.
+1. Detect a Keychron keyboard and confirm the supported **Q6 Max ISO** identity. ANSI, other models, unknown transports and ambiguous selections cannot proceed as the supported model. Offline exploration remains available.
+2. Explain and request **Input Monitoring** when needed. Returning from Settings rechecks access; an existing grant is not requested again.
+3. Choose between preparing custom firmware, explicitly declaring that Keyglow firmware is already installed, or using USB configuration for now. A remembered declaration is not an authenticated firmware readback.
+4. Show the appropriate next action: firmware preparation, RGB controls, or USB configuration. Initial loader installation requires USB/DFU and the documented preparation; the app does not silently flash the keyboard.
+
+Reopen it from **Keyglow → Configura tastiera e accessi…**. System Bluetooth and owner-key Keychain consent remain separate, requested only by features that need them.
 
 Apple documents the system control in [Input Monitoring settings](https://support.apple.com/guide/mac-help/control-access-to-input-monitoring-on-mac-mchl4cedafb6/mac). Rebuilding an ad-hoc signed application can invalidate an earlier grant; remove the stale entry, add the current bundle, and authorize it again if access is refused. Moving a bundle does not let the app bypass macOS permission checks.
 
 Input Monitoring is used for the HID connection. The app does not run a background keystroke recorder. Macro recording and the key test are explicit foreground actions. Quick Launch registers only the selected shortcuts. There is no analytics service, account, or cloud profile sync.
 
-The interface adapts from a 900 × 640 window to a large desktop. Entire sidebar rows are clickable, with ⌘1–9 shortcuts. Narrow windows place the color/key inspectors below the keyboard, and the window size is remembered and constrained to the current display.
+The interface adapts from a 900 × 640 window to a large desktop. Entire sidebar rows are clickable, with ⌘1–9 shortcuts. Narrow lighting windows prioritize color controls and offer a collapsible physical keyboard preview. The **Finestra** menu provides compact and comfortable sizes; window placement is remembered. Contextual footers appear only in configuration editors. Firmware keeps its selected file and review when navigating between pages.
+
+Profiles separate personal configurations, automatic recovery copies and a restorable trash. Existing schema-1 profiles remain compatible. Loading a profile or browsing RGB editor tabs does not send RGB changes; per-key/Mix activation is explicit and their edits remain USB-only.
 
 ## Everyday RGB control
 
-With the custom v3 firmware installed, open **Illuminazione**, choose a color and effect, keep **Salva nella tastiera** enabled, and select **Applica e salva RGB**. No keyboard shortcut is needed. Disable saving for a temporary preview.
+With the custom v3 firmware installed, open **Illuminazione**, choose a color and effect, keep **Salva nella tastiera** enabled, and select **Applica e salva RGB** (**Invia ora** when automatic preview is enabled). No keyboard shortcut is needed. Disable saving for a temporary preview.
 
 A manual transfer takes about five seconds. Avoid Caps Lock and Num Lock during it, then wait at least two seconds after completion before switching the keyboard off. Opening the app does not send RGB settings.
 

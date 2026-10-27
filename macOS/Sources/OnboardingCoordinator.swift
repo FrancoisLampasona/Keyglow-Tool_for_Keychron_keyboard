@@ -3,9 +3,9 @@ import SwiftUI
 
 @MainActor final class OnboardingCoordinator: NSObject, NSWindowDelegate {
     let model: OnboardingModel
-    var onCompletion: (() -> Void)?
+    let setup = KeyboardSetupModel()
+    var onCompletion: ((SetupFirmwareChoice, Int) -> Void)?
     private var setupWindow: NSWindow?
-    private var automaticPresentation = false
 
     init(model: OnboardingModel? = nil) {
         self.model = model ?? OnboardingModel()
@@ -14,17 +14,17 @@ import SwiftUI
 
     func showIfNeeded(parent: NSWindow) {
         model.refresh()
-        guard model.needsAutomaticPresentation else { return }
-        show(parent: parent, automatically: true)
+        guard model.needsAutomaticPresentation || setup.needsPresentation else { return }
+        show(parent: parent)
     }
 
-    func show(parent: NSWindow, automatically: Bool = false) {
+    func show(parent: NSWindow) {
         model.refresh()
         if let setupWindow {
             setupWindow.makeKeyAndOrderFront(nil)
             return
         }
-        automaticPresentation = automatically
+        setup.scan(); setup.step=0
         let available = availableSheetSize(parent: parent)
         let sheet = NSWindow(contentRect: NSRect(origin: .zero, size: available),
                              styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false)
@@ -32,18 +32,25 @@ import SwiftUI
         sheet.title = "Configura \(model.appName)"
         sheet.isReleasedWhenClosed = false
         sheet.delegate = self
-        sheet.contentView = NSHostingView(rootView: OnboardingView(model: model, onContinue: { [weak self] in
-            guard let self, self.model.completeSetup() else { return }
+        sheet.contentView = NSHostingView(rootView: OnboardingView(model: model, setup:setup, onContinue: { [weak self] in
+            guard let self else { return }
+            self.model.refresh()
+            if self.setup.step < 3 {
+                self.setup.advance(permissionGranted:self.model.canContinue)
+                if self.setup.step == 1 { self.model.beginAutomaticSetup() }
+                return
+            }
+            guard self.model.completeSetup(), self.setup.complete(permissionGranted:self.model.canContinue) else { return }
+            let choice=self.setup.firmwareChoice, destination=self.setup.destination
             self.dismiss()
-            self.onCompletion?()
+            self.onCompletion?(choice,destination)
         }, onLater: { [weak self] in
             self?.model.deferSetup()
             self?.dismiss()
         }).preferredColorScheme(.dark))
         setupWindow = sheet
         parent.beginSheet(sheet)
-        model.beginAutomaticSetup()
-        finishAutomaticSetupIfGranted()
+
     }
 
     private func availableSheetSize(parent: NSWindow) -> NSSize {
@@ -61,13 +68,8 @@ import SwiftUI
     /// Returning from Settings checks once; it never reopens Settings or a sheet.
     func refreshAfterActivation() {
         model.refresh()
-        finishAutomaticSetupIfGranted()
+        if setupWindow != nil { setup.scan() }
     }
-    private func finishAutomaticSetupIfGranted() {
-        guard automaticPresentation, setupWindow != nil, model.canContinue, model.completeSetup() else { return }
-        dismiss(); onCompletion?()
-    }
-
     func windowShouldClose(_ sender: NSWindow) -> Bool {
         model.deferSetup()
         dismiss()
@@ -79,6 +81,5 @@ import SwiftUI
         sheet.sheetParent?.endSheet(sheet)
         sheet.orderOut(nil)
         setupWindow = nil
-        automaticPresentation = false
     }
 }

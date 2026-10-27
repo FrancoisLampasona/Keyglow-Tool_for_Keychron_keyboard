@@ -13,11 +13,18 @@ open dist/Keyglow.app
 
 Sposta l'intera **Keyglow.app** in Applicazioni o nella cartella che preferisci. Risorse e icona sono dentro l'app; il progetto sorgente non serve per eseguirla. Preferenze e backup restano nello spazio utente di macOS. Il vecchio identificatore delle preferenze è conservato per mantenere i dati di Tastiera.
 
-Al primo avvio, la procedura guidata spiega gli accessi e ne verifica lo stato. Per il collegamento HID, abilita Keyglow in **Impostazioni di Sistema → Privacy e sicurezza → Monitoraggio input**. L'app può chiedere l'accesso e aprire le impostazioni; il consenso spetta a te. Riavvia l'app se macOS lo richiede: al ritorno, Keyglow verifica automaticamente il permesso e la tastiera collegata.
+Al primo avvio una procedura in quattro passi verifica **Tastiera → Accessi → Firmware → Riepilogo**:
+
+1. Collega la tastiera. Keyglow legge il modello e la variante; questa versione supporta **Q6 Max ISO con manopola**, rappresentata con legende italiane. Non propone il firmware ISO per ANSI o altri modelli. Con più tastiere devi scegliere; senza tastiera puoi esplorare la bozza.
+2. Per comunicare tramite HID serve **Monitoraggio input**. La richiesta parte nella pagina Accessi soltanto se manca il permesso. Abilita Keyglow in Impostazioni di Sistema → Privacy e sicurezza; al ritorno lo stato viene ricontrollato. Se è già consentito non occorre autorizzarlo di nuovo.
+3. Il firmware originale non riceve RGB da Keyglow via Bluetooth. Scegli se preparare il firmware personalizzato, dichiarare quello già installato o usare per ora USB. La dichiarazione non equivale a una lettura del firmware.
+4. Il riepilogo apre la destinazione corretta. **La prima installazione del loader richiede USB/DFU e la guida; il flash iniziale non è automatico nell’app.** L’apertura di una pagina non installa nulla.
+
+Puoi riaprire il percorso dal menu **Keyglow → Configura tastiera e accessi…**. Bluetooth di sistema e Portachiavi richiedono eventuali consensi separati quando usi le rispettive funzioni, non tutti al primo avvio.
 
 Per le compilazioni ripetute è disponibile una [firma locale stabile](local-signing.md), conservata nel Portachiavi. Il passaggio dalla vecchia firma può richiedere un consenso iniziale; le build successive devono mantenere la stessa identità. Senza questa configurazione le build usano una firma ad hoc, che cambia a ogni ricompilazione. Le build locali non sono notarizzate. Il trasferimento in un'altra cartella non aggira questi controlli di macOS. Quando il permesso è già valido, l'app verifica automaticamente la Q6 Max collegata in sola lettura; una tastiera scollegata viene distinta da un permesso negato.
 
-Tutta la riga della sidebar è cliccabile; puoi anche usare ⌘1–9. La finestra ricorda le dimensioni e si adatta allo schermo, fino a 900 × 640. Nelle finestre strette, gli inspector passano sotto la tastiera e i comandi si distribuiscono su più righe.
+Tutta la riga della sidebar è cliccabile; puoi anche usare ⌘1–9. La finestra ricorda le dimensioni e si adatta allo schermo, fino a 900 × 640. Nelle finestre strette, Illuminazione mette in primo piano colore ed effetto e permette di espandere l’anteprima della tastiera. Dal menu **Finestra** scegli **Dimensione compatta** o **Dimensione comoda**.
 
 ## RGB senza cavo
 
@@ -25,7 +32,7 @@ La Q6 Max deve avere il **firmware personalizzato v3**. Il firmware originale no
 
 1. Associa la tastiera al Mac e seleziona BT.
 2. In **Illuminazione**, scegli colore, effetto, luminosità e velocità.
-3. Lascia attivo **Salva nella tastiera** e premi **Applica e salva RGB**.
+3. Lascia attivo **Salva nella tastiera** e premi **Applica e salva RGB** (oppure **Invia ora** con anteprima attiva).
 
 Non serve premere fn + ○. Durante i circa cinque secondi di invio manuale evita Caps Lock e Num Lock; prima di spegnere la tastiera attendi almeno due secondi dalla fine. Disattiva il salvataggio per una prova temporanea.
 
@@ -43,4 +50,12 @@ Il preset **Reattiva** riduce la sospensione lato tastiera con salvaguardie per 
 
 **Aggiornamento firmware via Bluetooth:** la 0.8 include il percorso sperimentale dall'app, con verifica della chiave proprietario, blocchi confermati e controllo del firmware dopo il riavvio. La prima installazione USB del loader è riuscita su una Q6 Max ISO e il profilo è stato ripristinato e riletto. Il passaggio dalla build 8 alla 9 è riuscito via Bluetooth su quella tastiera, riprendendo i blocchi salvati: finalizzazione e lettura autenticata dopo il riavvio a 20 ms. Il trasferimento ha richiesto riprese con intervalli di 20 e 80 ms; non è una prova di invio completo e ininterrotto a 20 ms. Non aggiorna il modulo radio. Chiave privata, loader personalizzato e backup completi non vanno pubblicati.
 
-Quando manca il permesso, all’avvio Keyglow presenta la configurazione e avvia la richiesta di macOS. Se l’accesso è negato, apre direttamente Monitoraggio input. Tornando nell’app verifica lo stato senza ripetere la richiesta. La concessione resta una conferma dell’utente.
+La richiesta di macOS parte al passo Accessi della configurazione. Se l’accesso è negato, apre Monitoraggio input; al ritorno verifica lo stato senza ripetere la richiesta. La concessione resta una conferma dell’utente.
+
+## Profili e navigazione
+
+**Personali** raccoglie le copie salvate da te; **Recupero** separa quelle create prima di leggere o sostituire la bozza. Rimuovere un profilo lo sposta nel **Cestino**, da cui puoi ripristinarlo anche dopo aver riaperto l’app. Non vengono cancellati automaticamente i profili più vecchi quando ne salvi un altro.
+
+Caricare un profilo aggiorna la bozza locale. Aprire RGB per tasto o Mix non cambia da solo l’effetto: scegli esplicitamente la modalità quando vuoi usarla. Queste sezioni si applicano via USB e non generano anteprime Bluetooth.
+
+La pagina Firmware conserva il file scelto e la verifica durante la navigazione. Il percorso principale segue **Scegli file → Verifica → Installa**; diagnostica e preparazione iniziale sono sezioni espandibili.

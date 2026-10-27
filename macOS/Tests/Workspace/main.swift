@@ -41,6 +41,20 @@ do {
     try restored.validate()
     try require(restored == original, "Export/import must preserve every field, opaque macro bytes and IDs")
 
+    // Schema-1 files without collection metadata still import unchanged.
+    var legacy = try JSONSerialization.jsonObject(with: encoded) as! [String:Any]
+    legacy.removeValue(forKey:"recoveryReason"); legacy.removeValue(forKey:"deletedAt")
+    legacy["name"] = "Q6 · prima della lettura"
+    let migrated = try JSONDecoder().decode(KeyboardWorkspace.self,from:JSONSerialization.data(withJSONObject:legacy))
+    try require(migrated.isRecoveryCopy && migrated.deletedAt == nil, "Legacy automatic copies belong in Recovery")
+    var personal = migrated; personal.recoveryReason=""
+    try require(!personal.isRecoveryCopy, "Explicit personal metadata overrides a legacy-looking name")
+    var trashed = original; trashed.deletedAt=Date(timeIntervalSince1970:12345); trashed.recoveryReason=" · recupero"
+    let persistedTrash = try JSONDecoder().decode(KeyboardWorkspace.self,from:JSONEncoder().encode(trashed))
+    try require(persistedTrash == trashed && persistedTrash.isRecoveryCopy, "Trash survives relaunch with all RGB, macro and layout data")
+    var recovered = persistedTrash; recovered.deletedAt=nil
+    try require(recovered.layers == original.layers && recovered.lighting == original.lighting && recovered.macros == original.macros, "Restoring a profile loses no keyboard configuration")
+
     try rejects("wrong model") { $0.model = "keychron/q6_max/ansi_encoder" }
     try rejects("truncated layer") { $0.layers[0].removeLast() }
     try rejects("truncated encoder") { $0.encoders[0] = [] }

@@ -265,15 +265,32 @@ extension StudioModel {
         return rgb.map { String(format:"%02X",Int(($0*255).rounded())) }.joined()
     }
     func archiveCurrentProfile(suffix:String="") {
-        var copy=workspace; copy.id=UUID(); copy.name+=suffix; copy.updatedAt=Date(); savedProfiles.insert(copy,at:0)
-        if savedProfiles.count > 100 { savedProfiles=Array(savedProfiles.prefix(100)) }
+        var copy=workspace; copy.id=UUID(); copy.recoveryReason=suffix; copy.deletedAt=nil; copy.updatedAt=Date(); savedProfiles.insert(copy,at:0)
         saveProfiles(); projectMessage="Profilo salvato sul Mac."
     }
     func loadProfile(_ profile:KeyboardWorkspace) {
-        stopCapture(); archiveCurrentProfile(suffix:" · recupero"); workspace=profile; loadLightDraft(); selectedKeys=[]; selectedMacro=0; selectedMixLayer=0
+        guard profile.deletedAt == nil else { return }
+        stopCapture(); archiveCurrentProfile(suffix:" · recupero")
+        replaceLocalDraft(profile)
+        selectedKeys=[]; selectedMacro=0; selectedMixLayer=0
         projectMessage="Profilo caricato nella bozza. La tastiera non è stata modificata."
     }
-    func deleteProfile(_ id:UUID) { savedProfiles.removeAll { $0.id == id }; saveProfiles() }
+    func deleteProfile(_ id:UUID) {
+        guard let index=savedProfiles.firstIndex(where: { $0.id == id }) else { return }
+        savedProfiles[index].deletedAt=Date(); saveProfiles()
+        projectMessage="Profilo spostato nel cestino. Puoi ripristinarlo dalla scheda Cestino."
+    }
+    func restoreProfile(_ id:UUID) {
+        guard let index=savedProfiles.firstIndex(where: { $0.id == id }) else { return }
+        savedProfiles[index].deletedAt=nil; saveProfiles(); projectMessage="Profilo ripristinato."
+    }
+    // Loading a saved draft is navigation/preparation, never a live RGB edit.
+    func replaceLocalDraft(_ draft: KeyboardWorkspace) {
+        let previous=loadingWorkspace; loadingWorkspace=true
+        workspace=draft; workspace.recoveryReason=""; workspace.deletedAt=nil
+        loadLightDraft(); loadingWorkspace=previous
+        saveWorkspaceLocally()
+    }
     private func saveProfiles() { if let data=try? JSONEncoder().encode(savedProfiles) { UserDefaults.standard.set(data,forKey:"profiles.v3") } }
     func exportProfile() {
         syncLightDraft(); let panel=NSSavePanel(); panel.allowedContentTypes=[.json]; panel.nameFieldStringValue="\(workspace.name).json"
@@ -288,7 +305,7 @@ extension StudioModel {
             let profile=try JSONDecoder().decode(KeyboardWorkspace.self,from:Data(contentsOf:url)); try profile.validate(); loadProfile(profile)
         } catch { projectMessage=error.localizedDescription }
     }
-    func resetDraft() { guard !busy else{return};stopCapture();archiveCurrentProfile(suffix:" · prima del ripristino"); workspace=KeyboardWorkspace();selectedMacro=0;selectedMixLayer=0;selectedKeys=[]; loadLightDraft(); projectMessage="Valori di fabbrica caricati nella bozza. Nessuna modifica alla tastiera." }
+    func resetDraft() { guard !busy else{return};stopCapture();archiveCurrentProfile(suffix:" · prima del ripristino"); replaceLocalDraft(KeyboardWorkspace());selectedMacro=0;selectedMixLayer=0;selectedKeys=[]; projectMessage="Valori di fabbrica caricati nella bozza. Nessuna modifica alla tastiera." }
     func inspectFirmwareFile() {
         let panel=NSOpenPanel(); panel.allowsMultipleSelection=false; panel.message="Seleziona un firmware da identificare. Non verrà eseguito alcun flash."
         guard panel.runModal() == .OK, let url=panel.url else { return }

@@ -66,6 +66,13 @@ struct KeyboardWorkspace: Codable, Equatable, Identifiable, Sendable {
     var language = "it-IT"
     var updatedAt = Date()
     var origin = "Configurazione locale · valori di fabbrica ufficiali"
+    // Optional metadata keeps existing schema-1 exports readable.
+    var recoveryReason: String? = nil
+    var deletedAt: Date? = nil
+    var isRecoveryCopy: Bool {
+        if let recoveryReason { return !recoveryReason.isEmpty }
+        return [" · recupero", " · prima della lettura", " · prima del ripristino", " · prima di importare", " · prima delle macro Launcher"].contains { name.hasSuffix($0) }
+    }
     var layers: [[UInt16]]
     var encoders: [[UInt16]]
     var macros: [MacroDraft]

@@ -4,25 +4,37 @@ import AppKit
 
 struct FirmwareUpdateView: View {
     @ObservedObject var model: FirmwareUpdateModel
+    @Binding var showsProvisioning:Bool
+    let onOpenUSB:()->Void
+    let onOpenProfiles:()->Void
     var body: some View {
         StudioSurface {
+            if showsProvisioning { firstInstallation } else {
             VStack(alignment: .leading, spacing: 18) {
                 StudioAdaptiveStack(breakpoint: 1120, spacing: 16) {
                     VStack(alignment: .leading, spacing: 6) {
                         Label("Aggiornamento del controller", systemImage: "arrow.triangle.2.circlepath")
-                            .font(.system(size: 18, weight: .semibold))
+                            .font(.system(size: 21, weight: .semibold))
                         Text("Via Bluetooth, dopo la prima configurazione USB del loader Keyglow.")
                             .font(.system(size: 12)).foregroundColor(Studio.muted).lineSpacing(3).fixedSize(horizontal: false, vertical: true)
                     }.frame(maxWidth: .infinity, alignment: .leading)
                     HStack(spacing: 10) {
                     if model.hasBundledFirmware {
                         Button("Usa firmware incluso") { model.useBundledFirmware() }
-                            .buttonStyle(StudioButton()).disabled(model.isBusy)
+                            .buttonStyle(StudioButton(primary:model.artifact == nil)).disabled(model.isBusy)
                     }
                     Button("Scegli firmware…") { model.chooseFile() }
                         .buttonStyle(StudioButton()).disabled(model.isBusy)
                     }
                 }
+
+                HStack(spacing:8) {
+                    workflowStep("1", "Scegli file", done:model.artifact != nil)
+                    Image(systemName:"chevron.right").foregroundColor(Studio.muted)
+                    workflowStep("2", "Verifica", done:model.review != nil)
+                    Image(systemName:"chevron.right").foregroundColor(Studio.muted)
+                    workflowStep("3", "Installa", done:model.phase == .complete)
+                }.padding(.vertical,4)
 
                 if let rawName = model.pendingRawName {
                     VStack(alignment: .leading, spacing: 9) {
@@ -136,10 +148,14 @@ struct FirmwareUpdateView: View {
                     if model.isBusy {
                         if model.canCancel { Button("Interrompi") { model.cancel() }.buttonStyle(StudioButton()) }
                     } else {
-                        Button("Verifica tastiera") { model.verifyKeyboard() }
-                            .buttonStyle(StudioButton()).disabled(model.artifact == nil || (model.cooldownUntil.map { context.date < $0 } ?? false))
+                        if model.artifact != nil {
+                        Button(model.review == nil ? "Verifica tastiera" : "Verifica di nuovo") { model.verifyKeyboard() }
+                            .buttonStyle(StudioButton(primary:model.review == nil)).disabled(model.artifact == nil || (model.cooldownUntil.map { context.date < $0 } ?? false))
+                        }
+                        if let review=model.review, !review.isAlreadyInstalled {
                         Button(model.review?.hasReadyTarget == true && !model.replaceUncommitted ? "Completa installazione" : "Avvia aggiornamento") { model.start() }
                             .buttonStyle(StudioButton(primary: true)).disabled(!model.canStart)
+                        }
                     }
                 }
                 if let until = model.cooldownUntil, context.date < until, !model.isBusy {
@@ -154,28 +170,66 @@ struct FirmwareUpdateView: View {
                 }
 
                 Divider()
-                DisclosureGroup("Prima configurazione USB") {
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("La prima installazione del loader collega questa tastiera a una chiave privata del Mac. Preparare la chiave non installa firmware e non modifica la tastiera.")
-                            .font(.system(size: 12)).foregroundColor(Studio.muted).fixedSize(horizontal: false, vertical: true)
-                        Button("Prepara chiave proprietario") { model.prepareOwnerKey() }
-                            .buttonStyle(StudioButton()).disabled(model.isBusy)
-                        if let setup = model.provisioning {
-                            detail("Impronta della chiave", firmwareHex(setup.keyID))
-                            Text(setup.slotURL.path).font(.system(size: 11, design: .monospaced))
-                                .textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
-                            Button("Mostra file privato nel Finder") {
-                                NSWorkspace.shared.activateFileViewerSelecting([setup.slotURL])
-                            }.buttonStyle(StudioButton())
-                            Text("Il file è privato e serve alla prima installazione USB. Non allegarlo a segnalazioni o repository.")
-                                .font(.system(size: 11)).foregroundColor(Studio.muted)
-                        }
-                    }.padding(.top, 10)
-                }.font(.system(size: 12))
+                Button("Prima installazione di Keyglow…") {showsProvisioning=true}
+                    .buttonStyle(StudioButton()).disabled(model.isBusy)
             }.controlSize(.large)
+            }
         }
     }
 
+    private var firstInstallation:some View {
+        VStack(alignment:.leading,spacing:22) {
+            PanelTitle(title:"Prima installazione via USB",subtitle:"Prepara la tua Q6 Max ISO per usare colori e aggiornamenti via Bluetooth.")
+            Text("Il firmware originale non riceve gli RGB Bluetooth di Keyglow. La prima installazione richiede USB/DFU e un loader personalizzato; questa pagina prepara il percorso, non esegue automaticamente il flash.")
+                .font(.system(size:13)).foregroundColor(Studio.muted).fixedSize(horizontal:false,vertical:true)
+            Divider()
+            VStack(alignment:.leading,spacing:12) {
+                Text("1. Leggi e salva la configurazione").font(.system(size:16,weight:.semibold))
+                Text("Collega USB e seleziona Cable, senza entrare in DFU. Apri Connessione → Leggi configurazione, poi Profili → Salva una copia. Salvare una bozza non letta non conserva le impostazioni reali della tastiera.")
+                    .foregroundColor(Studio.muted).fixedSize(horizontal:false,vertical:true)
+                HStack(spacing:12) {
+                    Button("Apri Connessione",action:onOpenUSB).buttonStyle(StudioButton(primary:true))
+                    Button("Apri Profili",action:onOpenProfiles).buttonStyle(StudioButton())
+                }
+            }
+            VStack(alignment:.leading,spacing:12) {
+                Text("2. Prepara la chiave proprietario").font(.system(size:16,weight:.semibold))
+                Text("La chiave autorizza gli aggiornamenti di questa tastiera. Se esiste già viene riutilizzata; il Portachiavi può chiederti conferma. Prepararla non installa firmware.")
+                    .foregroundColor(Studio.muted).fixedSize(horizontal:false,vertical:true)
+                Button("Prepara chiave proprietario") {model.prepareOwnerKey()}.buttonStyle(StudioButton()).disabled(model.isBusy)
+                if let setup=model.provisioning {
+                    detail("Impronta della chiave",firmwareHex(setup.keyID))
+                    Button("Mostra file privato nel Finder") {NSWorkspace.shared.activateFileViewerSelecting([setup.slotURL])}.buttonStyle(StudioButton())
+                    Text("Il file è privato e serve alla prima installazione USB. Non allegarlo a segnalazioni o repository.")
+                        .font(.system(size:12)).foregroundColor(Studio.muted)
+                }
+                if model.isBusy {ProgressView().controlSize(.small)}
+                if model.provisioning != nil || model.isBusy || model.phase == .failed {
+                    Text(model.message).font(.system(size:12)).foregroundColor(Studio.muted).fixedSize(horizontal:false,vertical:true)
+                }
+            }
+            VStack(alignment:.leading,spacing:12) {
+                Text("3. Installa seguendo la guida").font(.system(size:16,weight:.semibold))
+                Text("Usa solo loader e firmware preparati per Q6 Max ISO. La guida descrive backup completo, prima installazione USB/DFU e ripristino. Dopo l’installazione torna in BT e riapri Configura tastiera e accessi dal menu Keyglow.")
+                    .foregroundColor(Studio.muted).fixedSize(horizontal:false,vertical:true)
+                Button("Apri guida alla prima installazione") {
+                    NSWorkspace.shared.open(URL(string:"https://github.com/FrancoisLampasona/keyglow-macos/blob/main/docs/firmware.md")!)
+                }.buttonStyle(StudioButton())
+            }
+            Divider()
+            Button("Keyglow è già installato · apri aggiornamenti Bluetooth") {showsProvisioning=false}
+                .buttonStyle(StudioButton()).disabled(model.isBusy)
+        }.font(.system(size:13)).controlSize(.large)
+    }
+
+    private func workflowStep(_ number:String,_ title:String,done:Bool) -> some View {
+        HStack(spacing:7) {
+            Group {if done {Image(systemName:"checkmark")} else {Text(number)}}
+                .font(.system(size:11,weight:.semibold)).frame(width:24,height:24)
+                .background(done ? Studio.accent.opacity(0.15) : Studio.rail).clipShape(Circle())
+            Text(title).font(.system(size:12,weight:.medium))
+        }.foregroundColor(done ? Studio.accent : Studio.muted).frame(maxWidth:.infinity,alignment:.leading)
+    }
     private func detail(_ name: String, _ value: String) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 18) {
             Text(name).foregroundColor(Studio.muted).frame(maxWidth: 180, alignment: .leading)
