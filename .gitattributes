@@ -1,0 +1,2 @@
+# Unified-diff context lines for blank source lines contain one required space.
+firmware/patches/*.patch whitespace=-blank-at-eol

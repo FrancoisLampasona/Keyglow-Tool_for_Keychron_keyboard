@@ -30,6 +30,12 @@ Run the tests relevant to a change before opening a pull request. Keep transport
 
 All app resources must resolve through the application bundle. User data must use macOS user storage, not the source tree or current working directory. Preserve preference compatibility when renaming the app. Changes to permission handling must query the current macOS authorization state and keep consent under the user's control.
 
+## Local build cleanup
+
+For repeated builds on your own Mac, configure [stable local signing](docs/local-signing.md) once. This avoids changing the app's identity on every compilation. The builder refuses incompatible identity changes and replacement while Keyglow is running.
+
+Run `python3 scripts/clean-builds.py --dry-run` to inspect recognized obsolete app bundles and generated caches. `--scope apps --apply` archives and removes only the obsolete apps; `--apply` also removes the listed reproducible caches and test outputs. Wait until builds/tests have finished before cleaning caches. The current app, firmware, owner material, research backups and toolchains are preserved. See [build cleanup](docs/build-cleanup.md) for recovery and LaunchServices behavior. Run `PYTHONDONTWRITEBYTECODE=1 python3 scripts/test-clean-builds.py` when modifying this cleanup path; its tests use disposable synthetic bundles only.
+
 ## Firmware tests
 
 The complete host suite uses a pinned Keychron QMK checkout. It reads and patches snippets in memory; it does not flash a device.

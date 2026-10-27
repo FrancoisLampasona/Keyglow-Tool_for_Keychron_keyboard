@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Install idempotent RGB hooks and read-only power-state getters in pinned QMK.
+"""Install RGB/power hooks and a bounded LKBT51 SPI receive fix in pinned QMK.
 
 No firmware compilation, reset, flash or hardware access. Validate all edits
 before writing any file. --check reports the edits without changing the tree.
@@ -141,6 +141,28 @@ bool lpm_is_kb_idle(void) {
     return replace_once(text, original, patched)
 
 
+def patch_lkbt51_source(text):
+    original = """void lkbt51_read(uint8_t* payload, uint8_t len) {
+    uint8_t i;
+    uint8_t pkt[PACKET_MAX_LEN] = {0};
+    memset(pkt, 0, PACKET_MAX_LEN);"""
+    patched = """void lkbt51_read(uint8_t* payload, uint8_t len) {
+    /* len excludes the four SPI command bytes. Keep the existing transfer
+     * length (4 + len), with room for every transmitted and received byte. */
+    if (len > PACKET_MAX_LEN) return;
+    uint8_t i;
+    uint8_t pkt[PACKET_MAX_LEN + 4u] = {0};
+    memset(pkt, 0, sizeof(pkt));"""
+    text = replace_once(text, original, patched)
+    original_caller = """        uint8_t buf[BUFFER_SIZE] = {0};
+        lkbt51_read(buf, expect_len);"""
+    patched_caller = """        /* The extra SPI command bytes are transferred too. BUFFER_SIZE
+         * remains the parser limit; only the receive allocation grows. */
+        uint8_t buf[BUFFER_SIZE + VALID_DATA_START_INDEX] = {0};
+        lkbt51_read(buf, expect_len);"""
+    return replace_once(text, original_caller, patched_caller)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("qmk_root", type=pathlib.Path)
@@ -155,7 +177,7 @@ def main():
              root / "quantum/rgb_matrix/rgb_matrix.c", root / "quantum/rgb_matrix/rgb_matrix.h",
              common / "wireless/battery.c", common / "wireless/battery.h",
              common / "wireless/wireless.c", common / "wireless/wireless.h",
-             root / "keyboards/keychron/q6_max/q6_max.c"]
+             root / "keyboards/keychron/q6_max/q6_max.c", common / "wireless/lkbt51.c"]
     before = [path.read_text() for path in paths]
     after = list(before)
     after[0] = replace_once(after[0], "#pragma once", '#pragma once\n#include "led.h"')
@@ -180,6 +202,7 @@ def main():
     after[8] = replace_once(after[8], "wt_state_t wireless_get_state(void);",
                            "wt_state_t wireless_get_state(void);\nuint16_t wireless_get_connected_idle_timeout(void);")
     after[9] = patch_q6_source(after[9])
+    after[10] = patch_lkbt51_source(after[10])
     changed = [i for i in range(len(paths)) if before[i] != after[i]]
     for i in changed:
         print(("Would patch: " if args.check else "Patching: ") + str(paths[i].relative_to(root)))
@@ -187,7 +210,7 @@ def main():
         for i in changed:
             paths[i].write_text(after[i])
     if not changed:
-        print("RGB hooks and read-only power getters already installed; no changes.")
+        print("RGB/power hooks and LKBT51 SPI bounds fix already installed; no changes.")
     elif args.check:
         print("All transformations validated; no files changed.")
 

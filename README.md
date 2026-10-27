@@ -16,7 +16,7 @@ Keyglow is an independent community project, not affiliated with or endorsed by 
 | Four keymap layers, knob, macros, per-key RGB, Mix and supported advanced settings | USB | Read, edit, apply and read back; availability follows device capabilities |
 | Profiles, import/export, keyboard preview and foreground key test | Local app | Available without a connected keyboard |
 | Quick Launch shortcuts for apps and websites | Local app | Opt-in; Keyglow must remain open |
-| Automatic RGB preview while editing | Bluetooth with custom v3 firmware | Implemented in 0.8; rapid sending still needs hardware validation |
+| Automatic RGB preview while editing | Bluetooth with custom v3 firmware | Blue Breathing confirmed on the physical keyboard at 20 ms; preference remembered in 0.8.2 |
 | Firmware update over Bluetooth | Custom Keyglow loader and owner key | Experimental 0.8 app workflow implemented; initial loader installed and verified on one unit; full Bluetooth update still under validation |
 
 Hardware validation covers **one Q6 Max ISO encoder, Italian layout**, USB VID `3434`, PID `0861`. It does not establish support for ANSI, JIS, other Keychron models, or every effect individually. Stock firmware does not interpret Keyglow's Bluetooth RGB commands. The 2.4 GHz receiver is not a configuration backend in this app.
@@ -30,7 +30,7 @@ zsh scripts/build-app.sh
 open dist/Keyglow.app
 ```
 
-The build has no third-party application package dependencies. It produces an `arm64` application with a local ad-hoc signature by default. This is **not a notarized distribution**. A developer with a signing certificate can select it with `SIGNING_IDENTITY`; signing and notarization remain separate steps.
+The build has no third-party application package dependencies. It produces an `arm64` application. For repeated local builds, configure [stable local signing](docs/local-signing.md) once; without a configured identity it uses an ad-hoc signature. This is **not a notarized distribution**. A developer with a signing certificate can select it with `SIGNING_IDENTITY`; signing and notarization remain separate steps.
 
 Move the **whole `Keyglow.app` bundle** to Applications or another folder before granting permissions. Its resources travel inside the bundle; running it does not require this checkout, Python, Node, or the original build folder. Preferences and local backups belong to the macOS user, outside the app bundle. The legacy preference identifier is retained so the rename from Tastiera does not discard existing settings.
 
@@ -55,9 +55,9 @@ With the custom v3 firmware installed, open **Illuminazione**, choose a color an
 
 A manual transfer takes about five seconds. Avoid Caps Lock and Num Lock during it, then wait at least two seconds after completion before switching the keyboard off. Opening the app does not send RGB settings.
 
-In 0.8, **Anteprima sulla tastiera** enables automatic Bluetooth sending while editing. It starts disabled, debounces changes, and keeps only the latest pending setting while a command is in flight. Preview commands are temporary; with saving enabled, the final setting is saved after editing settles. Leaving the page discards unsent changes. The rapid 20 ms timing is experimental: automatic sending does not mean instantaneous response, and its RGB behavior still needs a physical test.
+In 0.8.2, **Anteprima sulla tastiera** enables automatic Bluetooth sending while editing. It starts disabled for new users and remembers your choice across launches. Opening the app still sends nothing: a new edit is required. It debounces changes and keeps only the latest pending setting while a command is in flight. Preview commands are temporary; with saving enabled, the final setting is saved after editing settles. Leaving the page discards unsent changes. The rapid 20 ms timing is experimental. Blue Breathing was physically confirmed with USB unplugged, after changing the color without clicking Apply. Automatic sending does not mean instantaneous response.
 
-The RGB transport uses HID indicator reports and has **no device acknowledgement**. A completed RGB send means macOS accepted the reports; confirm the visible result on the keyboard. The saved green Breathing setting has been tested through a real power cycle with USB disconnected. Other effects, rapid preview and persistent off have automated coverage but have not all been tested physically. Firmware updates use a separate acknowledged protocol.
+The RGB transport uses HID indicator reports and has **no device acknowledgement**. A completed RGB send means macOS accepted the reports; confirm the visible result on the keyboard. The saved green Breathing setting has been tested through a real power cycle with USB disconnected. Other effects and persistent off have automated coverage but have not all been tested physically. Firmware updates use a separate acknowledged protocol.
 
 For USB editing, select **Leggi tastiera**, edit the local draft, save a profile, then apply. The app checks for conflicting changes and reads settings back after writes. Close other keyboard configurators while applying settings.
 
@@ -71,7 +71,7 @@ The optional **Reattiva** policy reduces keyboard-side sleeping while connected,
 
 The experimental staging engine and its limits are documented in [firmware/ota](firmware/ota/README.md).
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for the local test commands and firmware source setup. CI builds the app and runs host tests; it cannot validate Bluetooth reception, macOS consent dialogs, power-cycle persistence, or hardware recovery.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the local test commands and firmware source setup, and [build cleanup](docs/build-cleanup.md) for archiving old apps without duplicate Launchpad entries. CI builds the app and runs host tests; it cannot validate Bluetooth reception, macOS consent dialogs, power-cycle persistence, or hardware recovery.
 
 Device backups, personal macros, local profiles, research captures, build outputs and downloaded vendor bundles are excluded from the public source. Please do not attach them to issues.
 

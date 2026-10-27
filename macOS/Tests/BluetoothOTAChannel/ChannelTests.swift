@@ -17,6 +17,8 @@ final class MockIO: BluetoothOTAChannelIO {
     var input: ((UInt32, UnsafeBufferPointer<UInt8>) -> Void)?
     var removed: (() -> Void)?
     var hook: (() -> Void)?
+    var pumpHook: (() -> Void)?
+    var lastWriteAt: TimeInterval = 0
     func openAndSnapshot() throws -> UInt8 { opened = true; return original }
     func monitor(until deadline: TimeInterval, input: @escaping (UInt32, UnsafeBufferPointer<UInt8>) -> Void, removed: @escaping () -> Void) {
         monitoring = true; monitorEnd = deadline; self.input = input; self.removed = removed
@@ -25,6 +27,7 @@ final class MockIO: BluetoothOTAChannelIO {
     func close() { closed = true; stopMonitoring() }
     func writeLED(_ mask: UInt8, deadline: TimeInterval) throws {
         writes.append(mask); now += 0.026
+        lastWriteAt = now
         if writes.count == requestMasks { nextReportAt = now + 0.6 }
         if writes.count == failWrite { throw OTAChannelFailure.writeFailed }
         hook?()
@@ -32,6 +35,7 @@ final class MockIO: BluetoothOTAChannelIO {
     func pump(until deadline: TimeInterval, keepRunning: () -> Bool) {
         while now < deadline && keepRunning() {
             now = min(deadline, now + 0.005)
+            pumpHook?()
             if monitoring && now >= monitorEnd { stopMonitoring() }
             if monitoring, now >= nextReportAt, nextReport < replyReports.count {
                 let bytes = replyReports[nextReport]
@@ -46,6 +50,7 @@ final class MockIO: BluetoothOTAChannelIO {
     static func main() throws {
         var count = 0
         func check(_ condition: @autoclosure () -> Bool, _ label: String) { precondition(condition(), label); count += 1 }
+        func inputCause(_ error: Error) -> BluetoothOTAWire.Failure? { (error as? OTAInputReportFailure)?.cause }
         let frame = try BluetoothOTAWire.request(operation: 3, requestID: 0x12345678)
         let masks = try BluetoothOTAWire.ledMasks(for: frame)
         func io(replyID: UInt32 = 0x12345678, payload: [UInt8] = []) throws -> MockIO {
@@ -62,7 +67,28 @@ final class MockIO: BluetoothOTAChannelIO {
             check(io.writes.prefix(masks.count).allSatisfy { $0 & 0x18 == io.original & 0x18 }, "preserve unrelated LEDs")
             let expected = try BluetoothOTAWire.ledMasks(for: BluetoothOTAWire.acknowledgementReceipt(for: result.reply)).map { (io.original & 0x18) | $0 }
             check(Array(io.writes.dropFirst(masks.count + 1).dropLast()) == expected, "receipt uses exact validated result")
+            check(io.now - io.lastWriteAt >= 0.599, "next exchange cannot overlap receipt restoration and firmware parser quiet period")
         }
+        let quietActivity = try io()
+        var quietInjected = false
+        quietActivity.pumpHook = {
+            if !quietInjected, quietActivity.writes.count > masks.count + 1,
+               quietActivity.writes.last == quietActivity.original,
+               quietActivity.now - quietActivity.lastWriteAt >= 0.3 {
+                quietInjected = true
+                [UInt8](arrayLiteral: 0, 0, 4, 0, 0, 0, 0, 0).withUnsafeBufferPointer { quietActivity.input?(1, $0) }
+            }
+        }
+        do { _ = try BluetoothOTAChannel().exchange(frame: frame, io: quietActivity, cancellation: .init()); fatalError("ignored activity during receipt settling") }
+        catch { check(quietInjected && inputCause(error) == .inputActivity && quietActivity.closed && !quietActivity.monitoring, "receipt quiet period retains bounded input guard") }
+        let quietCancelled = try io(); let quietToken = OTAUpdateCancellation()
+        quietCancelled.pumpHook = {
+            if quietCancelled.writes.count > masks.count + 1,
+               quietCancelled.writes.last == quietCancelled.original,
+               quietCancelled.now - quietCancelled.lastWriteAt >= 0.3 { quietToken.cancel() }
+        }
+        do { _ = try BluetoothOTAChannel().exchange(frame: frame, io: quietCancelled, cancellation: quietToken); fatalError("ignored cancellation during receipt settling") }
+        catch { check(error as? OTAChannelFailure == .cancelled && quietCancelled.closed && !quietCancelled.monitoring, "receipt quiet period remains cancellable") }
         let long = try io(payload: Array(repeating: 0xab, count: 128))
         _ = try BluetoothOTAChannel().exchange(frame: frame, io: long, cancellation: OTAUpdateCancellation())
         check(long.closed && long.nextReport >= 286, "maximum long status accepted within bounded window")
@@ -108,13 +134,13 @@ final class MockIO: BluetoothOTAChannelIO {
                 responseActivity.replyReportIDs = Array(repeating: 1, count: responseActivity.replyReports.count)
                 responseActivity.replyReportIDs[5] = id
                 do { _ = try BluetoothOTAChannel().exchange(frame: hello, io: responseActivity, cancellation: OTAUpdateCancellation()); fatalError("ignored non-keyboard activity in HELLO") }
-                catch { check(error as? BluetoothOTAWire.Failure == .inputActivity && responseActivity.writes.count == helloMasks.count + 1 && responseActivity.closed, "active consumer/system/mouse during HELLO blocks receipt") }
+                catch { check(inputCause(error) == .inputActivity && responseActivity.writes.count == helloMasks.count + 1 && responseActivity.closed, "active consumer/system/mouse during HELLO blocks receipt") }
                 let receiptActivity = try helloIO()
                 receiptActivity.hook = {
                     if receiptActivity.writes.count == helloMasks.count + 3 { active.withUnsafeBufferPointer { receiptActivity.input?(id, $0) } }
                 }
                 do { _ = try BluetoothOTAChannel().exchange(frame: hello, io: receiptActivity, cancellation: OTAUpdateCancellation()); fatalError("ignored non-keyboard activity during ACK_ACK") }
-                catch { check(error as? BluetoothOTAWire.Failure == .inputActivity && receiptActivity.writes.last == receiptActivity.original && receiptActivity.closed, "active consumer/system/mouse during receipt aborts and restores") }
+                catch { check(inputCause(error) == .inputActivity && receiptActivity.writes.last == receiptActivity.original && receiptActivity.closed, "active consumer/system/mouse during receipt aborts and restores") }
             }
         }
         let absent = try io(); absent.replyReports = []
@@ -147,7 +173,7 @@ final class MockIO: BluetoothOTAChannelIO {
             }
         }
         do { _ = try BluetoothOTAChannel().exchange(frame: frame, io: typedReceipt, cancellation: OTAUpdateCancellation()); fatalError("ignored typing during receipt") }
-        catch { check(error as? BluetoothOTAWire.Failure == .inputActivity && typedReceipt.writes.last == typedReceipt.original && typedReceipt.closed, "receipt typing aborts, restores and closes") }
+        catch { check(inputCause(error) == .inputActivity && typedReceipt.writes.last == typedReceipt.original && typedReceipt.closed, "receipt typing aborts, restores and closes") }
         let lastWriteCancelled = try io(); let lateCancellation = OTAUpdateCancellation()
         let receiptCount = try BluetoothOTAWire.ledMasks(for: BluetoothOTAWire.acknowledgementReceipt(for: BluetoothOTAWire.reply(operation: 3, requestID: 0x12345678, result: 0, flags: 1))).count
         lastWriteCancelled.hook = {
@@ -158,6 +184,70 @@ final class MockIO: BluetoothOTAChannelIO {
         let typed = try io(); typed.replyReports = [[0, 0, 4, 0, 0, 0, 0, 0]]
         do { _ = try BluetoothOTAChannel().exchange(frame: frame, io: typed, cancellation: OTAUpdateCancellation()); fatalError("ignored activity") }
         catch { check(typed.writes.count == masks.count + 1 && typed.closed, "typing stops without receipt") }
+        // Keep enough framing evidence to distinguish an unexpected report
+        // from activity, without retaining even one key/modifier/payload value.
+        let diagnosticCases: [(UInt32, [UInt8], BluetoothOTAWire.Failure)] = [
+            (1, [0, 0, 4, 0, 0, 0, 0, 0], .inputActivity),
+            (1, [1, 0, 0, 4, 0, 0, 0, 0, 0], .inputActivity),
+            (1, [1, 2, 0, 0, 0, 0, 0, 0, 0], .inputActivity),
+            (1, [1, 2, 0, 4, 0, 0, 0, 0, 0], .inputActivity),
+            (1, [1, 0, 0, 1, 1, 1, 1, 1, 1], .inputActivity),
+            (1, [1, 0x8f, 0, 0, 0, 0, 0, 0, 0], .inputActivity),
+            (4, [1] + Array(repeating: 0, count: 19), .inputActivity),
+            (9, [0x9a, 0], .inputActivity),
+            (1, Array(repeating: 0, count: 7), .invalidReport)
+        ]
+        for phase: OTAInputReportFailure.Phase in [.sending, .response, .receipt] {
+            for (id, inputBytes, cause) in diagnosticCases {
+                let diagnostic = try io()
+                if phase == .response {
+                    diagnostic.replyReports.insert(inputBytes, at: 5)
+                    diagnostic.replyReportIDs = Array(repeating: 1, count: diagnostic.replyReports.count)
+                    diagnostic.replyReportIDs[5] = id
+                } else {
+                    diagnostic.hook = {
+                        let injection = phase == .sending ? 3 : masks.count + 3
+                        if diagnostic.writes.count == injection {
+                            inputBytes.withUnsafeBufferPointer { diagnostic.input?(id, $0) }
+                        }
+                    }
+                }
+                do { _ = try BluetoothOTAChannel().exchange(frame: frame, pause: 0.02, io: diagnostic, cancellation: .init()); fatalError("ignored diagnostic abort") }
+                catch {
+                    guard let evidence = error as? OTAInputReportFailure else { fatalError("lost input framing diagnosis: \(error)") }
+                    check(evidence.cause == cause && evidence.reportID == id && evidence.byteCount == inputBytes.count && evidence.operation == 3 && evidence.phase == phase, "only exact report framing and transaction context retained")
+                    check(Set(Mirror(reflecting: evidence).children.compactMap(\.label)) == ["cause", "reportID", "byteCount", "operation", "phase", "keyboardFields"], "diagnosis has no input buffer or key values")
+                    check(evidence.localizedDescription.contains("report \(id)") && evidence.localizedDescription.contains("\(inputBytes.count) byte"), "UI diagnosis exposes framing")
+                    check(diagnostic.closed && !diagnostic.monitoring && diagnostic.writes.last == diagnostic.original, "diagnosed activity/malformed input still aborts and restores")
+                }
+            }
+        }
+        func fields(_ bytes: [UInt8], id: UInt32 = 1) -> OTAInputReportFailure.KeyboardFields? {
+            bytes.withUnsafeBufferPointer { OTAInputReportFailure.keyboardFields(reportID: id, bytes: $0) }
+        }
+        let fieldCases: [([UInt8], OTAInputReportFailure.KeyboardFields.Active, Bool, Bool)] = [
+            ([0, 0x8f, 0, 0, 0, 0, 0, 0], .none, false, false),
+            ([2, 0, 0, 0, 0, 0, 0, 0], .modifiers, false, false),
+            ([0, 0, 4, 0, 0, 0, 0, 0], .keys, false, false),
+            ([2, 0, 4, 0, 0, 0, 0, 0], .both, false, false),
+            ([0, 0, 1, 1, 1, 1, 1, 1], .keys, true, false),
+            ([0, 0, 2, 0, 0, 0, 0, 0], .keys, true, false),
+            ([0, 0, 3, 0, 0, 0, 0, 0], .keys, true, false),
+            ([0x8f, 0, 0, 0, 0, 0, 0, 0], .modifiers, false, true),
+            ([0, 0, 0x92, 0, 0, 0, 0, 0], .keys, false, true),
+            ([0, 0x8f, 0x92, 0, 0, 0, 0, 0], .keys, false, false),
+            ([0x8f, 0, 4, 0, 0, 0, 0, 0], .both, false, false)
+        ]
+        for (bytes, active, hidError, misplaced) in fieldCases {
+            for prefix in [[], [UInt8(1)]] {
+                let summary = fields(prefix + bytes)
+                check(summary?.active == active && summary?.keyArrayError == hidError && summary?.markerOutsideReserved == misplaced, "prefix-aware aggregate classification only")
+                check(Set(Mirror(reflecting: summary!).children.compactMap(\.label)) == ["active", "keyArrayError", "markerOutsideReserved"], "keyboard diagnosis retains only categories and booleans")
+            }
+        }
+        check(fields([0, 0, 4, 0, 0, 0, 0, 0]) == fields([0, 0, 5, 0, 0, 0, 0, 0]), "different ordinary keys produce indistinguishable diagnosis")
+        check(fields([2, 0, 0, 0, 0, 0, 0, 0]) == fields([4, 0, 0, 0, 0, 0, 0, 0]), "different ordinary modifiers produce indistinguishable diagnosis")
+        check(fields(Array(repeating: 0, count: 7)) == nil && fields([2] + Array(repeating: 0, count: 8)) == nil && fields(Array(repeating: 0, count: 20), id: 4) == nil, "unknown shape and NKRO never guessed as boot keyboard")
         for pause in [Double.nan, Double.infinity, 0, 0.01, 0.081, -1] {
             let unopened = try io()
             do { _ = try BluetoothOTAChannel().exchange(frame: frame, pause: pause, io: unopened, cancellation: OTAUpdateCancellation()); fatalError("invalid pause") }

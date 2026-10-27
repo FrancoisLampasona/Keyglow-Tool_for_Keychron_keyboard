@@ -122,7 +122,9 @@ struct OnboardingView: View {
                     .textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
                 Button("Mostra l’app nel Finder") { model.revealApplication() }
                     .buttonStyle(StudioButton())
-                Text("Una build di sviluppo ricompilata può richiedere di autorizzare nuovamente l’app. Se l’accesso resta negato, rimuovi la vecchia voce da Monitoraggio input e aggiungi questa copia.")
+                Text(["localCertificate", "developerCertificate"].contains(Bundle.main.object(forInfoDictionaryKey: "KeyglowSigningMode") as? String ?? "adhoc")
+                     ? "Questa copia usa una firma stabile per gli aggiornamenti. Il passaggio dalle vecchie build può richiedere un nuovo consenso iniziale. Il permesso viene sempre verificato con macOS."
+                     : "Le build con firma ad hoc cambiano identità quando vengono ricompilate. Per lo sviluppo locale configura una firma stabile; se macOS rifiuta la vecchia firma, la voce precedente va sostituita una volta.")
                     .font(.system(size: 12)).fixedSize(horizontal: false, vertical: true)
             }.frame(maxWidth: .infinity, alignment: .leading).padding(.top, 12)
         }.foregroundColor(Studio.muted)

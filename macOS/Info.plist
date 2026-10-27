@@ -2,31 +2,31 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>CFBundleIdentifier</key>
-	<string>local.tastiera.bluetooth-prototype</string>
-	<key>CFBundleName</key>
-	<string>Keyglow</string>
 	<key>CFBundleDisplayName</key>
 	<string>Keyglow</string>
 	<key>CFBundleExecutable</key>
 	<string>Keyglow</string>
+	<key>CFBundleIconFile</key>
+	<string>Keyglow</string>
+	<key>CFBundleIdentifier</key>
+	<string>local.tastiera.bluetooth-prototype</string>
+	<key>CFBundleName</key>
+	<string>Keyglow</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>0.8.1</string>
+	<string>0.8.2</string>
 	<key>CFBundleVersion</key>
-	<string>11</string>
-	<key>CFBundleIconFile</key>
-	<string>Keyglow</string>
+	<string>15</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>13.0</string>
-	<key>NSHighResolutionCapable</key>
-	<true/>
-	<key>NSPrincipalClass</key>
-	<string>NSApplication</string>
 	<key>NSBluetoothAlwaysUsageDescription</key>
 	<string>Keyglow legge modello, firmware radio e batteria della tua Q6 Max. La verifica non scrive impostazioni e non aggiorna il firmware.</string>
+	<key>NSHighResolutionCapable</key>
+	<true/>
 	<key>NSHumanReadableCopyright</key>
 	<string>Keyglow contributors · GPL-2.0-or-later. Not affiliated with Keychron.</string>
+	<key>NSPrincipalClass</key>
+	<string>NSApplication</string>
 </dict>
 </plist>

@@ -18,7 +18,7 @@ enum BluetoothOTAWire {
         case timedOut, incomplete, invalidReplyRate, finished
         var errorDescription: String? {
             switch self {
-            case .inputActivity: return "Trasferimento interrotto dalla digitazione; nessun tasto è stato registrato."
+            case .inputActivity: return "Scambio fermato per attività o dati di input inattesi; nessun tasto è stato registrato."
             case .timedOut: return "Risposta Bluetooth incompleta entro il limite previsto."
             case .invalidReplyRate: return "La velocità di risposta richiesta non è stata calibrata e concordata."
             case .crcMismatch: return "La verifica CRC della risposta Bluetooth non è riuscita."

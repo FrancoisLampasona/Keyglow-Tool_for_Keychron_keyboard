@@ -32,25 +32,44 @@ if [ "${1:-}" != --replace-closed ]; then
   process_status=0
   pgrep -x KeyglowHIDProbe >/dev/null 2>&1 || process_status=$?
   if [ "$process_status" -ne 1 ]; then
-    printf '%s\n' "The probe is running or process status is unavailable; its bundle was not replaced. Signed candidate: $stage_bundle"
-    printf '%s\n' 'After explicitly confirming the old app is closed, use --replace-closed to publish a fresh build.'
+    python3 - "$stage_bundle" <<'PY'
+import importlib.util, shutil, sys
+from pathlib import Path
+sys.dont_write_bytecode = True
+root = Path.cwd()
+spec = importlib.util.spec_from_file_location('clean_builds', root / 'scripts/clean-builds.py')
+helper = importlib.util.module_from_spec(spec); spec.loader.exec_module(helper)
+candidate = Path(sys.argv[1])
+archive = helper.archive_app(root, candidate)
+shutil.rmtree(candidate.parent)
+print('The probe is running or process status is unavailable; its bundle was not replaced.')
+print('Signed candidate archived without another Launchpad entry:', archive)
+PY
+    printf '%s\n' 'After confirming the old app is closed, rerun with --replace-closed to publish a fresh build.'
     exit 0
   fi
 fi
 python3 - "$stage_bundle" "$bundle" <<'PY'
-import ctypes, os, sys
+import ctypes, importlib.util, os, shutil, sys
 from pathlib import Path
+sys.dont_write_bytecode = True
+root = Path.cwd()
+spec = importlib.util.spec_from_file_location('clean_builds', root / 'scripts/clean-builds.py')
+helper = importlib.util.module_from_spec(spec); spec.loader.exec_module(helper)
 candidate,destination=map(Path,sys.argv[1:])
 if destination.exists():
+    archive = helper.archive_app(root, destination)
     # Darwin RENAME_SWAP atomically publishes the new complete signed bundle.
-    # The prior bundle remains at the candidate path as a recoverable backup.
+    # Archive verification completed before changing either bundle.
     libc=ctypes.CDLL(None,use_errno=True)
     swap=libc.renamex_np
     swap.argtypes=[ctypes.c_char_p,ctypes.c_char_p,ctypes.c_uint]
     swap.restype=ctypes.c_int
     if swap(os.fsencode(candidate),os.fsencode(destination),2) != 0:
         raise OSError(ctypes.get_errno(),'Atomic bundle swap failed; signed candidate retained')
-    print('Previous signed build retained:',candidate)
+    shutil.rmtree(candidate)
+    candidate.parent.rmdir()
+    print('Previous signed build archived:',archive)
 else:
     os.rename(candidate,destination)
     candidate.parent.rmdir()

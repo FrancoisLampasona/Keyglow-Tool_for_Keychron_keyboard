@@ -15,7 +15,7 @@ Sposta l'intera **Keyglow.app** in Applicazioni o nella cartella che preferisci.
 
 Al primo avvio, la procedura guidata spiega gli accessi e ne verifica lo stato. Per il collegamento HID, abilita Keyglow in **Impostazioni di Sistema → Privacy e sicurezza → Monitoraggio input**. L'app può chiedere l'accesso e aprire le impostazioni; il consenso spetta a te. Riavvia l'app se macOS lo richiede: al ritorno, Keyglow verifica automaticamente il permesso e la tastiera collegata.
 
-Le build locali hanno una firma ad hoc e non sono notarizzate. Ricompilare può rendere necessario rimuovere la vecchia voce da Monitoraggio input e aggiungere l'app aggiornata. Il trasferimento in un'altra cartella non aggira questi controlli di macOS. Quando il permesso è già valido, l'app verifica automaticamente la Q6 Max collegata in sola lettura; una tastiera scollegata viene distinta da un permesso negato.
+Per le compilazioni ripetute è disponibile una [firma locale stabile](local-signing.md), conservata nel Portachiavi. Il passaggio dalla vecchia firma può richiedere un consenso iniziale; le build successive devono mantenere la stessa identità. Senza questa configurazione le build usano una firma ad hoc, che cambia a ogni ricompilazione. Le build locali non sono notarizzate. Il trasferimento in un'altra cartella non aggira questi controlli di macOS. Quando il permesso è già valido, l'app verifica automaticamente la Q6 Max collegata in sola lettura; una tastiera scollegata viene distinta da un permesso negato.
 
 Tutta la riga della sidebar è cliccabile; puoi anche usare ⌘1–9. La finestra ricorda le dimensioni e si adatta allo schermo, fino a 900 × 640. Nelle finestre strette, gli inspector passano sotto la tastiera e i comandi si distribuiscono su più righe.
 
@@ -29,7 +29,7 @@ La Q6 Max deve avere il **firmware personalizzato v3**. Il firmware originale no
 
 Non serve premere fn + ○. Durante i circa cinque secondi di invio manuale evita Caps Lock e Num Lock; prima di spegnere la tastiera attendi almeno due secondi dalla fine. Disattiva il salvataggio per una prova temporanea.
 
-La 0.8 aggiunge **Anteprima sulla tastiera**: attivandola, le modifiche a colori ed effetti vengono inviate automaticamente via Bluetooth. Durante un invio viene conservata soltanto l'ultima modifica in attesa; a fine modifica viene salvato il risultato se il salvataggio è attivo. L'anteprima parte disattivata e usa un invio rapido sperimentale a 20 ms, ancora da verificare fisicamente per gli RGB. Il risultato non è istantaneo.
+La 0.8 aggiunge **Anteprima sulla tastiera**: attivandola, le modifiche a colori ed effetti vengono inviate automaticamente via Bluetooth. Durante un invio viene conservata soltanto l'ultima modifica in attesa; a fine modifica viene salvato il risultato se il salvataggio è attivo. Dalla 0.8.2 l'app ricorda la scelta dell'anteprima, inizialmente disattivata. L'apertura non invia colori: occorre una nuova modifica. L'invio rapido a 20 ms resta sperimentale; blu Respiro è stato confermato sulla Q6 Max reale senza premere Applica, con USB scollegata. Il risultato non è istantaneo.
 
 Verde con effetto Respiro è stato verificato su una Q6 Max ISO reale, senza USB, anche dopo spegnimento e riaccensione. Gli altri effetti e lo spegnimento persistente hanno test automatici, ma non tutti una verifica fisica. Il trasporto non restituisce una conferma dalla tastiera: un invio accettato da macOS va distinto dal risultato visibile.
 

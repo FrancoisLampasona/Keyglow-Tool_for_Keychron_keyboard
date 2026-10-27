@@ -52,23 +52,49 @@ struct FirmwareUpdateView: View {
                         .font(.system(size: 13)).foregroundColor(Studio.muted).fixedSize(horizontal: false, vertical: true)
                 }
 
+                if model.artifact != nil {
+                    Picker("Velocità di invio", selection: $model.transferPause) {
+                        Text("Prudente · 80 ms").tag(0.08)
+                        Text("Rapida · 40 ms").tag(0.04)
+                        Text("Sperimentale · 20 ms").tag(0.02)
+                    }.frame(maxWidth: 380).disabled(model.isBusy)
+                    Text("Si applica anche alla verifica. Dopo un’interruzione puoi rallentare e rileggere la sessione prima di riprendere.")
+                        .font(.system(size: 12)).foregroundColor(Studio.muted).fixedSize(horizontal: false, vertical: true)
+                }
+
                 if let review = model.review {
                     Divider()
                     VStack(alignment: .leading, spacing: 10) {
                         Label("Tastiera e chiave proprietario verificate", systemImage: "checkmark.shield")
                             .font(.system(size: 13, weight: .medium)).foregroundColor(Studio.success)
                         detail("Build attuale", "\(review.controller.build)")
+                        if let staging = review.staging {
+                            detail("Sessione sulla tastiera", staging.summary)
+                            detail("Build della sessione", "\(staging.manifest.build)")
+                            detail("Blocchi salvati", "\(staging.savedChunks) di \(staging.chunkCount)")
+                            DisclosureGroup("Dettagli della sessione") {
+                                VStack(alignment: .leading, spacing: 8) {
+                                    detail("Preparata", "Sì")
+                                    detail("Immagine verificata", staging.ready ? "Sì" : "No")
+                                    detail("Installazione confermata", staging.committed ? "Sì" : "No")
+                                    detail("Installata", staging.installed ? "Sì" : "No")
+                                    Text(firmwareHex(staging.manifest.sha256))
+                                        .font(.system(size: 11, design: .monospaced)).textSelection(.enabled)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                }.padding(.top, 8)
+                            }.font(.system(size: 12)).foregroundColor(Studio.muted)
+                        } else {
+                            detail("Sessione sulla tastiera", "Nessun trasferimento preparato")
+                        }
+                        Text("La verifica legge soltanto identità e sessione: non prepara né installa un aggiornamento.")
+                            .font(.system(size: 12)).foregroundColor(Studio.muted)
+                            .fixedSize(horizontal: false, vertical: true)
                         detail("Da trasferire", ByteCountFormatter.string(fromByteCount: Int64(review.plan.literalBytes), countStyle: .file))
                         detail("Riutilizzati sulla tastiera", ByteCountFormatter.string(fromByteCount: Int64(review.plan.copiedBytes), countStyle: .file))
                         if review.plan.baselineUse != .verified {
                             Text("La base locale non è verificata: verrà trasferita l’intera immagine.")
                                 .font(.system(size: 12)).foregroundColor(Studio.muted)
                         }
-                        Picker("Velocità di invio", selection: $model.transferPause) {
-                            Text("Prudente · 80 ms").tag(0.08)
-                            Text("Rapida · 40 ms").tag(0.04)
-                            Text("Sperimentale · 20 ms").tag(0.02)
-                        }.frame(maxWidth: 380).disabled(model.isBusy)
                         if let estimate = model.estimate { detail("Durata stimata", estimate) }
                         Text("Stima basata sulle prove brevi: può variare. Include verifiche, riconnessione e un margine; digitazione e interruzioni possono allungarla. 20 ms è stato provato su scambi brevi, non su un aggiornamento completo.")
                             .font(.system(size: 12)).foregroundColor(Studio.muted).fixedSize(horizontal: false, vertical: true)

@@ -67,7 +67,9 @@ import Combine
     @Published var message = "Scegli un colore. L’anteprima cambia solo nell’app."
     @Published var accessMessage = "Verifica che macOS consenta all’app di accedere alla tastiera."
     @Published var selectedPreset = "Menta"
-    @Published private(set) var liveRGBEnabled = false
+    // Remember the user's opt-in, not a queued color or a permission grant.
+    // Restoring this choice never sends until a new edit is made.
+    @Published private(set) var liveRGBEnabled = UserDefaults.standard.bool(forKey: "bluetooth.livePreview")
     @Published private(set) var liveRGBQueued = false
     @Published private(set) var liveRGBStatus = "L’anteprima sulla tastiera è disattivata."
     private var liveRGB = LiveRGBCoordinator()
@@ -122,6 +124,7 @@ import Combine
     func setLiveRGBEnabled(_ enabled: Bool) {
         guard !enabled || canEnableLiveRGB else { return }
         liveRGBEnabled = enabled
+        UserDefaults.standard.set(enabled, forKey: "bluetooth.livePreview")
         refreshLiveRGBContext()
         if enabled { queueLiveRGBChange() }
     }

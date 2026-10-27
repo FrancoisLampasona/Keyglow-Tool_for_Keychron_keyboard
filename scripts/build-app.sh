@@ -5,7 +5,14 @@ project="$PWD"
 # Build in a new bundle. Failed compilation/signing never damages the previous app.
 mkdir -p build/swift-cache dist
 stage="$(mktemp -d "$project/build/keyglow-app.XXXXXX")"
-trap 'rm -rf "$stage"' EXIT
+cleanup() {
+  # Restore the original path if publishing the completed new bundle failed.
+  if [[ -d "$stage/previous.bundle" && ! -e "$project/dist/Keyglow.app" ]]; then
+    mv "$stage/previous.bundle" "$project/dist/Keyglow.app"
+  fi
+  rm -rf "$stage"
+}
+trap cleanup EXIT
 bundle="$stage/Keyglow.app"
 mkdir -p "$bundle/Contents/MacOS" "$bundle/Contents/Resources"
 xcrun swiftc -swift-version 6 -O -module-cache-path "$project/build/swift-cache" \
@@ -28,16 +35,16 @@ if [[ -n "${FIRMWARE_UPDATE_PACKAGE:-}" ]]; then
 fi
 cp macOS/Info.plist "$bundle/Contents/Info.plist"
 cp LICENSE THIRD_PARTY_NOTICES.md "$bundle/Contents/Resources/"
-if [[ -n "${SIGNING_IDENTITY:-}" ]]; then
-  codesign --force --options runtime --timestamp --sign "$SIGNING_IDENTITY" "$bundle"
-else
-  codesign --force --sign - "$bundle"
-fi
-codesign --verify --strict "$bundle"
-# Retain a recoverable previous build outside the public distribution.
+python3 scripts/sign-app.py "$bundle"
+# A configured certificate identity must survive future builds. Refuse a silent
+# fallback to ad-hoc signing before replacing the working application.
+python3 scripts/sign-app.py --verify-update dist/Keyglow.app "$bundle"
+# Preserve a verified archive, not another discoverable .app in Launchpad.
 if [[ -e dist/Keyglow.app ]]; then
-  previous="$(mktemp -d "$project/build/keyglow-previous.XXXXXX")"
-  mv dist/Keyglow.app "$previous/Keyglow.app"
+  python3 scripts/clean-builds.py archive-current >/dev/null
+  # Archiving may take time: check again if the app was reopened meanwhile.
+  python3 scripts/sign-app.py --verify-update dist/Keyglow.app "$bundle"
+  mv dist/Keyglow.app "$stage/previous.bundle"
 fi
 mv "$bundle" dist/Keyglow.app
 printf '%s\n' "$project/dist/Keyglow.app"

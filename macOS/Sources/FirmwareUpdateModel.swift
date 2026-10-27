@@ -69,20 +69,40 @@ struct FirmwareUpdateReview: Sendable {
     let artifact: FirmwareUpdateArtifact
     let controller: FirmwareAuthorization.VerifiedHello
     let plan: FirmwareDeltaPlan
+    /// A separate, read-only STATUS response. Nil means no valid staged session.
+    let staging: FirmwareStagingStatus?
     var isAlreadyInstalled: Bool {
         controller.image.length == artifact.manifest.length && controller.image.sha256 == artifact.manifest.sha256 &&
             controller.build == artifact.manifest.build
     }
 }
 
+struct FirmwareStagingStatus: Equatable, Sendable {
+    let manifest: FirmwareAuthorization.Manifest
+    let missing: Set<Int>
+    let flags: UInt8
+    var chunkCount: Int { (Int(manifest.length) + 255) / 256 }
+    var savedChunks: Int { chunkCount - missing.count }
+    var ready: Bool { flags & 2 != 0 }
+    var committed: Bool { flags & 4 != 0 }
+    var installed: Bool { flags & 8 != 0 }
+    var summary: String {
+        if installed { return "Installazione precedente completata" }
+        if committed { return "Installazione confermata, riavvio da verificare" }
+        if ready { return "Immagine completa e verificata" }
+        return savedChunks == 0 ? "Trasferimento preparato, nessun blocco salvato" : "Trasferimento da completare"
+    }
+}
+
 struct FirmwareUpdateProgress: Sendable {
-    enum Stage: Sendable { case reading, authorizing, status, transferring, verifying, committing, reconnecting }
+    enum Stage: Sendable { case reading, keyAccess, authorizing, status, transferring, verifying, committing, reconnecting }
     let stage: Stage
     let completedBytes: Int
     let totalBytes: Int
     var message: String {
         switch stage {
         case .reading: return "Verifico identità e firmware della tastiera…"
+        case .keyAccess: return "Accedo alla chiave nel Portachiavi. Se macOS lo chiede, autorizza Keyglow nella finestra di sistema."
         case .authorizing: return "Autorizzo questo aggiornamento…"
         case .status: return "Leggo i blocchi già salvati sulla tastiera…"
         case .transferring: return "Trasferisco e verifico i blocchi mancanti…"
@@ -104,6 +124,9 @@ final class FirmwareUpdateCoordinator {
     private let wait: (TimeInterval, OTAUpdateCancellation) throws -> Void
     private let progress: (FirmwareUpdateProgress) -> Void
     private var requestID: UInt32 = 0
+    // Retained only during one explicit review/install action, including its
+    // fresh authenticated HELLO checks. Never shared between user actions.
+    private var actionKey: FirmwareOwnerKey?
 
     init(exchange: @escaping Exchange, loadKey: @escaping (Data) throws -> FirmwareOwnerKey?,
          baseline: @escaping (FirmwareAuthorization.InstalledImage) throws -> Data?,
@@ -120,28 +143,34 @@ final class FirmwareUpdateCoordinator {
     }
 
     func review(_ artifact: FirmwareUpdateArtifact, cancellation: OTAUpdateCancellation) throws -> FirmwareUpdateReview {
+        actionKey = nil
+        defer { actionKey = nil }
         progress(.init(stage: .reading, completedBytes: 0, totalBytes: artifact.image.count))
-        let controller = try hello(cancellation)
+        let controller = try hello(cancellation, totalBytes: artifact.image.count)
         guard controller.capabilities & 7 == 7 else { throw FirmwareUpdateFailure.capabilityMissing }
+        progress(.init(stage: .status, completedBytes: 0, totalBytes: artifact.image.count))
+        let staging = try Self.stage(transact(operation: 3, acceptedResults: [0, 2], cancellation: cancellation))
         let old = try baseline(controller.image)
         let plan = try FirmwareDeltaPlan.make(oldAppData: old, newAppData: artifact.image,
                                               verifiedOldSHA256: controller.image.sha256,
                                               target: controller.target)
-        return .init(artifact: artifact, controller: controller, plan: plan)
+        return .init(artifact: artifact, controller: controller, plan: plan, staging: staging)
     }
 
     func install(_ review: FirmwareUpdateReview, replace: Bool,
                  cancellation: OTAUpdateCancellation) throws -> FirmwareAuthorization.VerifiedHello {
+        actionKey = nil
+        defer { actionKey = nil }
         let total = review.artifact.image.count
         progress(.init(stage: .reading, completedBytes: 0, totalBytes: total))
-        let fresh = try hello(cancellation)
+        let fresh = try hello(cancellation, totalBytes: total)
         guard fresh == review.controller else { throw FirmwareUpdateFailure.identityChanged }
         if review.isAlreadyInstalled { return fresh }
         progress(.init(stage: .status, completedBytes: 0, totalBytes: total))
         let previous = try transact(operation: 3, acceptedResults: [0, 2], cancellation: cancellation)
         let replaceStage = try Self.replacementPolicy(previous, controller: fresh,
                                                       target: review.artifact.manifest, userReplace: replace)
-        guard let key = try loadKey(fresh.keyID) else { throw FirmwareUpdateFailure.ownerKeyMissing }
+        let key = try ownerKey(for: fresh.keyID, totalBytes: total)
         let auth = try FirmwareAuthorization.makePayload(manifest: review.artifact.manifest, source: fresh.image,
                                                          reportedCurrentImage: fresh.image, nonce: nonce(),
                                                          replace: replaceStage, ownerKey: key)
@@ -173,7 +202,7 @@ final class FirmwareUpdateCoordinator {
         for attempt in 0..<3 {
             try wait(attempt == 0 ? 2 : 3, cancellation)
             do {
-                let installed = try hello(cancellation)
+                let installed = try hello(cancellation, totalBytes: total)
                 if installed.keyID == fresh.keyID,
                    installed.image.length == review.artifact.manifest.length,
                    installed.image.sha256 == review.artifact.manifest.sha256,
@@ -188,13 +217,25 @@ final class FirmwareUpdateCoordinator {
         throw FirmwareUpdateFailure.installationUnconfirmed
     }
 
-    private func hello(_ cancellation: OTAUpdateCancellation) throws -> FirmwareAuthorization.VerifiedHello {
+    private func ownerKey(for id: Data, totalBytes: Int) throws -> FirmwareOwnerKey {
+        if let actionKey {
+            guard actionKey.keyID == id else { throw FirmwareUpdateFailure.identityChanged }
+            return actionKey
+        }
+        progress(.init(stage: .keyAccess, completedBytes: 0, totalBytes: totalBytes))
+        guard let key = try loadKey(id) else { throw FirmwareUpdateFailure.ownerKeyMissing }
+        guard key.keyID == id else { throw FirmwareAuthorization.Failure.wrongKey }
+        actionKey = key
+        return key
+    }
+
+    private func hello(_ cancellation: OTAUpdateCancellation, totalBytes: Int) throws -> FirmwareAuthorization.VerifiedHello {
         let challenge = try nonce()
         guard challenge.count == 16 else { throw FirmwareAuthorization.Failure.invalidNonce }
         let reply = try transact(operation: 8, payload: Array(challenge), cancellation: cancellation)
         let payload = Data(reply.payload)
         let id = try FirmwareAuthorization.helloKeyID(payload)
-        guard let key = try loadKey(id) else { throw FirmwareUpdateFailure.ownerKeyMissing }
+        let key = try ownerKey(for: id, totalBytes: totalBytes)
         return try FirmwareAuthorization.verifyHelloPayload(payload, ownerKey: key, expectedNonce: challenge)
     }
 
@@ -214,20 +255,15 @@ final class FirmwareUpdateCoordinator {
         let encoded = try BluetoothOTAWire.reply(operation: reply.operation, requestID: reply.requestID,
                                                 result: reply.result, flags: reply.flags, payload: reply.payload)
         guard try BluetoothOTAWire.parseReply(encoded) == reply else { throw FirmwareUpdateFailure.replyMismatch }
+        if cancellation.isCancelled { throw OTAChannelFailure.cancelled }
         guard acceptedResults.contains(reply.result) else { throw FirmwareUpdateFailure.deviceResult(reply.result) }
         if operation != 3 && operation != 8 && !reply.payload.isEmpty { throw FirmwareUpdateFailure.replyMismatch }
         return reply
     }
 
-    private struct Stage {
-        let manifest: FirmwareAuthorization.Manifest
-        let missing: Set<Int>
-        let committed: Bool
-        let installed: Bool
-    }
-
-    private static func stage(_ reply: BluetoothOTAWire.Reply) throws -> Stage? {
+    private static func stage(_ reply: BluetoothOTAWire.Reply) throws -> FirmwareStagingStatus? {
         let bytes = reply.payload
+        guard reply.operation == 3, [0, 2].contains(reply.result) else { throw FirmwareUpdateFailure.invalidStatus }
         if reply.result == 2 {
             guard reply.flags == 0, bytes.count == 96, bytes.allSatisfy({ $0 == 0 }) else {
                 throw FirmwareUpdateFailure.invalidStatus
@@ -237,13 +273,15 @@ final class FirmwareUpdateCoordinator {
         guard bytes.count == 96, reply.flags & 1 == 1,
               !(reply.flags & 4 != 0 && reply.flags & 2 == 0),
               !(reply.flags & 8 != 0 && reply.flags & 4 == 0) else { throw FirmwareUpdateFailure.invalidStatus }
-        let recorded = try FirmwareAuthorization.Manifest(target: firmwareLE(bytes, 0), address: firmwareLE(bytes, 4),
-                                                          length: firmwareLE(bytes, 8), build: firmwareLE(bytes, 12),
-                                                          sha256: Data(bytes[16..<48]))
+        guard let recorded = try? FirmwareAuthorization.Manifest(target: firmwareLE(bytes, 0), address: firmwareLE(bytes, 4),
+                                                                 length: firmwareLE(bytes, 8), build: firmwareLE(bytes, 12),
+                                                                 sha256: Data(bytes[16..<48])) else {
+            throw FirmwareUpdateFailure.invalidStatus
+        }
         let count = (Int(recorded.length) + 255) / 256
         let missing = Set((0..<count).filter { bytes[48 + $0 / 8] & (1 << ($0 % 8)) != 0 })
         guard reply.flags & 2 == 0 || missing.isEmpty else { throw FirmwareUpdateFailure.invalidStatus }
-        return Stage(manifest: recorded, missing: missing, committed: reply.flags & 4 != 0, installed: reply.flags & 8 != 0)
+        return FirmwareStagingStatus(manifest: recorded, missing: missing, flags: reply.flags)
     }
 
     private static func replacementPolicy(_ reply: BluetoothOTAWire.Reply,
@@ -396,12 +434,11 @@ final class FirmwareUpdateModel: ObservableObject {
     private var pendingRaw: Data?
     private var cancellation = OTAUpdateCancellation()
     private var actionID = UUID()
-    private let reviewAction: @Sendable (FirmwareUpdateArtifact, Double, OTAUpdateCancellation) throws -> FirmwareUpdateReview
+    private let reviewAction: (@Sendable (FirmwareUpdateArtifact, Double, OTAUpdateCancellation) throws -> FirmwareUpdateReview)?
     private let provisioningAction: @Sendable () throws -> FirmwareUpdateFiles.Provisioning
 
-    init(reviewAction: @escaping @Sendable (FirmwareUpdateArtifact, Double, OTAUpdateCancellation) throws -> FirmwareUpdateReview = { artifact, pause, token in
-        try FirmwareUpdateModel.worker(pause: pause).review(artifact, cancellation: token)
-    }, provisioningAction: @escaping @Sendable () throws -> FirmwareUpdateFiles.Provisioning = FirmwareUpdateFiles.provisionOwnerKey) {
+    init(reviewAction: (@Sendable (FirmwareUpdateArtifact, Double, OTAUpdateCancellation) throws -> FirmwareUpdateReview)? = nil,
+         provisioningAction: @escaping @Sendable () throws -> FirmwareUpdateFiles.Provisioning = FirmwareUpdateFiles.provisionOwnerKey) {
         self.reviewAction = reviewAction; self.provisioningAction = provisioningAction
     }
 
@@ -501,7 +538,16 @@ final class FirmwareUpdateModel: ObservableObject {
         let (id, token) = begin(.reading)
         review = nil; message = "Verifico la Q6 Max via Bluetooth. Evita di digitare durante lo scambio."
         Task.detached(priority: .userInitiated) { [self] in
-            let result = Result { try action(artifact, pause, token) }
+            let owner = self
+            let result = Result {
+                if let action { return try action(artifact, pause, token) }
+                return try Self.worker(pause: pause) { update in
+                    Task { @MainActor in
+                        guard owner.actionID == id, owner.isBusy else { return }
+                        owner.progress = update; owner.message = update.message
+                    }
+                }.review(artifact, cancellation: token)
+            }
             await finishReview(result, id: id)
         }
     }
@@ -516,7 +562,7 @@ final class FirmwareUpdateModel: ObservableObject {
             let owner = self
             let worker = Self.worker(pause: pause) { update in
                 Task { @MainActor in
-                    guard owner.actionID == id else { return }
+                    guard owner.actionID == id, owner.isBusy else { return }
                     owner.progress = update; owner.message = update.message
                 }
             }
@@ -559,7 +605,7 @@ final class FirmwareUpdateModel: ObservableObject {
                 requestMayHaveStarted = false
             default: requestMayHaveStarted = true
             }
-        } else { requestMayHaveStarted = error is BluetoothOTAWire.Failure }
+        } else { requestMayHaveStarted = error is BluetoothOTAWire.Failure || error is OTAInputReportFailure }
         if requestMayHaveStarted {
             cooldownUntil = Date().addingTimeInterval(61)
         }

@@ -11,12 +11,20 @@ The UI-model lifetime tests inject review/provisioning operations; they do not
 generate keys, access Keychain, create files or open a panel.
 
 The suite covers package CRC/SHA/target validation, raw-image build requirements,
-authenticated HELLO and source identity changes, delta/literal fallback, a fresh
-identity check before mutation, pre-authorization STATUS, AUTH_BEGIN and matching STATUS, missing-chunk
+authenticated HELLO and source identity changes, delta/literal fallback, read-only
+review with HELLO and STATUS, a fresh identity check before mutation,
+pre-authorization STATUS, AUTH_BEGIN and matching STATUS, missing-chunk
 resume, coalescing across only contiguous missing COPY chunks, cancellation,
 typing, malformed replies, lost acknowledgements after mutations, and checking
 the installed SHA/length/build after COMMIT. No mutation is automatically retried.
 A failed final verification never becomes a successful update.
+
+Review exposes empty, partial and completed staging sessions without AUTH_BEGIN.
+Malformed status lengths, flags, bitmap/state combinations and CRC are rejected.
+The owner key is loaded once per review/install action and dropped on success,
+failure or cancellation; each fresh HELLO is still authenticated, including after
+reboot. Tests count key loads and require the Keychain progress phase before any
+lookup. These tests never access the real Keychain.
 
 The fake enforces the controller's staging replacement contract. A completed
 installed stage is automatically replaced only when its target/address/length/

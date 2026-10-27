@@ -1,0 +1,28 @@
+--- a/keyboards/keychron/common/wireless/lkbt51.c
++++ b/keyboards/keychron/common/wireless/lkbt51.c
+@@ -329,9 +329,12 @@
+ }
+ 
+ void lkbt51_read(uint8_t* payload, uint8_t len) {
++    /* len excludes the four SPI command bytes. Keep the existing transfer
++     * length (4 + len), with room for every transmitted and received byte. */
++    if (len > PACKET_MAX_LEN) return;
+     uint8_t i;
+-    uint8_t pkt[PACKET_MAX_LEN] = {0};
+-    memset(pkt, 0, PACKET_MAX_LEN);
++    uint8_t pkt[PACKET_MAX_LEN + 4u] = {0};
++    memset(pkt, 0, sizeof(pkt));
+ 
+     i        = 0;
+     pkt[i++] = 0x84;
+@@ -900,7 +903,9 @@
+     static uint8_t sn               = 0;
+ 
+     if (gpio_read_pin(WIRELESS_TO_MCU_INT_PIN) == 0) {
+-        uint8_t buf[BUFFER_SIZE] = {0};
++        /* The extra SPI command bytes are transferred too. BUFFER_SIZE
++         * remains the parser limit; only the receive allocation grows. */
++        uint8_t buf[BUFFER_SIZE + VALID_DATA_START_INDEX] = {0};
+         lkbt51_read(buf, expect_len);
+ 
+         uint8_t* pbuf = buf + VALID_DATA_START_INDEX;

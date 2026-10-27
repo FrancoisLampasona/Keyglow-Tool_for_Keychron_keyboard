@@ -14,3 +14,4 @@ cc -std=c11 -Wall -Wextra -Werror -pedantic -fsanitize=address,undefined \
 python3 tests/test_qmk_render_transition.py
 python3 tests/test_qmk_responsive_idle.py
 python3 tests/test_legacy_rejection.py
+python3 tests/test_lkbt51_spi_bounds.py

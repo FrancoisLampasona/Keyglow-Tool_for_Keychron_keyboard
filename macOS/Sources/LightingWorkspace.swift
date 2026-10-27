@@ -80,6 +80,7 @@ struct LightingWorkspaceView:View {
                 Spacer(minLength: 8)
                 Toggle("Anteprima sulla tastiera", isOn: Binding(get: { model.liveRGBEnabled }, set: { model.setLiveRGBEnabled($0) }))
                     .labelsHidden().toggleStyle(.switch)
+                    .help("La scelta viene ricordata. L’apertura dell’app non invia colori: servono nuove modifiche nell’editor.")
                     .disabled(!model.liveRGBEnabled && !model.canEnableLiveRGB)
             }
             Text(model.liveRGBEnabled || model.transmitting ? model.liveRGBStatus : model.canEnableLiveRGB ? "Modalità rapida sperimentale: attendi il cambiamento sulla tastiera. Durante l’invio evita Caps Lock e Num Lock." : model.liveRGBUnavailableReason)

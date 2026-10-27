@@ -10,6 +10,8 @@ The v3 protocol was installed and physically tested on one keyboard. A single co
 
 The host suites cover framing, invalid and truncated data, effect transitions, persistence, legacy decoder rejection and energy-policy behavior. They use synthetic transports and memory. They cannot prove over-the-air reception, EEPROM wear characteristics, battery life, or recovery on a physical board.
 
+The source integration also includes a bounds fix for the pinned LKBT51 SPI driver: a 64-byte read clocks four additional command bytes, so both transfer buffers need 68 bytes. The regression test reproduces the upstream out-of-bounds read and write, then checks the corrected code with ASan/UBSan. This source fix is not present in the frozen A8/B9 test images. Its connection to the observed intermittent input reports has not been established.
+
 ## Why custom firmware is needed
 
 The Bluetooth HID descriptor observed on the tested board exposes standard indicator outputs, but not the 32-byte Raw HID configuration channel used over USB. Keyglow encodes RGB settings into indicator reports and the custom firmware decodes them. The official firmware does not implement this protocol.
@@ -34,9 +36,21 @@ The app validates a relocated Q6 Max ISO `.kgfw` package, authenticates the keyb
 
 Initial provisioning requires USB/DFU and an owner key generated explicitly by the app. The key is stored in the user's Keychain and a private local bootstrap file. The personalized loader contains that secret and must never be published, bundled with the public app, or attached to issues. Public firmware packages are owner-authorized when sent; they are not publisher-signed releases or an anti-rollback system.
 
-Hardware evidence so far covers a nonce/CRC return-channel probe at 80, 40 and 20 ms downlink timing; the return path used 100 ms symbols. The two bootstrap phases were written and independently read back on one Q6 Max ISO. Build 8 then booted, and the saved profile was restored and verified over USB. **A complete Bluetooth A→B update has not yet been verified.** Rapid RGB previews are also awaiting a physical test.
+Hardware evidence so far covers a nonce/CRC return-channel probe at 80, 40 and 20 ms downlink timing; the return path used 100 ms symbols. The two bootstrap phases were written and independently read back on one Q6 Max ISO. Build 8 then booted, and the saved profile was restored and verified over USB. **A complete Bluetooth A→B update has not yet been verified.** A 20 ms attempt reached at least 31,488 staged bytes before an input-report guard stopped it; the user reported no keyboard or knob activity. This does not establish the cause or a completed update. Separately, manual amber Breathing and automatic blue Breathing at 20 ms were physically confirmed with USB unplugged.
 
 Offline tests include authenticated staging, simulated power interruptions, wire framing, typing/disconnect cancellation and the production Swift coordinator connected to the C engine and loader in memory. These do not establish physical power-loss recovery. The initial loader-sector write is not interruption-safe, and independent BOOT0/SWD recovery has not been verified on the test unit. See [the integration notes](../firmware/ota/integration/README.md) before attempting another bootstrap.
+
+In 0.8.2 the review reads authenticated identity and staging STATUS before enabling an update. It shows saved blocks and session flags without preparing or committing an image. Owner-key access is scoped to each explicit action; post-reboot identity remains freshly authenticated.
+
+A later controlled 80 ms attempt completed all 355 chunks (90,632 bytes) and
+FINISH. The COMMIT exchange timed out. A subsequent authenticated identity read
+still reported build 8, while STATUS reported build 9 complete and READY, but
+neither committed nor installed. The saved stage can be resumed; this is not a
+successful installation. The host now leaves a guarded 600 ms quiet interval
+after each reply receipt and indicator restoration, exceeding the firmware's
+400 ms parser timeout. Offline tests cover cancellation and unexpected input
+during that interval; its effect on the observed timeout still needs hardware
+verification.
 
 The stock firmware and the earlier RGB-only custom firmware cannot acquire the loader through an app update alone. Builds do not flash hardware. The app keeps RGB sending separate from firmware transfer and does not silently retry failed flash mutations.
 

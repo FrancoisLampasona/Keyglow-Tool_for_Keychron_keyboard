@@ -41,9 +41,14 @@ struct FirmwareUpdateTests {
         var wrongStatus = false
         var wrongInstalledBuild = false
         var forgeHello = false
+        var forgeAfterCommit = false
         var cancelAfter: UInt8?
         var typingBefore: UInt8?
         var nonceCounter: UInt8 = 1
+        var keyLoads = 0
+        var keyLoadFails = false
+        var progressStages: [FirmwareUpdateProgress.Stage] = []
+        var statusFault: Int?
         init(_ data: Data) throws { current = data; key = try FirmwareOwnerKey(rawRepresentation: rawKey) }
         func seedStage(_ image: Data, build: UInt32, committed: Bool, installed: Bool) throws {
             manifest = try artifact(image, build: build).manifest
@@ -54,10 +59,16 @@ struct FirmwareUpdateTests {
         }
         func worker(baseline: Data? = nil, keyPresent: Bool = true) -> FirmwareUpdateCoordinator {
             FirmwareUpdateCoordinator(exchange: { [self] in try exchange($0, $1) },
-                                      loadKey: { [self] id in keyPresent && id == key.keyID ? key : nil },
+                                      loadKey: { [self] id in
+                                          keyLoads += 1
+                                          precondition(progressStages.last == .keyAccess)
+                                          if keyLoadFails { throw FirmwareAuthorization.Failure.keychainFailure(-1) }
+                                          return keyPresent && id == key.keyID ? key : nil
+                                      },
                                       baseline: { _ in baseline },
                                       nonce: { [self] in nonceCounter &+= 1; return Data(repeating: nonceCounter, count: 16) },
-                                      wait: { _, cancellation in if cancellation.isCancelled { throw OTAChannelFailure.cancelled } })
+                                      wait: { _, cancellation in if cancellation.isCancelled { throw OTAChannelFailure.cancelled } },
+                                      progress: { [self] in progressStages.append($0.stage) })
         }
         func exchange(_ frame: [UInt8], _ cancellation: OTAUpdateCancellation) throws -> BluetoothOTAExchangeResult {
             let request = try BluetoothOTAWire.parseRequest(frame)
@@ -104,6 +115,16 @@ struct FirmwareUpdateTests {
                     result = 2; flags = 0; payload = [UInt8](repeating: 0, count: 96)
                     if wrongStatus { payload[0] = 1 }
                 }
+                switch statusFault {
+                case 0: payload.removeLast()
+                case 1: flags = 0
+                case 2: flags = 5 // Commit requires verified image.
+                case 3: flags = 9 // Installed requires commit.
+                case 4: flags = 3 // Verified image cannot have missing chunks.
+                case 5: result = 2; flags = 0 // No-session response must be all zero.
+                case 6: result = 0; flags = 1; payload = [UInt8](repeating: 0, count: 96)
+                default: break
+                }
             case 2:
                 let offset = Int(word(request.payload, 0)); dataOffsets.append(offset)
                 let data = request.payload.dropFirst(4)
@@ -121,6 +142,7 @@ struct FirmwareUpdateTests {
                 precondition(missing.isEmpty)
                 current = stage!; build = wrongInstalledBuild ? manifest!.build + 1 : manifest!.build
                 ready = true; committed = true; installed = true; flags = 7
+                if forgeAfterCommit { forgeHello = true }
             default: preconditionFailure("Unexpected operation")
             }
             if failAfter == op { throw OTAChannelFailure.disconnected }
@@ -144,9 +166,15 @@ struct FirmwareUpdateTests {
         let coordinator = device.worker(baseline: old)
         let review = try coordinator.review(selected, cancellation: .init())
         precondition(review.plan.literalBytes == 256 && review.plan.copiedBytes == old.count - 256)
+        precondition(device.operations == [8, 3] && device.keyLoads == 1)
+        precondition(review.staging?.manifest.build == 8 && review.staging?.flags == 15)
+        precondition(review.staging?.savedChunks == 5 && review.staging?.missing.isEmpty == true)
         let installed = try coordinator.install(review, replace: false, cancellation: .init())
         precondition(installed.image.sha256 == selected.manifest.sha256 && installed.build == 9)
-        precondition(device.operations == [8, 8, 3, 7, 3, 6, 2, 6, 4, 5, 8])
+        precondition(device.operations == [8, 3, 8, 3, 7, 3, 6, 2, 6, 4, 5, 8])
+        // Review and install each load once; AUTH and post-reboot HELLO reuse
+        // only the install's local key, while every HELLO remains authenticated.
+        precondition(device.keyLoads == 2 && device.progressStages.filter { $0 == .keyAccess }.count == 2)
         precondition(device.replaceFlags == [true] && device.eraseCount == 1)
         precondition(device.dataOffsets == [256] && device.current == next)
 
@@ -195,6 +223,7 @@ struct FirmwareUpdateTests {
         let literalWorker = missingBase.worker()
         let literalReview = try literalWorker.review(selected, cancellation: .init())
         precondition(literalReview.plan.literalBytes == next.count)
+        precondition(literalReview.staging == nil && missingBase.operations == [8, 3])
         _ = try literalWorker.install(literalReview, replace: false, cancellation: .init())
         precondition(!missingBase.operations.contains(6))
 
@@ -213,15 +242,16 @@ struct FirmwareUpdateTests {
         let changedReview = try changedWorker.review(selected, cancellation: .init())
         changed.current = image(seed: 4)
         rejects { _ = try changedWorker.install(changedReview, replace: false, cancellation: .init()) }
-        precondition(changed.operations == [8, 8])
+        precondition(changed.operations == [8, 3, 8] && changed.keyLoads == 2)
 
         for failure: UInt8 in [7, 3, 2, 4, 5] {
             let interrupted = try Device(old)
             let worker = interrupted.worker()
             let originalReview = try worker.review(selected, cancellation: .init())
             interrupted.failAfter = failure
+            let previousOperations = interrupted.operations.filter { $0 == failure }.count
             rejects { _ = try worker.install(originalReview, replace: false, cancellation: .init()) }
-            precondition(interrupted.operations.filter { $0 == failure }.count == 1)
+            precondition(interrupted.operations.filter { $0 == failure }.count == previousOperations + 1)
             if failure != 5 { precondition(!interrupted.operations.contains(5)) }
         }
         let corrupt = try Device(old)
@@ -279,7 +309,66 @@ struct FirmwareUpdateTests {
         let alreadyReview = try alreadyWorker.review(selected, cancellation: .init())
         precondition(alreadyReview.isAlreadyInstalled)
         _ = try alreadyWorker.install(alreadyReview, replace: false, cancellation: .init())
-        precondition(already.operations == [8, 8])
+        precondition(already.operations == [8, 3, 8] && already.keyLoads == 2)
+
+        // Read-only review distinguishes an AUTH that prepared staging from
+        // an empty/previous stage without issuing AUTH again or writing blocks.
+        let staged = try Device(old)
+        try staged.seedStage(next, build: 9, committed: false, installed: false)
+        staged.missing = [1, 3]
+        let stagedReview = try staged.worker().review(selected, cancellation: .init())
+        precondition(staged.operations == [8, 3] && staged.eraseCount == 0)
+        precondition(stagedReview.staging?.manifest == selected.manifest)
+        precondition(stagedReview.staging?.savedChunks == 3 && stagedReview.staging?.missing == [1, 3])
+        precondition(stagedReview.staging?.flags == 1 && stagedReview.staging?.ready == false)
+        for fault in 0...6 {
+            let malformed = try Device(old)
+            try malformed.seedStage(next, build: 9, committed: false, installed: false)
+            malformed.missing = [0]; malformed.statusFault = fault
+            rejects { _ = try malformed.worker().review(selected, cancellation: .init()) }
+            precondition(malformed.operations == [8, 3] && malformed.eraseCount == 0)
+        }
+        let crcState = try Device(old); crcState.corrupt = 3
+        rejects { _ = try crcState.worker().review(selected, cancellation: .init()) }
+        precondition(crcState.operations == [8, 3])
+
+        // Success, a malformed status, cancellation and Keychain failure all
+        // end the action scope; a subsequent action must load its own key.
+        let scoped = try Device(old)
+        let scopedWorker = scoped.worker()
+        _ = try scopedWorker.review(selected, cancellation: .init())
+        _ = try scopedWorker.review(selected, cancellation: .init())
+        precondition(scoped.keyLoads == 2)
+        scoped.wrongStatus = true
+        rejects { _ = try scopedWorker.review(selected, cancellation: .init()) }
+        scoped.wrongStatus = false
+        _ = try scopedWorker.review(selected, cancellation: .init())
+        precondition(scoped.keyLoads == 4)
+        scoped.cancelAfter = 3
+        rejects { _ = try scopedWorker.review(selected, cancellation: .init()) }
+        scoped.cancelAfter = nil
+        _ = try scopedWorker.review(selected, cancellation: .init())
+        precondition(scoped.keyLoads == 6)
+        scoped.keyLoadFails = true
+        rejects { _ = try scopedWorker.review(selected, cancellation: .init()) }
+        scoped.keyLoadFails = false
+        _ = try scopedWorker.review(selected, cancellation: .init())
+        precondition(scoped.keyLoads == 8 && scoped.operations.allSatisfy { $0 == 8 || $0 == 3 })
+
+        let forgedAgain = try Device(old)
+        let forgedWorker = forgedAgain.worker()
+        _ = try forgedWorker.review(selected, cancellation: .init())
+        forgedAgain.forgeHello = true
+        rejects { _ = try forgedWorker.review(selected, cancellation: .init()) }
+        precondition(forgedAgain.keyLoads == 2 && forgedAgain.operations == [8, 3, 8])
+        let forgedReboot = try Device(old)
+        let rebootWorker = forgedReboot.worker()
+        let rebootReview = try rebootWorker.review(selected, cancellation: .init())
+        forgedReboot.forgeAfterCommit = true
+        rejects { _ = try rebootWorker.install(rebootReview, replace: false, cancellation: .init()) }
+        precondition(forgedReboot.keyLoads == 2)
+        precondition(forgedReboot.operations.filter { $0 == 5 }.count == 1)
+        precondition(forgedReboot.operations.filter { $0 == 8 }.count == 3)
 
         var header = Array("KGFW0001".utf8) + le(selected.manifest.target) + le(selected.manifest.address) + le(selected.manifest.length) + le(selected.manifest.build) + Array(selected.manifest.sha256)
         header += le(BluetoothOTAWire.crc32(header))
@@ -306,6 +395,13 @@ struct FirmwareUpdateTests {
             let shouldWait = failure == .writeFailed || failure == .deadline
             precondition((model.cooldownUntil != nil) == shouldWait)
         }
+        let inputFailure = OTAInputReportFailure(cause: .inputActivity, reportID: 4, byteCount: 20,
+                                                operation: 6, phase: .response)
+        let diagnosedModel = FirmwareUpdateModel(reviewAction: { _, _, _ in throw inputFailure })
+        diagnosedModel.selectArtifact(selected); diagnosedModel.verifyKeyboard()
+        for _ in 0..<100 where diagnosedModel.isBusy { try await Task.sleep(for: .milliseconds(10)) }
+        precondition(diagnosedModel.phase == .failed && diagnosedModel.cooldownUntil != nil)
+        precondition(diagnosedModel.message == inputFailure.localizedDescription)
 
         // A removed view must not orphan the global busy flag. Detached work
         // retains its model until the MainActor completion has cleared it.
