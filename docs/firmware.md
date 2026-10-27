@@ -38,6 +38,8 @@ Initial provisioning requires USB/DFU and an owner key generated explicitly by t
 
 **A Bluetooth build 8 → 9 update completed on one Q6 Max ISO on 2026-10-27.** A fresh owner-authenticated HELLO verified build 9, its 90,632-byte length and target SHA-256; STATUS confirmed all 355 chunks and installation completed. The application image hash was `bc4074b7ac4059608a8a91d8c438f4a39dc1ef2d966cfe2759cb80761d76f53c`. USB remained disconnected. The transfer resumed across interrupted 20/80 ms attempts; finalization and post-boot verification succeeded at 20 ms. This does not establish an uninterrupted bulk transfer at 20 ms or general reliability.
 
+After the update reboot, the user confirmed normal typing and that the selected RGB color and effect were preserved.
+
 The READY stage also survived a real keyboard power cycle before finalization. COMMIT ended with an indicator-restoration error; after the pending-reply cooldown, a separate read-only verification proved installation. The app now automates that bounded identity reconciliation for ambiguous COMMIT transport failures, without repeating COMMIT. Typing, cancellation and invalid authentication still stop the operation. This automatic recovery is covered with the real C engine in RAM; the physical proof used the same read-only verification as a separate action.
 
 Earlier evidence includes nonce/CRC exchanges at 80, 40 and 20 ms (100 ms return symbols), a USB bootstrap written and independently read back, and the profile restored and verified over USB. Manual amber Breathing and automatic blue Breathing at 20 ms were separately confirmed with USB unplugged.
