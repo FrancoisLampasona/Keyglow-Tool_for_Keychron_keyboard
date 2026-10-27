@@ -4,7 +4,7 @@ Keyglow è un'app macOS nativa per **Keychron Q6 Max ISO**, con layout italiano 
 
 ## Installazione e primo avvio
 
-Scarica il **[DMG Keyglow 0.10.1](https://github.com/FrancoisLampasona/Keyglow---Tool-for-Keychron-keyboard/releases/tag/v0.10.1)**, aprilo e trascina Keyglow in Applicazioni. Avvia l’app da lì ed espelli il disco. Servono un Mac Apple Silicon e macOS 13 o successivo. Il pacchetto contiene già firmware e strumenti USB.
+Scarica il **[DMG Keyglow 0.10.1](https://github.com/FrancoisLampasona/Keyglow-Tool_for_Keychron_keyboard/releases/tag/v0.10.1)**, aprilo e trascina Keyglow in Applicazioni. Avvia l’app da lì ed espelli il disco. Servono un Mac Apple Silicon e macOS 13 o successivo. Il pacchetto contiene già firmware e strumenti USB.
 
 È una versione sperimentale con firma locale, non notarizzata da Apple. La nuova prima installazione guidata è verificata tramite test software, ma non ancora provata fisicamente dall’inizio alla fine. La prima scrittura del loader non resiste a un’interruzione di alimentazione: l’app richiede una conferma esplicita prima di iniziare.
 

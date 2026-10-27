@@ -4,7 +4,7 @@
 
 Keyglow brings RGB controls, a visual keyboard editor and firmware tools into one desktop app. The current release supports **Keychron Q6 Max ISO with encoder** on Apple Silicon Macs running macOS 13 or later. Its interface and keyboard legends are in Italian.
 
-[Download the DMG](https://github.com/FrancoisLampasona/Keyglow---Tool-for-Keychron-keyboard/releases/tag/v0.10.1) · [Guida in italiano](docs/it.md) · [Firmware details](docs/firmware.md)
+[Download the DMG](https://github.com/FrancoisLampasona/Keyglow-Tool_for_Keychron_keyboard/releases/tag/v0.10.1) · [Guida in italiano](docs/it.md) · [Firmware details](docs/firmware.md)
 
 ![Keyglow lighting workspace with the Q6 Max ISO layout, color picker and effect controls](docs/screenshots/lighting.png)
 
@@ -22,7 +22,7 @@ Keyglow is an independent, open-source project, **not affiliated with or endorse
 
 ## Install the app
 
-1. Download **Keyglow-0.10.1-macOS-arm64.dmg** from the [release page](https://github.com/FrancoisLampasona/Keyglow---Tool-for-Keychron-keyboard/releases/tag/v0.10.1).
+1. Download **Keyglow-0.10.1-macOS-arm64.dmg** from the [release page](https://github.com/FrancoisLampasona/Keyglow-Tool_for_Keychron_keyboard/releases/tag/v0.10.1).
 2. Open the DMG and drag **Keyglow** into **Applications**.
 3. Open Keyglow from Applications, then eject the installation disk.
 4. Follow **Keyboard → Access → Firmware → Summary** in the first-run assistant.
