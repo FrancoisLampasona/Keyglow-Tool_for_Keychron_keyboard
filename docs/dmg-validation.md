@@ -39,7 +39,7 @@ Identity/parsing and freshness/refresh-gating tests passed. The native sidebar a
 
 The complete 0.10.1 DMG was mounted read-only and its files matched the installed app, with strict signature verification and bundled USB-helper launch. A separate signing test confirmed stable reciprocal requirements between different binaries and rejection of wrong identities/ad-hoc replacements. No privacy permissions were reset.
 
-Final 0.10.1 DMG SHA-256: `a6493a24d0823b4e868ece2802c72fbf9cd97d479369a412789e182bcb234a6f`. The UI review resolved a cached-connection issue: USB/Bluetooth metadata refreshes on activation and every five seconds while active and unpaused, including when disconnected. The owner’s subsequent USB → Bluetooth transition was recognized without restarting Keyglow. A complete Bluetooth → USB → Bluetooth cycle, including recognition of the return to Cable, remains unverified; it requires physically moving the cable and selector.
+Final 0.10.1 DMG SHA-256: `a6493a24d0823b4e868ece2802c72fbf9cd97d479369a412789e182bcb234a6f`. The UI review resolved a cached-connection issue: USB/Bluetooth metadata refreshes on activation and every five seconds while active and unpaused, including when disconnected. The owner’s subsequent USB → Bluetooth transition was recognized without restarting Keyglow. At this stage the complete round trip had not been tested; the later 0.11.0 physical test below completes that check.
 
 
 ## Multilingual update — 0.11.0, build 24
@@ -60,4 +60,23 @@ The new DMG was mounted read-only. Every app file matched `/Applications/Keyglow
 
 0.11.0 DMG SHA-256: `446956230cee6ece609ee9a1e13d27f327aa8100d8fd79f0b507c1f0869a37d4`.
 
-These checks do not change the documented limits: no fresh-Mac consent proof, no complete physical USB/Bluetooth round trip, no new firmware flash, and no Apple notarization.
+These packaging and localization checks did not include a physical USB/Bluetooth round trip. That separate check is recorded below. Fresh-Mac consent, the integrated first-install hardware path and Apple notarization remain unverified or unavailable as documented above.
+
+## Physical Bluetooth → USB → Bluetooth cycle — 0.11.0
+
+On October 27, 2026, the owner physically switched a Q6 Max ISO from Bluetooth to USB/Cable and back to Bluetooth. Keyglow 0.11.0 (build 24) remained open from `/Applications` throughout, with the same process ID before and after. No Detect, Refresh, Read keyboard or Apply button was pressed, and no permission was reset. The app was brought to the foreground for automatic refresh and remained on Lighting, with no firmware operation running.
+
+| Stage | Connection shown automatically | Battery result |
+| --- | --- | --- |
+| Initial Bluetooth | Bluetooth detected; access ready | Fresh **88%**, read at **23:19** |
+| USB connected, selector Cable | USB detected | **Battery —**; the popover explained that Cable cannot provide this reading |
+| USB removed, selector BT | Bluetooth detected; access ready | Fresh **92%**, read at **23:22** |
+| Following automatic refresh | Bluetooth detected; access ready | **91%**, read at **23:23** |
+
+Times are Europe/Rome. The initial stale reading was replaced automatically, the Cable transition cleared it, and reconnecting in Bluetooth produced a fresh reading. The subsequent timestamp and value changed without a manual refresh. The percentages are device-reported levels; they do not establish charging status, measurement accuracy or a battery-life estimate. This test verifies foreground refresh and both connection transitions on this keyboard, not continuous background polling or an exact transition latency.
+
+![USB detected automatically, with the battery reading unavailable in Cable](screenshots/battery-cycle-usb.png)
+
+![Bluetooth restored and the battery refreshed automatically at 23:23](screenshots/battery-cycle-bluetooth.png)
+
+Before/after digests of `workspace.v3`, `profiles.v3` and `app.language` matched. The same color, effect and profile data were preserved. No firmware, RGB setting or keyboard configuration was written during this test. No app rebuild or DMG replacement was necessary.

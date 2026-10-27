@@ -42,7 +42,7 @@ La barra laterale mostra la percentuale letta dalla Q6 Max via Bluetooth. Si agg
 
 In Cable compare **Batteria —**: questa lettura richiede il collegamento BT. Un dato vecchio è indicato come precedente; nessuna percentuale viene stimata. Lo stato di ricarica non è esposto dal servizio letto. Una pausa durante un’altra operazione conserva il dato valido e non viene mostrata come un errore; la lettura riprende automaticamente quando possibile.
 
-La prova sulla Q6 Max reale ha mostrato il passaggio da una lettura iniziale del **96%** a letture automatiche del **94%** e del **92%**, senza premere Aggiorna batteria. Il passaggio USB → Bluetooth è stato riconosciuto senza riaprire l’app. Il ciclo completo Bluetooth → USB → Bluetooth richiede ancora una prova fisica: [dettagli della verifica](dmg-validation.md).
+Il ciclo completo **Bluetooth → USB → Bluetooth** è stato verificato sulla Q6 Max reale con Keyglow 0.11.0, senza riaprire l’app e senza premere Rileva o Aggiorna batteria. In Bluetooth compariva **88%**; passando a Cable sono comparsi **USB rilevata** e **Batteria —**. Tornando in Bluetooth è arrivata una nuova lettura del **92%**, seguita automaticamente da **91%** il minuto successivo. Profili e configurazione locale sono rimasti invariati. La prova è stata svolta con l’app in primo piano: [dettagli della verifica](dmg-validation.md#physical-bluetooth--usb--bluetooth-cycle--0110).
 
 ## RGB senza cavo
 

@@ -16,7 +16,7 @@ Choose a color or effect, adjust brightness and speed, and save the result on yo
 
 **Battery level** is visible in the sidebar, read from the connected Q6 Max over Bluetooth. It refreshes once a minute while the app is active and idle. Missing, old and unavailable readings are labeled; Cable mode and charging status are not exposed by this reader. Bluetooth permission is requested only when you choose to read it. A normal pause during another operation keeps the last valid reading and resumes automatically when the app can read again.
 
-On one Q6 Max ISO, the battery changed from an initial **96%** reading to automatic readings of **94%** and **92%**, without pressing Refresh. USB → Bluetooth was recognized without restarting the app. The reverse transition and a complete round trip still need a physical test; see the [validation record](docs/dmg-validation.md).
+The complete **Bluetooth → USB → Bluetooth** cycle was physically verified on one Q6 Max ISO with Keyglow 0.11.0, without restarting the app or pressing Refresh/Detect. The sidebar changed from **88%** in Bluetooth to **Battery —** in Cable, then read **92%** after reconnecting in Bluetooth and **91%** automatically the following minute. Profiles and the local configuration stayed unchanged. See the [validation record](docs/dmg-validation.md#physical-bluetooth--usb--bluetooth-cycle--0110).
 
 Over **USB**, Keyglow also lets you edit four keymap layers, the encoder, macros, per-key RGB, mixed effects and supported power settings. Profiles stay on your Mac. You can prepare a draft without a keyboard and apply it explicitly when connected.
 
