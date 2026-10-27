@@ -45,7 +45,7 @@ La firma locale non è una firma Developer ID riconosciuta sui Mac di altre pers
 
 Profili, backup e chiavi rimangono sul Mac: non si trovano dentro questo DMG.
 Puoi spostare l’intera app senza spostare i suoi dati.
-Sorgenti: https://github.com/FrancoisLampasona/keyglow-macos
+Sorgenti: https://github.com/FrancoisLampasona/Keyglow---Tool-for-Keychron-keyboard
 Licenza GPL-2.0-or-later. Progetto indipendente, non affiliato a Keychron.
 ''')
     with DSStore.open(str(stage/'.DS_Store'),'w+') as store:

@@ -24,3 +24,9 @@ The current `dist/Keyglow.app`, all `research` data, `dist/firmware`, the entire
 Generated Swift caches, icon intermediates and host-test executables can be recreated by their build scripts. Cleaning caches makes the next build slower. Archived apps remain available for manual recovery; verify the signature after extraction before using a recovered build. Old app permissions may no longer match its signature.
 
 `archive-current` is an internal build helper that creates a verified backup without replacing or removing the current application. Recovery archives can contain older local diagnostic paths; keep the ignored recovery directory private, outside source publication.
+
+## Installed-app cleanup (2026-10-27)
+
+For the release validation, the exact DMG app was installed in `/Applications/Keyglow.app`. Private app preferences, device profiles, controller backups and firmware recovery artifacts were verified and preserved outside the checkout under the user’s Application Support directory. The checkout’s generated `build`, `dist` and downloaded `research` material was then selected for recoverable removal, leaving the source tree and one installed app. This is a one-time release cleanup, not a change to the conservative script allowlist above.
+
+Do not empty the Trash until you no longer need its build history. To build again, run the source setup/build commands; the Apple/Arm toolchain and QMK dependencies may need to be obtained again. Production profiles and owner keys remain outside the checkout and must not be deleted as build outputs.

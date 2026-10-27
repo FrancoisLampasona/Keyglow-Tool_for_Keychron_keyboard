@@ -198,8 +198,13 @@ import Combine
     func scan() {
         guard !busy else { refreshBluetoothAccess(forceRead: true); return }
         firmwareArmed = false; cableModeConfirmed = false; radioVersion = nil
-        scanUSB()
         refreshBluetoothAccess(forceRead: true)
+    }
+    /// Metadata-only hot-plug refresh. Safe while typing; deferred during I/O.
+    func refreshConnectionMetadata() {
+        guard !busy else { return }
+        scanUSB()
+        identifyBluetoothDevice()
     }
     private func identifyBluetoothDevice() {
         do {
@@ -229,7 +234,7 @@ import Combine
             if permission != .granted { accessMessage = permissionMessage(permission) }
             return
         }
-        identifyBluetoothDevice()
+        refreshConnectionMetadata()
         // Activation after the native color panel must not cancel queued RGB.
         // Reuse only this process's successful read after fresh OS consent and
         // registry identity checks; explicit Verify/Scan and wake force a read.

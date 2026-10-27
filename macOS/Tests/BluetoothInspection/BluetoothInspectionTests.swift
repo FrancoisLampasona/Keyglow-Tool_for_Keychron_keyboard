@@ -32,6 +32,22 @@ struct BluetoothInspectionTests {
         precondition(BluetoothQ6Identity.text(Data()) == nil)
         for valid: UInt8 in [0, 84, 100] { precondition(BluetoothQ6Identity.battery(Data([valid])) == Int(valid)) }
         for invalid in [Data(), Data([101]), Data([255]), Data([84, 0])] { precondition(BluetoothQ6Identity.battery(invalid) == nil) }
-        print("Bluetooth identity, target, bounded text and battery parsers passed; no manager or hardware connection created")
+        let now = Date(timeIntervalSince1970: 1000)
+        let reading = BatteryReading(percent: 20, date: now)
+        precondition(reading.isLow && reading.isFresh(at: now))
+        precondition(!reading.isFresh(at: now.addingTimeInterval(181)))
+        precondition(!reading.isFresh(at: now.addingTimeInterval(-1)))
+        precondition(!BatteryReading(percent: 21, date: now).isLow)
+        for connected in [false, true] { for active in [false, true] { for paused in [false, true] {
+            let context = BatteryRefreshContext(connected: connected, active: active, paused: paused)
+            precondition(context.shouldRefreshConnection == (active && !paused))
+            let allowed = connected && active && !paused
+            precondition(context.shouldRefresh(authorized: true, running: false, lastAttempt: nil, now: now) == allowed)
+            precondition(!context.shouldRefresh(authorized: false, running: false, lastAttempt: nil, now: now))
+            precondition(!context.shouldRefresh(authorized: true, running: true, lastAttempt: nil, now: now))
+            precondition(!context.shouldRefresh(authorized: true, running: false, lastAttempt: now.addingTimeInterval(-59), now: now))
+            precondition(context.shouldRefresh(authorized: true, running: false, lastAttempt: now.addingTimeInterval(-60), now: now) == allowed)
+        } } }
+        print("Bluetooth identity, battery parsing, stale readings and refresh/permission/operation gating passed; no hardware connection created")
     }
 }

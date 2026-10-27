@@ -54,7 +54,7 @@ struct BluetoothFirmwareInspection: Sendable {
     let vendorServicePresent: Bool
 }
 
-/// The manager is created only by the user's Verify action, on the main queue.
+/// The manager is created by an explicit read, or an already-authorized battery refresh.
 /// Delegate conformances defer isolation checking because CoreBluetooth's ObjC
 /// protocols are not actor annotated; all callbacks are requested on `.main`.
 @MainActor
@@ -81,12 +81,14 @@ final class BluetoothFirmwareInspector: NSObject, ObservableObject,
     private var readingDetails = false
     private var deadline: Task<Void, Never>?
     private var generation = UUID()
+    private var batteryOnly = false
     private let vendorService = "00010203-0405-0607-0809-0A0B0C0D1912"
     private enum Reading { case model, pnp, firmware, battery }
 
-    func start() {
+    func start(batteryOnly: Bool = false) {
         guard !isRunning else { return }
         cleanUp()
+        self.batteryOnly = batteryOnly
         inspection = nil
         permissionDenied = false
         candidates.removeAll(); names.removeAll(); pendingServices.removeAll()
@@ -152,7 +154,9 @@ final class BluetoothFirmwareInspector: NSObject, ObservableObject,
             }
             guard candidates.count <= 1 else { finish("Più Q6 Max collegate: lascia connessa solo quella da verificare."); return }
             if let peripheral = candidates.values.first { connect(peripheral) }
-            else {
+            else if batteryOnly {
+                finish("Q6 Max non collegata via Bluetooth. Seleziona BT e attendi la connessione al Mac.")
+            } else {
                 message = "Cerco la Q6 Max per 8 secondi. La tastiera deve essere in modalità BT."
                 central.scanForPeripherals(withServices: [CBUUID(string: "1812")], options: [CBCentralManagerScanOptionAllowDuplicatesKey: false])
                 // Collect the entire window; never choose the first of two devices.
@@ -188,7 +192,7 @@ final class BluetoothFirmwareInspector: NSObject, ObservableObject,
 
     func centralManager(_ central: CBCentralManager, didConnect peripheral: CBPeripheral) {
         guard isRunning, central === self.central, peripheral === target else { return }
-        peripheral.discoverServices(nil)
+        peripheral.discoverServices(batteryOnly ? [CBUUID(string: "180A"), CBUUID(string: "180F")] : nil)
     }
 
     func centralManager(_ central: CBCentralManager, didFailToConnect peripheral: CBPeripheral, error: Error?) {
@@ -205,7 +209,10 @@ final class BluetoothFirmwareInspector: NSObject, ObservableObject,
         guard isRunning, peripheral === target else { return }
         guard error == nil, let services = peripheral.services, !services.isEmpty else { finish("Nessun servizio Bluetooth leggibile."); return }
         pendingServices = Set(services.map(ObjectIdentifier.init))
-        for service in services { peripheral.discoverCharacteristics(nil, for: service) }
+        for service in services {
+            let ids = service.uuid.uuidString == "180F" ? ["2A19"] : ["2A24", "2A50"]
+            peripheral.discoverCharacteristics(batteryOnly ? ids.map { CBUUID(string: $0) } : nil, for: service)
+        }
     }
 
     func peripheral(_ peripheral: CBPeripheral, didDiscoverCharacteristicsFor service: CBService, error: Error?) {
@@ -251,7 +258,7 @@ final class BluetoothFirmwareInspector: NSObject, ObservableObject,
             }
             readingDetails = true
             message = "Q6 Max ISO riconosciuta. Leggo firmware radio e batteria…"
-            if let firmware = uniqueCharacteristic(service: "180A", uuid: "2A26") { reads[ObjectIdentifier(firmware)] = .firmware }
+            if !batteryOnly, let firmware = uniqueCharacteristic(service: "180A", uuid: "2A26") { reads[ObjectIdentifier(firmware)] = .firmware }
             if let battery = uniqueCharacteristic(service: "180F", uuid: "2A19") { reads[ObjectIdentifier(battery)] = .battery }
             for (_, item) in characteristics where reads[ObjectIdentifier(item)] != nil { peripheral.readValue(for: item) }
             if !reads.isEmpty { return }
@@ -265,7 +272,7 @@ final class BluetoothFirmwareInspector: NSObject, ObservableObject,
             batteryPercent: batteryPercent, inspectedAt: Date(), serviceIDs: services,
             characteristics: inventory.sorted { ($0.service, $0.uuid) < ($1.service, $1.uuid) },
             vendorServicePresent: services.contains(vendorService))
-        finish("Lettura completata. Il canale di aggiornamento del controller resta da verificare.")
+        finish(batteryOnly ? (batteryPercent == nil ? "La tastiera non ha restituito una percentuale valida." : "Batteria aggiornata.") : "Lettura completata. Il canale di aggiornamento del controller resta da verificare.")
     }
 
     private static func describe(_ properties: CBCharacteristicProperties) -> String {

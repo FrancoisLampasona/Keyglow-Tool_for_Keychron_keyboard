@@ -4,7 +4,7 @@ Keyglow è un'app macOS nativa per **Keychron Q6 Max ISO**, con layout italiano 
 
 ## Installazione e primo avvio
 
-Scarica il **[DMG Keyglow 0.10.0](https://github.com/FrancoisLampasona/keyglow-macos/releases/tag/v0.10.0)**, aprilo e trascina Keyglow in Applicazioni. Avvia l’app da lì ed espelli il disco. Servono un Mac Apple Silicon e macOS 13 o successivo. Il pacchetto contiene già firmware e strumenti USB.
+Scarica il **[DMG Keyglow 0.10.1](https://github.com/FrancoisLampasona/Keyglow---Tool-for-Keychron-keyboard/releases/tag/v0.10.1)**, aprilo e trascina Keyglow in Applicazioni. Avvia l’app da lì ed espelli il disco. Servono un Mac Apple Silicon e macOS 13 o successivo. Il pacchetto contiene già firmware e strumenti USB.
 
 È una versione sperimentale con firma locale, non notarizzata da Apple. La nuova prima installazione guidata è verificata tramite test software, ma non ancora provata fisicamente dall’inizio alla fine. La prima scrittura del loader non resiste a un’interruzione di alimentazione: l’app richiede una conferma esplicita prima di iniziare.
 
@@ -29,6 +29,12 @@ Puoi riaprire il percorso dal menu **Keyglow → Configura tastiera e accessi…
 Per le compilazioni ripetute è disponibile una [firma locale stabile](local-signing.md), conservata nel Portachiavi. Il passaggio dalla vecchia firma può richiedere un consenso iniziale; le build successive devono mantenere la stessa identità. Senza questa configurazione le build usano una firma ad hoc, che cambia a ogni ricompilazione. Le build locali non sono notarizzate. Il trasferimento in un'altra cartella non aggira questi controlli di macOS. Quando il permesso è già valido, l'app verifica automaticamente la Q6 Max collegata in sola lettura; una tastiera scollegata viene distinta da un permesso negato.
 
 Tutta la riga della sidebar è cliccabile; puoi anche usare ⌘1–9. La finestra ricorda le dimensioni e si adatta allo schermo, fino a 900 × 640. Nelle finestre strette, Illuminazione mette in primo piano colore ed effetto e permette di espandere l’anteprima della tastiera. Dal menu **Finestra** scegli **Dimensione compatta** o **Dimensione comoda**.
+
+## Batteria
+
+La barra laterale mostra la percentuale letta dalla Q6 Max via Bluetooth. Si aggiorna ogni minuto quando Keyglow è attiva, fuori dalla pagina Firmware e senza altre operazioni in corso. Clicca la batteria per vedere l’ora della lettura o aggiornare il dato. Il primo accesso Bluetooth viene richiesto soltanto premendo **Leggi batteria**; un consenso già valido viene riutilizzato.
+
+In Cable compare **Batteria —**: questa lettura richiede il collegamento BT. Un dato vecchio è indicato come precedente; nessuna percentuale viene stimata. Lo stato di ricarica non è esposto dal servizio letto.
 
 ## RGB senza cavo
 

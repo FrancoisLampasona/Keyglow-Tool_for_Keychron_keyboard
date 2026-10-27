@@ -1,96 +1,95 @@
-# Keyglow for macOS
+# Keyglow - Tool for Keychron keyboard
 
-Native controls for the **Keychron Q6 Max ISO**: RGB over Bluetooth, a keyboard editor over USB, and local profiles. Built with SwiftUI and AppKit for Apple Silicon and macOS 13 or later. The app interface is currently in Italian.
+**A native macOS app for your keyboard’s lights, layout and profiles.**
 
-[Guida in italiano](docs/it.md) · [Firmware and compatibility](docs/firmware.md) · [Contributing](CONTRIBUTING.md)
+Keyglow brings RGB controls, a visual keyboard editor and firmware tools into one desktop app. The current release supports **Keychron Q6 Max ISO with encoder** on Apple Silicon Macs running macOS 13 or later. Its interface and keyboard legends are in Italian.
 
-Keyglow is an independent community project, not affiliated with or endorsed by Keychron. This is the macOS Q6 Max project; it is unrelated to other applications named KeyGlow.
+[Download the DMG](https://github.com/FrancoisLampasona/Keyglow---Tool-for-Keychron-keyboard/releases/tag/v0.10.1) · [Guida in italiano](docs/it.md) · [Firmware details](docs/firmware.md)
 
-## What works
+![Keyglow lighting workspace with the Q6 Max ISO layout, color picker and effect controls](docs/screenshots/lighting.png)
 
-| Feature | Connection | Status |
+*Actual app screenshot: the local preview represents the Q6 Max ISO with Italian legends, a black case and light/dark keycaps. A preview on screen is separate from the LEDs on the physical keyboard.*
+
+## What is Keyglow?
+
+Choose a color or effect, adjust brightness and speed, and save the result on your keyboard. With the custom Keyglow firmware installed, RGB changes can travel over **Bluetooth**, without plugging in USB or pressing a keyboard shortcut each time. Optional automatic preview sends your latest edits; it is not an instantaneous video stream.
+
+**Battery level** is visible in the sidebar, read from the connected Q6 Max over Bluetooth. It refreshes once a minute while the app is active and idle. Missing, old and unavailable readings are labeled; Cable mode and charging status are not exposed by this reader. Bluetooth permission is requested only when you choose to read it.
+
+Over **USB**, Keyglow also lets you edit four keymap layers, the encoder, macros, per-key RGB, mixed effects and supported power settings. Profiles stay on your Mac. You can prepare a draft without a keyboard and apply it explicitly when connected.
+
+Keyglow is an independent, open-source project, **not affiliated with or endorsed by Keychron**. Despite the project name, it is not a universal configurator for every Keychron keyboard.
+
+## Install the app
+
+1. Download **Keyglow-0.10.1-macOS-arm64.dmg** from the [release page](https://github.com/FrancoisLampasona/Keyglow---Tool-for-Keychron-keyboard/releases/tag/v0.10.1).
+2. Open the DMG and drag **Keyglow** into **Applications**.
+3. Open Keyglow from Applications, then eject the installation disk.
+4. Follow **Keyboard → Access → Firmware → Summary** in the first-run assistant.
+
+The DMG includes the public firmware package and USB tools; you do not need Python, Homebrew, Xcode or this repository to run it. Moving the whole app does not move or delete your profiles and backups.
+
+**Experimental release:** the app is locally signed and **not notarized by Apple**. The development certificate is not a trusted Developer ID on another Mac. If macOS blocks opening it, review the source and release before using the system’s per-app approval. Do not disable system security globally.
+
+## First launch and firmware setup
+
+The assistant first checks the keyboard model. **ANSI, JIS, other models and the 2.4 GHz receiver are not supported by this release.** It then explains Input Monitoring and opens the relevant macOS settings when access is missing. Your consent remains a system action; a valid existing permission is reused.
+
+The original Keychron firmware does **not** accept Keyglow RGB commands over Bluetooth. You can choose USB configuration, use an already provisioned keyboard, or enter the first-install assistant.
+
+![The in-app first-install assistant showing backup, DFU, review, install and restore](docs/screenshots/guided-install.png)
+
+The initial firmware setup stays inside the app:
+
+1. Connect USB, select **Cable**, and save the actual keyboard configuration.
+2. Authorize the owner key while the keyboard can still type a macOS password.
+3. Follow the DFU instructions. Keyglow reads the controller twice and saves a verified backup.
+4. Review the exact files and approve installation. The app writes and reads back the prepared image before writing and verifying the loader.
+5. Reconnect in Cable mode and restore the saved configuration, with settings readback.
+
+Opening the page does not start a flash. An already installed target version is detected and directed to Bluetooth updates. Unknown firmware images are blocked. The initial catalog recognizes the official Q6 Max ISO v1.1.0 image dated March 25, 2025.
+
+**The new integrated first-install path has software coverage but is not yet validated physically from beginning to end.** The first loader write is not power-loss safe, and independent hardware recovery remains unverified. Keep the cable connected during writes and retain the private backups. See the [validation record](docs/dmg-validation.md) and [firmware limits](docs/firmware.md).
+
+## What uses Bluetooth, and what needs USB?
+
+| Feature | Connection | Current status |
 | --- | --- | --- |
-| RGB color, brightness, speed, off and 22 effects | Bluetooth with the custom v3 firmware | Implemented; green Breathing and persistence after power-off verified on a physical Q6 Max ISO |
-| Change RGB directly from the app, without fn + ○ | Bluetooth with the custom v3 firmware | Verified on that keyboard |
-| Keep RGB after switching the keyboard off | Bluetooth with the custom v3 firmware | Verified; optional temporary preview is also implemented |
-| Four keymap layers, knob, macros, per-key RGB, Mix and supported advanced settings | USB | Read, edit, apply and read back; availability follows device capabilities |
-| Profiles, import/export, keyboard preview and foreground key test | Local app | Available without a connected keyboard |
-| Quick Launch shortcuts for apps and websites | Local app | Opt-in; Keyglow must remain open |
-| Automatic RGB preview while editing | Bluetooth with custom v3 firmware | Blue Breathing confirmed on the physical keyboard at 20 ms; preference remembered in 0.8.2 |
-| Firmware update over Bluetooth | Custom Keyglow loader and owner key | Build 8 → 9 completed on one unit through resumed transfers; finalization and authenticated post-boot verification at 20 ms; still experimental |
+| Color, brightness, speed and 22 RGB effects | Bluetooth + custom firmware | Implemented; selected effects physically verified on one Q6 Max ISO |
+| Save RGB across keyboard power-off | Bluetooth + custom firmware | Green Breathing and persistence physically verified |
+| Automatic RGB preview while editing | Bluetooth + custom firmware | Latest edits queued; blue Breathing confirmed at 20 ms |
+| Keymap, encoder, macros, per-key RGB and Mix | USB | Read, edit, apply and verify; capabilities depend on firmware |
+| Battery percentage | Bluetooth, including stock firmware | Read-only sidebar status; unavailable and old readings distinguished |
+| Energy settings | USB | Includes the experimental Reattiva policy; latency and battery impact not measured |
+| Profiles, import/export, preview and foreground key test | Local app | No account required |
+| Controller firmware updates | Bluetooth + Keyglow loader and owner key | Build 8 → 9 completed through resumed transfers on one keyboard |
+| First loader installation | USB + DFU | Guided in-app; experimental |
 
-Hardware validation covers **one Q6 Max ISO encoder, Italian layout**, USB VID `3434`, PID `0861`. It does not establish support for ANSI, JIS, other Keychron models, or every effect individually. Stock firmware does not interpret Keyglow's Bluetooth RGB commands. The 2.4 GHz receiver is not a configuration backend in this app.
+RGB sends do not have a device acknowledgement: macOS accepting the reports is different from the keyboard displaying the requested color. Firmware transfers use a separate acknowledged protocol.
 
-## Download and install
+**Use only the mouse during Bluetooth verification and updating.** Pressing keys or moving the encoder interrupts the transfer. Progress shows confirmed data; verified blocks can be resumed. Updating while typing is not supported, and the updater does not update the proprietary radio firmware. A full uninterrupted transfer at 20 ms has not been established.
 
-Download the **[Keyglow 0.10.0 DMG](https://github.com/FrancoisLampasona/keyglow-macos/releases/tag/v0.10.0)** for Apple Silicon. Open it, drag Keyglow to Applications, then launch it there and eject the disk. The complete app includes the firmware and USB tools for the guided initial installation; no separate GitHub download is needed inside that flow.
+## Make the keyboard yours
 
-This is an **experimental prerelease**, locally signed and not Apple-notarized. The new integrated USB installation has software coverage but has not been physically tested end to end. The first loader write is not power-loss safe; the app explains this before approval. Bluetooth updates require using only the mouse until completion.
+![Keyglow keymap editor showing four-layer selection and available key actions](docs/screenshots/keymap.png)
 
-## Build and open
+The editor keeps a local draft until you apply it. Profiles separate personal configurations, automatic recovery copies and a restorable trash. Loading a profile does not silently send RGB commands. The sidebar supports full-row clicks and ⌘1–9 shortcuts; the window adapts down to 900 × 640.
 
-Install Xcode or Command Line Tools with **Swift 6**, then run from this checkout:
+The app does not run a background keystroke recorder. Macro recording and the key test are explicit foreground actions. Quick Launch registers only shortcuts you choose. There is no analytics service, account or cloud profile sync. Owner keys, macros, profiles and device backups must not be attached to public issues.
+
+## Build and contribute
+
+For a basic app build, install Xcode or Command Line Tools with **Swift 6**:
 
 ```sh
 zsh scripts/build-app.sh
 open dist/Keyglow.app
 ```
 
-The basic app build uses Apple frameworks. The optional complete first-install build bundles dfu-util and libusb; see [build instructions](docs/firmware.md#bundling-the-first-install-assistant). It produces an `arm64` application. For repeated local builds, configure [stable local signing](docs/local-signing.md) once; without a configured identity it uses an ad-hoc signature. This is **not a notarized distribution**. A developer with a signing certificate can select it with `SIGNING_IDENTITY`; signing and notarization remain separate steps.
+The basic build does not bundle first-install tools. See [complete build and packaging](docs/firmware.md#bundling-the-first-install-assistant), [stable local signing](docs/local-signing.md), [contributing and tests](CONTRIBUTING.md), and [build cleanup](docs/build-cleanup.md).
 
-Move the **whole `Keyglow.app` bundle** to Applications or another folder before granting permissions. Its resources travel inside the bundle; running it does not require this checkout, Python, Node, or the original build folder. Preferences and local backups belong to the macOS user, outside the app bundle. The legacy preference identifier is retained so the rename from Tastiera does not discard existing settings.
-
-## First run and permissions
-
-The first-run assistant separates keyboard identity, macOS access and firmware setup. It appears even when another build has already received Input Monitoring permission. Its four steps are:
-
-1. Detect a Keychron keyboard and confirm the supported **Q6 Max ISO** identity. ANSI, other models, unknown transports and ambiguous selections cannot proceed as the supported model. Offline exploration remains available.
-2. Explain and request **Input Monitoring** when needed. Returning from Settings rechecks access; an existing grant is not requested again.
-3. Choose between preparing custom firmware, explicitly declaring that Keyglow firmware is already installed, or using USB configuration for now. A remembered declaration is not an authenticated firmware readback.
-4. Show the appropriate next action: firmware preparation, RGB controls, or USB configuration. The in-app first-install assistant reads the real profile, completes owner-key access while typing is available, guides DFU entry, saves a full controller backup verified by two reads, prepares owner-bound images, asks approval, writes and reads back both phases, and restores the profile after restart. It never starts a flash merely by opening a page.
-
-Reopen it from **Keyglow → Configura tastiera e accessi…**. System Bluetooth and owner-key Keychain consent remain separate, requested only by features that need them.
-
-Apple documents the system control in [Input Monitoring settings](https://support.apple.com/guide/mac-help/control-access-to-input-monitoring-on-mac-mchl4cedafb6/mac). Rebuilding an ad-hoc signed application can invalidate an earlier grant; remove the stale entry, add the current bundle, and authorize it again if access is refused. Moving a bundle does not let the app bypass macOS permission checks.
-
-Input Monitoring is used for the HID connection. The app does not run a background keystroke recorder. Macro recording and the key test are explicit foreground actions. Quick Launch registers only the selected shortcuts. There is no analytics service, account, or cloud profile sync.
-
-The interface adapts from a 900 × 640 window to a large desktop. Entire sidebar rows are clickable, with ⌘1–9 shortcuts. Narrow lighting windows prioritize color controls and offer a collapsible physical keyboard preview. The **Finestra** menu provides compact and comfortable sizes; window placement is remembered. Contextual footers appear only in configuration editors. Firmware keeps its selected file and review when navigating between pages.
-
-Profiles separate personal configurations, automatic recovery copies and a restorable trash. Existing schema-1 profiles remain compatible. Loading a profile or browsing RGB editor tabs does not send RGB changes; per-key/Mix activation is explicit and their edits remain USB-only.
-
-## Everyday RGB control
-
-With the custom v3 firmware installed, open **Illuminazione**, choose a color and effect, keep **Salva nella tastiera** enabled, and select **Applica e salva RGB** (**Invia ora** when automatic preview is enabled). No keyboard shortcut is needed. Disable saving for a temporary preview.
-
-A manual transfer takes about five seconds. Avoid Caps Lock and Num Lock during it, then wait at least two seconds after completion before switching the keyboard off. Opening the app does not send RGB settings.
-
-In 0.8.2, **Anteprima sulla tastiera** enables automatic Bluetooth sending while editing. It starts disabled for new users and remembers your choice across launches. Opening the app still sends nothing: a new edit is required. It debounces changes and keeps only the latest pending setting while a command is in flight. Preview commands are temporary; with saving enabled, the final setting is saved after editing settles. Leaving the page discards unsent changes. The rapid 20 ms timing is experimental. Blue Breathing was physically confirmed with USB unplugged, after changing the color without clicking Apply. Automatic sending does not mean instantaneous response.
-
-The RGB transport uses HID indicator reports and has **no device acknowledgement**. A completed RGB send means macOS accepted the reports; confirm the visible result on the keyboard. The saved green Breathing setting has been tested through a real power cycle with USB disconnected. Other effects and persistent off have automated coverage but have not all been tested physically. Firmware updates use a separate acknowledged protocol.
-
-For USB editing, select **Leggi tastiera**, edit the local draft, save a profile, then apply. The app checks for conflicting changes and reads settings back after writes. Close other keyboard configurators while applying settings.
-
-## Firmware and wake behavior
-
-The custom firmware is based on Keychron QMK commit [`2b493ff95f2665db719b1e95c91babb5036e72f3`](https://github.com/Keychron/qmk_firmware/tree/2b493ff95f2665db719b1e95c91babb5036e72f3). Initial installation requires **USB/DFU**. Version 0.8 adds an experimental authenticated Bluetooth updater for keyboards already provisioned with the Keyglow loader and owner key. Read [the firmware guide](docs/firmware.md) for its current hardware validation and recovery limits.
-
-The optional **Reattiva** policy reduces keyboard-side sleeping while connected, subject to battery safeguards. Its effect on wake latency and battery life has not been measured. It cannot promise an instant Bluetooth connection while macOS is starting or waking.
-
-## Development
-
-The experimental staging engine and its limits are documented in [firmware/ota](firmware/ota/README.md).
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for the local test commands and firmware source setup, and [build cleanup](docs/build-cleanup.md) for archiving old apps without duplicate Launchpad entries. CI builds the app and runs host tests; it cannot validate Bluetooth reception, macOS consent dialogs, power-cycle persistence, or hardware recovery.
-
-Device backups, personal macros, local profiles, research captures, build outputs and downloaded vendor bundles are excluded from the public source. Please do not attach them to issues.
+The custom firmware is based on [Keychron QMK revision 2b493ff](https://github.com/Keychron/qmk_firmware/tree/2b493ff95f2665db719b1e95c91babb5036e72f3). The release includes corresponding source for the frozen A8/B9 images. Host tests cannot establish radio reliability, actual macOS consent behavior or power-loss recovery.
 
 ## License
 
-**GPL-2.0-or-later**. See [LICENSE](LICENSE) and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for the QMK/Keychron source provenance and distribution obligations. Keychron names identify compatible hardware and are not project branding.
-
-## DMG distribution
-
-The experimental `0.10.0` Apple Silicon release includes a DMG with drag-to-Applications installation. It is locally signed, **not Apple-notarized**; the local development certificate is not a trusted Developer ID on another Mac. The app retains the same bundle identifier and stable local requirement on the development Mac. Security approvals remain user-controlled.
-
-To package a verified complete build, install `scripts/packaging-requirements.txt` in an isolated Python environment, then run `scripts/package-dmg.py`. It copies only `dist/Keyglow.app`, an Applications link and installation notes. `scripts/package-firmware-source.py` produces the corresponding frozen firmware source archive to distribute alongside it. Never add private bootstrap images or device backups to a release.
+**GPL-2.0-or-later**. See [LICENSE](LICENSE) and [third-party notices](THIRD_PARTY_NOTICES.md). Keychron names identify compatible hardware and are not project branding. This project is unrelated to other applications named KeyGlow.

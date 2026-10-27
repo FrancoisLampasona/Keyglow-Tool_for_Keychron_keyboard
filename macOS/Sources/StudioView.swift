@@ -85,7 +85,8 @@ struct StudioView:View {
             VStack(alignment:.leading,spacing:8) {
                 if !compact { Image(systemName:"keyboard").font(.system(size:23,weight:.light)).foregroundColor(Studio.muted) }
                 Text("Q6 Max · ISO IT").fontWeight(.semibold)
-                Label(model.usbSnapshot != nil ? "USB · letta" : model.available ? "Bluetooth rilevata":"Non collegata",systemImage:model.usbSnapshot != nil ? "checkmark.circle":"circle.dotted").font(.system(size:11)).foregroundColor(model.usbSnapshot != nil ? Studio.success:Studio.muted)
+                Label(model.selectedUSBID != nil ? (model.usbSnapshot != nil ? "USB · letta" : "USB rilevata") : model.available ? "Bluetooth rilevata":"Non collegata",systemImage:model.selectedUSBID != nil ? "cable.connector":"circle.dotted").font(.system(size:11)).foregroundColor(model.usbSnapshot != nil ? Studio.success:Studio.muted)
+                BatteryStatusView(model:model)
             }
             Divider().padding(.vertical,compact ? 10:18)
             HStack { Text("Studio tastiera"); Spacer(); Text(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "—") }.font(.system(size:10)).foregroundColor(Studio.muted)
