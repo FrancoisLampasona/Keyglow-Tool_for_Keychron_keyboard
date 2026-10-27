@@ -148,9 +148,9 @@ final class VIAClient {
     /// Preflight validates the entire draft and re-reads the keyboard before the first
     /// setting write. Only differences are written. Non-atomic hardware writes are
     /// reported honestly; on failure no automatic rollback can overwrite newer work.
-    func applyChanges(baseline: VIASnapshot, desired: VIASnapshot) throws -> VIASnapshot {
+    func applyChanges(baseline: VIASnapshot, desired: VIASnapshot, allowOpaqueMacroRestore: Bool = false) throws -> VIASnapshot {
         try validate(baseline, allowOpaqueMacro: true)
-        try validate(desired, allowOpaqueMacro: desired.macroBuffer == baseline.macroBuffer)
+        try validate(desired, allowOpaqueMacro: allowOpaqueMacroRestore || desired.macroBuffer == baseline.macroBuffer)
         guard baseline.productID == productID, desired.productID == productID,
               baseline.protocolVersion == desired.protocolVersion,
               baseline.rows == desired.rows, baseline.cols == desired.cols,
@@ -189,10 +189,10 @@ final class VIAClient {
                 // Verify content before removing the playback guard.
                 let staged = try readBuffer(command: 0x0E, length: desired.macroCapacity)
                 guard Array(staged.dropLast()) == Array(desired.macroBuffer.dropLast()), staged.last == 0xFF else { throw VIAError.readback("macro in scrittura") }
-                _ = try chunk(command: 0x0F, offset: desired.macroCapacity-1, count: 1, bytes: [0])
+                _ = try chunk(command: 0x0F, offset: desired.macroCapacity-1, count: 1, bytes: [desired.macroBuffer.last ?? 0])
             }
             let a=baseline.lighting, b=desired.lighting
-            let changes: [(UInt8,[UInt8],Bool)] = [(1,[b.brightness],a.brightness != b.brightness), (2,[b.effect],a.effect != b.effect), (3,[b.speed],a.speed != b.speed), (4,[b.hue,b.saturation],a.hue != b.hue || a.saturation != b.saturation)]
+            let changes: [(UInt8,[UInt8],Bool)] = [(1,[b.brightness],a.brightness != b.brightness), (2,[b.effect],a.effect != b.effect), (3,[b.speed],a.speed != b.speed), (4,[b.hue,b.saturation],a.hue != b.hue || a.saturation != b.saturation || a.effect != b.effect)]
             if changes.contains(where: { $0.2 }) {
                 // Clear stale firmware property mask before per-property saves.
                 try write([0x09,3])

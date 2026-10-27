@@ -21,6 +21,12 @@ Keyglow is an independent community project, not affiliated with or endorsed by 
 
 Hardware validation covers **one Q6 Max ISO encoder, Italian layout**, USB VID `3434`, PID `0861`. It does not establish support for ANSI, JIS, other Keychron models, or every effect individually. Stock firmware does not interpret Keyglow's Bluetooth RGB commands. The 2.4 GHz receiver is not a configuration backend in this app.
 
+## Download and install
+
+Download the **[Keyglow 0.10.0 DMG](https://github.com/FrancoisLampasona/keyglow-macos/releases/tag/v0.10.0)** for Apple Silicon. Open it, drag Keyglow to Applications, then launch it there and eject the disk. The complete app includes the firmware and USB tools for the guided initial installation; no separate GitHub download is needed inside that flow.
+
+This is an **experimental prerelease**, locally signed and not Apple-notarized. The new integrated USB installation has software coverage but has not been physically tested end to end. The first loader write is not power-loss safe; the app explains this before approval. Bluetooth updates require using only the mouse until completion.
+
 ## Build and open
 
 Install Xcode or Command Line Tools with **Swift 6**, then run from this checkout:
@@ -30,7 +36,7 @@ zsh scripts/build-app.sh
 open dist/Keyglow.app
 ```
 
-The build has no third-party application package dependencies. It produces an `arm64` application. For repeated local builds, configure [stable local signing](docs/local-signing.md) once; without a configured identity it uses an ad-hoc signature. This is **not a notarized distribution**. A developer with a signing certificate can select it with `SIGNING_IDENTITY`; signing and notarization remain separate steps.
+The basic app build uses Apple frameworks. The optional complete first-install build bundles dfu-util and libusb; see [build instructions](docs/firmware.md#bundling-the-first-install-assistant). It produces an `arm64` application. For repeated local builds, configure [stable local signing](docs/local-signing.md) once; without a configured identity it uses an ad-hoc signature. This is **not a notarized distribution**. A developer with a signing certificate can select it with `SIGNING_IDENTITY`; signing and notarization remain separate steps.
 
 Move the **whole `Keyglow.app` bundle** to Applications or another folder before granting permissions. Its resources travel inside the bundle; running it does not require this checkout, Python, Node, or the original build folder. Preferences and local backups belong to the macOS user, outside the app bundle. The legacy preference identifier is retained so the rename from Tastiera does not discard existing settings.
 
@@ -41,7 +47,7 @@ The first-run assistant separates keyboard identity, macOS access and firmware s
 1. Detect a Keychron keyboard and confirm the supported **Q6 Max ISO** identity. ANSI, other models, unknown transports and ambiguous selections cannot proceed as the supported model. Offline exploration remains available.
 2. Explain and request **Input Monitoring** when needed. Returning from Settings rechecks access; an existing grant is not requested again.
 3. Choose between preparing custom firmware, explicitly declaring that Keyglow firmware is already installed, or using USB configuration for now. A remembered declaration is not an authenticated firmware readback.
-4. Show the appropriate next action: firmware preparation, RGB controls, or USB configuration. Initial loader installation requires USB/DFU and the documented preparation; the app does not silently flash the keyboard.
+4. Show the appropriate next action: firmware preparation, RGB controls, or USB configuration. The in-app first-install assistant reads the real profile, completes owner-key access while typing is available, guides DFU entry, saves a full controller backup verified by two reads, prepares owner-bound images, asks approval, writes and reads back both phases, and restores the profile after restart. It never starts a flash merely by opening a page.
 
 Reopen it from **Keyglow → Configura tastiera e accessi…**. System Bluetooth and owner-key Keychain consent remain separate, requested only by features that need them.
 
@@ -82,3 +88,9 @@ Device backups, personal macros, local profiles, research captures, build output
 ## License
 
 **GPL-2.0-or-later**. See [LICENSE](LICENSE) and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for the QMK/Keychron source provenance and distribution obligations. Keychron names identify compatible hardware and are not project branding.
+
+## DMG distribution
+
+The experimental `0.10.0` Apple Silicon release includes a DMG with drag-to-Applications installation. It is locally signed, **not Apple-notarized**; the local development certificate is not a trusted Developer ID on another Mac. The app retains the same bundle identifier and stable local requirement on the development Mac. Security approvals remain user-controlled.
+
+To package a verified complete build, install `scripts/packaging-requirements.txt` in an isolated Python environment, then run `scripts/package-dmg.py`. It copies only `dist/Keyglow.app`, an Applications link and installation notes. `scripts/package-firmware-source.py` produces the corresponding frozen firmware source archive to distribute alongside it. Never add private bootstrap images or device backups to a release.

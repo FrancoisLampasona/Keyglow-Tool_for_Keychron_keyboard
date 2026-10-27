@@ -31,6 +31,7 @@ jobs:
           zsh scripts/test-protocol.sh
           zsh scripts/test-energy.sh
           zsh scripts/test-via.sh
+          sh macOS/Tests/FirstInstall/run.sh
           zsh scripts/test-workspace.sh
           zsh scripts/test-quick-launch.sh
           zsh scripts/test-launcher-backup.sh

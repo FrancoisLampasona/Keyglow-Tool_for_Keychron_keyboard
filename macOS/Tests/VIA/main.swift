@@ -31,6 +31,7 @@ final class FirmwareFixture: VIAExchange {
     }()
     var wireless = VIAWirelessSettings(backlightTimeoutSeconds:30,sleepTimeoutSeconds:600)
     var nkro=false
+    var resetColorOnEffect=false
     var ignoreKeyWrites=false
     var failMacroData=false
     var protocolVersion:UInt16=12
@@ -64,7 +65,7 @@ final class FirmwareFixture: VIAExchange {
             switch request[2] {case 1:r[3]=lighting.brightness;case 2:r[3]=lighting.effect;case 3:r[3]=lighting.speed;case 4:r[3]=lighting.hue;r[4]=lighting.saturation;default:fatalError("Unknown property")}
         case 0x07:
             writes.append(request);rgbMask |= 1<<request[2]
-            switch request[2] {case 1:lighting.brightness=request[3];case 2:lighting.effect=request[3];case 3:lighting.speed=request[3];case 4:lighting.hue=request[3];lighting.saturation=request[4];default:fatalError("Unknown property")}
+            switch request[2] {case 1:lighting.brightness=request[3];case 2:lighting.effect=request[3];if resetColorOnEffect {lighting.hue=0;lighting.saturation=255};case 3:lighting.speed=request[3];case 4:lighting.hue=request[3];lighting.saturation=request[4];default:fatalError("Unknown property")}
         case 0x09:
             writes.append(request)
             switch rgbMask {case 2:savedLighting.brightness=lighting.brightness;case 4:savedLighting.effect=lighting.effect;case 8:savedLighting.speed=lighting.speed;case 16:savedLighting.hue=lighting.hue;savedLighting.saturation=lighting.saturation;default:break};rgbMask=0
@@ -171,3 +172,15 @@ let customApplied=try customClient.applyChanges(baseline:customBase,desired:cust
 require(customApplied.customRGB==customDraft.customRGB && customApplied.wireless==customDraft.wireless && customApplied.nkro==true,"Custom RGB/mix, LE duration/timeouts, NKRO verified readback")
 require(customFixture.writes.allSatisfy{$0.count==32},"All custom writes bounded to32 bytes")
 print("VIA: macro golden format, malformed inputs, descriptor guards, complete read-only snapshot, delta/readback, RGB persistence, conflict, ignored writes, interrupted macros, per-key/mix and advanced settings passed. No hardware access.")
+
+let effectFixture=FirmwareFixture(),effectClient=VIAClient(exchange:effectFixture,productID:0x0861)
+let effectBase=try effectClient.readSnapshot();var effectDraft=effectBase;effectDraft.lighting.effect=2;effectFixture.resetColorOnEffect=true
+let effectResult=try effectClient.applyChanges(baseline:effectBase,desired:effectDraft)
+require(effectResult.lighting.hue == effectBase.lighting.hue && effectResult.lighting.saturation == effectBase.lighting.saturation,"Restore resends color after an effect transition resets firmware color")
+let opaqueFixture=FirmwareFixture(),opaqueClient=VIAClient(exchange:opaqueFixture,productID:0x0861)
+let opaqueBase=try opaqueClient.readSnapshot();var opaqueDraft=opaqueBase;opaqueDraft.macroBuffer[0]=1;opaqueDraft.macroBuffer[1]=99
+expectFailure("Normal editor cannot introduce unsupported raw macro commands") {_ = try opaqueClient.applyChanges(baseline:opaqueBase,desired:opaqueDraft)}
+require(opaqueFixture.writes.isEmpty,"Opaque editor rejection precedes writes")
+let opaqueResult=try opaqueClient.applyChanges(baseline:opaqueBase,desired:opaqueDraft,allowOpaqueMacroRestore:true)
+require(opaqueResult.macroBuffer == opaqueDraft.macroBuffer,"Explicit original-backup restore preserves opaque macro bytes")
+print("First-install VIA restoration: original opaque macros and effect/color transition verified.")

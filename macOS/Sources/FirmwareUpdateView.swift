@@ -5,12 +5,14 @@ import AppKit
 struct FirmwareUpdateView: View {
     @ObservedObject var model: FirmwareUpdateModel
     @Binding var showsProvisioning:Bool
-    let onOpenUSB:()->Void
-    let onOpenProfiles:()->Void
+    @ObservedObject var installer:FirstInstallModel
+    @State private var mouseOnlyConfirmed=false
     var body: some View {
         StudioSurface {
-            if showsProvisioning { firstInstallation } else {
+            if showsProvisioning { FirstInstallView(model:installer,onBluetooth:{showsProvisioning=false}) } else {
             VStack(alignment: .leading, spacing: 18) {
+                if model.isBusy { transferNotice }
+                Group {
                 StudioAdaptiveStack(breakpoint: 1120, spacing: 16) {
                     VStack(alignment: .leading, spacing: 6) {
                         Label("Aggiornamento del controller", systemImage: "arrow.triangle.2.circlepath")
@@ -129,12 +131,13 @@ struct FirmwareUpdateView: View {
 
                 if model.review != nil || model.artifact != nil { Divider() }
 
-                if model.isBusy, let progress = model.progress, progress.stage == .transferring {
+                }.disabled(model.isBusy)
+                if !model.isBusy, let progress = model.progress, progress.stage == .transferring {
                     ProgressView(value: Double(progress.completedBytes), total: Double(max(1, progress.totalBytes)))
                         .tint(Studio.accent).accessibilityLabel("Dati salvati sulla tastiera")
                     Text("\(progress.completedBytes) di \(progress.totalBytes) byte salvati")
                         .font(.system(size: 11)).monospacedDigit().foregroundColor(Studio.muted)
-                } else if model.isBusy { ProgressView().controlSize(.small).accessibilityLabel(model.message) }
+                }
 
                 HStack(alignment: .top, spacing: 9) {
                     if model.phase == .complete { Image(systemName: "checkmark.circle.fill").foregroundColor(Studio.success) }
@@ -142,6 +145,9 @@ struct FirmwareUpdateView: View {
                     Text(model.message).font(.system(size: 13)).fixedSize(horizontal: false, vertical: true)
                 }.accessibilityElement(children: .combine)
 
+                if model.canStart {
+                    Toggle("Sono pronto: userò solo il mouse fino alla fine",isOn:$mouseOnlyConfirmed).toggleStyle(.checkbox)
+                }
                 TimelineView(.periodic(from: .now, by: 1)) { context in
                 VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 12) {
@@ -154,7 +160,7 @@ struct FirmwareUpdateView: View {
                         }
                         if let review=model.review, !review.isAlreadyInstalled {
                         Button(model.review?.hasReadyTarget == true && !model.replaceUncommitted ? "Completa installazione" : "Avvia aggiornamento") { model.start() }
-                            .buttonStyle(StudioButton(primary: true)).disabled(!model.canStart)
+                            .buttonStyle(StudioButton(primary: true)).disabled(!model.canStart || !mouseOnlyConfirmed)
                         }
                     }
                 }
@@ -165,61 +171,31 @@ struct FirmwareUpdateView: View {
                 }
                 }
                 if model.canStart || model.isBusy {
-                    Text("Durante gli scambi non digitare e non cambiare collegamento. Il completamento sarà confermato solo dopo il riavvio e la lettura del nuovo firmware.")
+                    Text("Usa solo il mouse durante verifica e aggiornamento. Tasti e manopola interrompono il trasferimento; puoi poi verificare di nuovo e riprendere i blocchi già salvati. La fine sarà confermata dopo il riavvio.")
                         .font(.system(size: 12)).foregroundColor(Studio.muted).fixedSize(horizontal: false, vertical: true)
                 }
 
                 Divider()
                 Button("Prima installazione di Keyglow…") {showsProvisioning=true}
                     .buttonStyle(StudioButton()).disabled(model.isBusy)
-            }.controlSize(.large)
+            }.controlSize(.large).onChange(of:model.phase) { _ in mouseOnlyConfirmed=false }
             }
         }
     }
 
-    private var firstInstallation:some View {
-        VStack(alignment:.leading,spacing:22) {
-            PanelTitle(title:"Prima installazione via USB",subtitle:"Prepara la tua Q6 Max ISO per usare colori e aggiornamenti via Bluetooth.")
-            Text("Il firmware originale non riceve gli RGB Bluetooth di Keyglow. La prima installazione richiede USB/DFU e un loader personalizzato; questa pagina prepara il percorso, non esegue automaticamente il flash.")
-                .font(.system(size:13)).foregroundColor(Studio.muted).fixedSize(horizontal:false,vertical:true)
-            Divider()
-            VStack(alignment:.leading,spacing:12) {
-                Text("1. Leggi e salva la configurazione").font(.system(size:16,weight:.semibold))
-                Text("Collega USB e seleziona Cable, senza entrare in DFU. Apri Connessione → Leggi configurazione, poi Profili → Salva una copia. Salvare una bozza non letta non conserva le impostazioni reali della tastiera.")
-                    .foregroundColor(Studio.muted).fixedSize(horizontal:false,vertical:true)
-                HStack(spacing:12) {
-                    Button("Apri Connessione",action:onOpenUSB).buttonStyle(StudioButton(primary:true))
-                    Button("Apri Profili",action:onOpenProfiles).buttonStyle(StudioButton())
-                }
-            }
-            VStack(alignment:.leading,spacing:12) {
-                Text("2. Prepara la chiave proprietario").font(.system(size:16,weight:.semibold))
-                Text("La chiave autorizza gli aggiornamenti di questa tastiera. Se esiste già viene riutilizzata; il Portachiavi può chiederti conferma. Prepararla non installa firmware.")
-                    .foregroundColor(Studio.muted).fixedSize(horizontal:false,vertical:true)
-                Button("Prepara chiave proprietario") {model.prepareOwnerKey()}.buttonStyle(StudioButton()).disabled(model.isBusy)
-                if let setup=model.provisioning {
-                    detail("Impronta della chiave",firmwareHex(setup.keyID))
-                    Button("Mostra file privato nel Finder") {NSWorkspace.shared.activateFileViewerSelecting([setup.slotURL])}.buttonStyle(StudioButton())
-                    Text("Il file è privato e serve alla prima installazione USB. Non allegarlo a segnalazioni o repository.")
-                        .font(.system(size:12)).foregroundColor(Studio.muted)
-                }
-                if model.isBusy {ProgressView().controlSize(.small)}
-                if model.provisioning != nil || model.isBusy || model.phase == .failed {
-                    Text(model.message).font(.system(size:12)).foregroundColor(Studio.muted).fixedSize(horizontal:false,vertical:true)
-                }
-            }
-            VStack(alignment:.leading,spacing:12) {
-                Text("3. Installa seguendo la guida").font(.system(size:16,weight:.semibold))
-                Text("Usa solo loader e firmware preparati per Q6 Max ISO. La guida descrive backup completo, prima installazione USB/DFU e ripristino. Dopo l’installazione torna in BT e riapri Configura tastiera e accessi dal menu Keyglow.")
-                    .foregroundColor(Studio.muted).fixedSize(horizontal:false,vertical:true)
-                Button("Apri guida alla prima installazione") {
-                    NSWorkspace.shared.open(URL(string:"https://github.com/FrancoisLampasona/keyglow-macos/blob/main/docs/firmware.md")!)
-                }.buttonStyle(StudioButton())
-            }
-            Divider()
-            Button("Keyglow è già installato · apri aggiornamenti Bluetooth") {showsProvisioning=false}
-                .buttonStyle(StudioButton()).disabled(model.isBusy)
-        }.font(.system(size:13)).controlSize(.large)
+    private var transferNotice:some View {
+        VStack(alignment:.leading,spacing:12) {
+            Label(model.progress?.stage == .keyAccess ? "Conferma nel Portachiavi" : "Aggiornamento in corso · usa solo il mouse",systemImage:model.progress?.stage == .keyAccess ? "lock.shield":"computermouse")
+                .font(.system(size:18,weight:.semibold))
+            if let progress=model.progress,progress.stage == .transferring {
+                ProgressView(value:Double(progress.completedBytes),total:Double(max(1,progress.totalBytes))).tint(Studio.accent)
+                Text("\(Int(Double(progress.completedBytes)/Double(max(1,progress.totalBytes))*100))% · \(ByteCountFormatter.string(fromByteCount:Int64(progress.completedBytes),countStyle:.file)) di \(ByteCountFormatter.string(fromByteCount:Int64(progress.totalBytes),countStyle:.file)) salvati sulla tastiera")
+                    .font(.system(size:12)).monospacedDigit().foregroundColor(Studio.muted)
+            } else {ProgressView().controlSize(.small)}
+            Text(model.progress?.stage == .keyAccess ? "Puoi usare la tastiera per la password solo nella finestra di macOS. Dopo la conferma torna a usare solo il mouse." : "Non toccare tasti o manopola e non cambiare collegamento. Puoi interrompere: i blocchi già verificati restano salvati per la ripresa.")
+                .font(.system(size:12)).foregroundColor(Studio.muted).fixedSize(horizontal:false,vertical:true)
+            if model.canCancel {Button("Interrompi trasferimento") {model.cancel()}.buttonStyle(StudioButton())}
+        }.padding(18).frame(maxWidth:.infinity,alignment:.leading).background(Studio.rail).clipShape(RoundedRectangle(cornerRadius:12))
     }
 
     private func workflowStep(_ number:String,_ title:String,done:Bool) -> some View {

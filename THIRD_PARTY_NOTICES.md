@@ -26,3 +26,11 @@ Keychron Launcher was studied for interoperability. `macOS/Tests/LauncherMacros/
 Keyglow for macOS is independent of Keychron and of other projects with the name KeyGlow. No code or branding is taken from those similarly named projects.
 
 The isolated experimental OTA loader has additional optional build dependencies documented in [firmware/ota/THIRD_PARTY.md](firmware/ota/THIRD_PARTY.md); it is not included in the macOS app binary.
+
+## Optional USB first-install components
+
+Complete app builds include **dfu-util 0.11** (GPL-2.0-or-later) and **libusb 1.0.29** (LGPL-2.1-or-later), built from their official source archives for macOS 13. Their copyright/license files and exact source archives are retained in `Contents/Resources/USB-Licenses` and `USB-Sources`. The build scripts and static linking configuration are in `scripts/build-usb-tools.sh` and `scripts/bundle-bootstrap.py`. libusb is statically linked into the GPL helper; the complete library and helper sources plus the library archive are included for modification and relinking. Rebuild with `scripts/build-usb-tools.sh`, replace the helper and locally re-sign the bundle when modifying it. No system-wide library installation is required.
+
+The complete build also bundles an **unprovisioned** loader and public application package as resources. No secret is embedded until the user explicitly prepares a private bootstrap on their own Mac. Frozen A8/B9 firmware corresponds to Keyglow revision `12930ce`; the release includes that source and the pinned ARM-target upstream dependencies separately. Later source-only patches must not be described as included in those frozen images.
+
+DMG authoring uses `ds-store 1.3.1` and `mac-alias 2.2.2` (MIT); these are build tools and are not imported by Keyglow at runtime.

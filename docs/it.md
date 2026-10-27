@@ -4,7 +4,11 @@ Keyglow è un'app macOS nativa per **Keychron Q6 Max ISO**, con layout italiano 
 
 ## Installazione e primo avvio
 
-Servono un Mac Apple Silicon, macOS 13 o successivo e, per compilare, Xcode/Command Line Tools con Swift 6:
+Scarica il **[DMG Keyglow 0.10.0](https://github.com/FrancoisLampasona/keyglow-macos/releases/tag/v0.10.0)**, aprilo e trascina Keyglow in Applicazioni. Avvia l’app da lì ed espelli il disco. Servono un Mac Apple Silicon e macOS 13 o successivo. Il pacchetto contiene già firmware e strumenti USB.
+
+È una versione sperimentale con firma locale, non notarizzata da Apple. La nuova prima installazione guidata è verificata tramite test software, ma non ancora provata fisicamente dall’inizio alla fine. La prima scrittura del loader non resiste a un’interruzione di alimentazione: l’app richiede una conferma esplicita prima di iniziare.
+
+Per compilare dai sorgenti servono Xcode/Command Line Tools con Swift 6:
 
 ```sh
 zsh scripts/build-app.sh
@@ -18,7 +22,7 @@ Al primo avvio una procedura in quattro passi verifica **Tastiera → Accessi �
 1. Collega la tastiera. Keyglow legge il modello e la variante; questa versione supporta **Q6 Max ISO con manopola**, rappresentata con legende italiane. Non propone il firmware ISO per ANSI o altri modelli. Con più tastiere devi scegliere; senza tastiera puoi esplorare la bozza.
 2. Per comunicare tramite HID serve **Monitoraggio input**. La richiesta parte nella pagina Accessi soltanto se manca il permesso. Abilita Keyglow in Impostazioni di Sistema → Privacy e sicurezza; al ritorno lo stato viene ricontrollato. Se è già consentito non occorre autorizzarlo di nuovo.
 3. Il firmware originale non riceve RGB da Keyglow via Bluetooth. Scegli se preparare il firmware personalizzato, dichiarare quello già installato o usare per ora USB. La dichiarazione non equivale a una lettura del firmware.
-4. Il riepilogo apre la destinazione corretta. **La prima installazione del loader richiede USB/DFU e la guida; il flash iniziale non è automatico nell’app.** L’apertura di una pagina non installa nulla.
+4. Il riepilogo apre la destinazione corretta. **La prima installazione avviene nella pagina Firmware dell’app**, con backup, autorizzazione della chiave prima che la tastiera smetta di scrivere, istruzioni DFU, riepilogo da confermare, scrittura e verifica, riavvio e ripristino del profilo. Serve USB per questa prima volta. L’apertura di una pagina non installa nulla.
 
 Puoi riaprire il percorso dal menu **Keyglow → Configura tastiera e accessi…**. Bluetooth di sistema e Portachiavi richiedono eventuali consensi separati quando usi le rispettive funzioni, non tutti al primo avvio.
 
@@ -48,7 +52,7 @@ Keyglow non richiede un account e non invia telemetria. La registrazione delle m
 
 Il preset **Reattiva** riduce la sospensione lato tastiera con salvaguardie per la batteria. Latenza e consumi non sono ancora misurati; non garantisce la connessione immediata mentre il Mac si avvia o si risveglia.
 
-**Aggiornamento firmware via Bluetooth:** la 0.8 include il percorso sperimentale dall'app, con verifica della chiave proprietario, blocchi confermati e controllo del firmware dopo il riavvio. La prima installazione USB del loader è riuscita su una Q6 Max ISO e il profilo è stato ripristinato e riletto. Il passaggio dalla build 8 alla 9 è riuscito via Bluetooth su quella tastiera, riprendendo i blocchi salvati: finalizzazione e lettura autenticata dopo il riavvio a 20 ms. Il trasferimento ha richiesto riprese con intervalli di 20 e 80 ms; non è una prova di invio completo e ininterrotto a 20 ms. Non aggiorna il modulo radio. Chiave privata, loader personalizzato e backup completi non vanno pubblicati.
+**Aggiornamento firmware via Bluetooth:** la 0.8 include il percorso sperimentale dall'app, con verifica della chiave proprietario, blocchi confermati e controllo del firmware dopo il riavvio. La prima installazione USB del loader è riuscita su una Q6 Max ISO e il profilo è stato ripristinato e riletto. Il passaggio dalla build 8 alla 9 è riuscito via Bluetooth su quella tastiera, riprendendo i blocchi salvati: finalizzazione e lettura autenticata dopo il riavvio a 20 ms. Il trasferimento ha richiesto riprese con intervalli di 20 e 80 ms; non è una prova di invio completo e ininterrotto a 20 ms. Durante verifica e aggiornamento usa solo il mouse: tasti e manopola interrompono il trasferimento. La barra mostra i dati confermati dalla tastiera e puoi riprendere i blocchi salvati. Non aggiorna il modulo radio. Chiave privata, loader personalizzato e backup completi non vanno pubblicati.
 
 La richiesta di macOS parte al passo Accessi della configurazione. Se l’accesso è negato, apre Monitoraggio input; al ritorno verifica lo stato senza ripetere la richiesta. La concessione resta una conferma dell’utente.
 

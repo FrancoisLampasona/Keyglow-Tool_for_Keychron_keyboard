@@ -43,6 +43,14 @@ def sign(bundle):
         info = plistlib.load(stream)
     info['KeyglowSigningMode'] = mode
     info_path.write_bytes(plistlib.dumps(info))
+    # Sign nested public USB components before sealing the enclosing bundle.
+    nested_identity = explicit or (json.loads(CONFIG.read_text())['certificateSHA1'] if CONFIG.exists() else '-')
+    for nested in [bundle / 'Contents/Helpers/dfu-util']:
+        if nested.exists():
+            args = ['codesign', '--force', '--sign', nested_identity]
+            if nested_identity != '-':
+                args += ['--options', 'runtime', '--timestamp' if explicit else '--timestamp=none']
+            run(*args, str(nested))
     if explicit:
         run('codesign', '--force', '--options', 'runtime', '--timestamp', '--sign', explicit, str(bundle))
     elif CONFIG.exists():

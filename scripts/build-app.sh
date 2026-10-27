@@ -33,6 +33,7 @@ if [[ -n "${FIRMWARE_UPDATE_PACKAGE:-}" ]]; then
   python3 firmware/ota/package.py verify "$FIRMWARE_UPDATE_PACKAGE" >/dev/null
   cp "$FIRMWARE_UPDATE_PACKAGE" "$bundle/Contents/Resources/firmware-update.kgfw"
 fi
+python3 scripts/bundle-bootstrap.py "$bundle"
 cp macOS/Info.plist "$bundle/Contents/Info.plist"
 cp LICENSE THIRD_PARTY_NOTICES.md "$bundle/Contents/Resources/"
 python3 scripts/sign-app.py "$bundle"

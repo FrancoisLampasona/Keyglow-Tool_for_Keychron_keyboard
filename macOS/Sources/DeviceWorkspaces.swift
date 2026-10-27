@@ -282,10 +282,13 @@ struct FirmwareWorkspaceView: View {
     @ObservedObject var model: StudioModel
     @StateObject private var bluetooth = BluetoothFirmwareInspector()
     @ObservedObject var updater: FirmwareUpdateModel
+    @ObservedObject var installer:FirstInstallModel
     var body: some View {
+        ScrollViewReader { proxy in
         ScrollView {
             VStack(alignment: .leading, spacing: 26) {
-                FirmwareUpdateView(model: updater, showsProvisioning:$model.showFirmwareSetup, onOpenUSB:{model.section=6}, onOpenProfiles:{model.section=4}).disabled(model.busy && !updater.isBusy)
+                Color.clear.frame(height:0).id("firmware-top")
+                FirmwareUpdateView(model: updater, showsProvisioning:$model.showFirmwareSetup,installer:installer).disabled(model.busy && !updater.isBusy && !installer.isBusy)
                 DisclosureGroup("Diagnostica e recupero") {
                 VStack(alignment:.leading,spacing:24) {
                 PanelTitle(title: "Due firmware, una tastiera", subtitle: "Il controller gestisce tasti e luci. Il modulo radio gestisce Bluetooth e riconnessione.")
@@ -367,8 +370,22 @@ struct FirmwareWorkspaceView: View {
                 }.padding(.top,18)
                 }.disabled(model.busy || updater.isBusy)
             }.studioPage()
-        }.onAppear { updater.onBusyChanged = { model.busy = $0 } }
+        }.onAppear {
+            updater.onBusyChanged = { model.busy = $0 }
+            installer.onBusyChanged = { model.busy = $0; if $0 {model.stopCapture()} }
+            installer.onRestored = { snapshot in
+                if model.hasLocalChanges {model.archiveCurrentProfile(suffix:" · prima del ripristino")}
+                let restored=model.document(from:snapshot)
+                model.replaceLocalDraft(restored);model.usbSnapshot=snapshot;model.baselineWorkspace=restored
+                model.directBluetooth=true
+                model.projectMessage="Profilo ripristinato e verificato via USB."
+            }
+        }
             .onDisappear { bluetooth.cancel(); updater.cancel() }
+            .onChange(of:updater.isBusy) { busy in if busy {proxy.scrollTo("firmware-top",anchor:.top)} }
+            .onChange(of:installer.isBusy) { busy in if busy {proxy.scrollTo("firmware-top",anchor:.top)} }
+            .onChange(of:model.showFirmwareSetup) { _ in proxy.scrollTo("firmware-top",anchor:.top) }
+        }
     }
     private func info(_ label: String, _ value: String) -> some View {
         HStack(alignment: .firstTextBaseline) { Text(label).foregroundColor(Studio.muted); Spacer(); Text(value).font(.system(size: 12, weight: .medium, design: .monospaced)).multilineTextAlignment(.trailing).fixedSize(horizontal:false,vertical:true).textSelection(.enabled) }

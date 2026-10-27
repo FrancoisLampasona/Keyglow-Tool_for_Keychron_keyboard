@@ -25,6 +25,7 @@ struct StudioButton:ButtonStyle {
 struct StudioView:View {
     @ObservedObject var model:StudioModel
     @StateObject private var firmwareUpdater = FirmwareUpdateModel()
+    @StateObject private var firstInstaller = FirstInstallModel()
     private let names=["Illuminazione","Mappa dei tasti","Macro","Test tastiera","Profili","Energia","Connessione","Firmware","Avvio rapido"]
     private let symbols=["sun.max","keyboard","command","checkmark.circle","square.stack","battery.75percent","antenna.radiowaves.left.and.right","cpu","bolt"]
     var body:some View {
@@ -44,7 +45,7 @@ struct StudioView:View {
                     case 4: ProfilesWorkspaceView(model:model)
                     case 5: AdvancedWorkspaceView(model:model)
                     case 6: ConnectionWorkspaceView(model:model)
-                    case 7: FirmwareWorkspaceView(model:model, updater:firmwareUpdater)
+                    case 7: FirmwareWorkspaceView(model:model, updater:firmwareUpdater,installer:firstInstaller)
                     default: QuickLaunchView()
                     }
                 // Firmware keeps Interrompi available; lighting may queue the

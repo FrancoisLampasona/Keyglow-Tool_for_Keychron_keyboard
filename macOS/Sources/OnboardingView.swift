@@ -139,7 +139,7 @@ struct OnboardingView: View {
             Text(setup.firmwareChoice == .installed
                  ? "È una tua dichiarazione, non una lettura del firmware. Per gli aggiornamenti Bluetooth serve anche il loader Keyglow con la chiave proprietario; la pagina Firmware esegue la verifica autenticata."
                  : setup.firmwareChoice == .usb ? "Puoi usare l’editor USB e preparare profili. RGB e aggiornamenti via Bluetooth restano da configurare."
-                 : "La prima installazione richiede USB e DFU: prima salva il profilo, poi segui la guida della Q6 Max ISO. L’app prepara la chiave proprietario; il flash iniziale del loader non è automatico. Gli aggiornamenti successivi possono passare via Bluetooth.")
+                 : "La prima installazione richiede USB e DFU. L’app ti accompagna nel backup, prepara la chiave privata, chiede conferma dei file e installa il firmware; poi ripristina il profilo. Gli aggiornamenti successivi possono passare via Bluetooth.")
                 .font(.system(size:12)).foregroundColor(Studio.muted).lineSpacing(3).fixedSize(horizontal:false,vertical:true)
         }
     }
@@ -150,7 +150,7 @@ struct OnboardingView: View {
             Divider()
             if setup.firmwareChoice == .install {
                 Text("Prima installazione del firmware").font(.system(size:17,weight:.semibold))
-                Text("1. Collega USB e seleziona Cable. In Connessione scegli Leggi configurazione; poi Profili → Salva una copia.\n2. Prepara la chiave proprietario nell’app.\n3. Segui la guida per il loader e il firmware esatti della Q6 Max ISO.\n4. Ripristina il profilo e torna in BT.")
+                Text("1. In Firmware → Prima installazione, collega USB e seleziona Cable. Keyglow salva le impostazioni.\n2. Autorizza la chiave privata mentre la tastiera può ancora scrivere.\n3. Segui le istruzioni DFU nell’app e attendi il backup completo.\n4. Controlla e conferma i file, attendi l’installazione, poi ricollega in Cable e ripristina il profilo.")
                     .lineSpacing(8).fixedSize(horizontal:false,vertical:true)
                 Text("Aprire la pagina Firmware non avvia alcuna installazione. I controlli RGB Bluetooth non sono ancora abilitati.")
                     .foregroundColor(Studio.muted).fixedSize(horizontal:false,vertical:true)
