@@ -41,7 +41,7 @@ enum HIDTransportError: LocalizedError, Sendable {
         case .invalidFrame:
             return "Pacchetto non valido: sono ammessi soltanto simboli LED da 0 a 7 e una baseline iniziale 0."
         case .invalidInterval:
-            return "Intervallo non valido: il prototipo richiede da 50 a 200 ms per simbolo."
+            return "Intervallo non valido: sono ammessi da 20 a 200 ms per simbolo."
         case .busy:
             return "Un invio è già in corso."
         case .noBluetoothKeyboard:
@@ -76,7 +76,7 @@ enum HIDTransportError: LocalizedError, Sendable {
 }
 
 /// Experimental LED carrier for the matching custom firmware only.
-/// Never used automatically at launch, discovery, or colour selection.
+/// No sends at launch/discovery. Color edits send only after explicit live-preview opt-in.
 /// `masks` includes the initial zero baseline and already encoded clock/data.
 final class HIDTransport: @unchecked Sendable {
     private let queue = DispatchQueue(label: "local.tastiera.ble-output", qos: .userInitiated)
@@ -181,7 +181,7 @@ final class HIDTransport: @unchecked Sendable {
         guard RGBProtocol.validMasks(masks) else {
             throw HIDTransportError.invalidFrame
         }
-        guard interval.isFinite, (0.05...0.2).contains(interval) else {
+        guard RGBProtocol.validInterval(interval) else {
             throw HIDTransportError.invalidInterval
         }
         let selected = try selectCandidate(deviceID: deviceID)

@@ -1,5 +1,6 @@
 #!/bin/zsh
-# Package only the self-contained app. No profiles, firmware images or research.
+# Package only the self-contained app and its optional public application images.
+# Never include profiles, owner keys, personalized loaders or research.
 set -euo pipefail
 cd "${0:A:h:h}"
 bundle="$PWD/dist/Keyglow.app"

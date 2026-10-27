@@ -16,11 +16,13 @@
 #define KG_OTA_CHUNK_SIZE 256u
 #define KG_OTA_MAX_CHUNKS 384u
 #define KG_OTA_BITMAP_BYTES 48u
+#define KG_OTA_COPY_MAX KG_OTA_APP_MAX
 
 typedef enum {
     KG_OTA_OK = 0, KG_OTA_IO, KG_OTA_NO_SESSION, KG_OTA_TARGET_ERROR,
     KG_OTA_BOUNDS, KG_OTA_CONFLICT, KG_OTA_INCOMPLETE, KG_OTA_DIGEST,
-    KG_OTA_VECTOR, KG_OTA_COMMIT_PENDING, KG_OTA_NOT_READY
+    KG_OTA_VECTOR, KG_OTA_COMMIT_PENDING, KG_OTA_NOT_READY,
+    KG_OTA_AUTH_ERROR, KG_OTA_SOURCE_ERROR
 } kg_ota_result;
 
 typedef struct {
@@ -39,8 +41,15 @@ typedef struct {
 typedef struct {
     kg_ota_manifest manifest;
     uint8_t missing[KG_OTA_BITMAP_BYTES]; /* Set bit = chunk still missing. */
-    bool ready, committed, installed;
+    bool ready, committed, installed, authenticated, install_started;
 } kg_ota_status;
+
+/* Volatile cursor only; durable COPY progress uses the normal chunk bitmap.
+ * Restarting a lost cursor with the original offsets safely rechecks chunks. */
+typedef struct {
+    kg_ota_manifest manifest;
+    uint32_t destination, source, remaining;
+} kg_ota_copy_cursor;
 
 /* No allocation, clocks, transport, reset, or key-report side effects. */
 kg_ota_result kg_ota_inspect(const kg_ota_io *, kg_ota_status *);
@@ -49,6 +58,15 @@ kg_ota_result kg_ota_inspect(const kg_ota_io *, kg_ota_status *);
  * An identical already-installed image returns OK without erasing. */
 kg_ota_result kg_ota_begin(const kg_ota_io *, const kg_ota_manifest *, bool replace);
 kg_ota_result kg_ota_chunk(const kg_ota_io *, uint32_t offset, const uint8_t *, size_t);
+/* Source offsets are relative to APP_BASE, never arbitrary flash addresses.
+ * Destination is chunk aligned; length covers whole target chunks, except
+ * the final image tail. The host must separately verify baseline identity.
+ * start performs no writes; step persists at most one 256-byte chunk. */
+kg_ota_result kg_ota_copy_start(const kg_ota_io *, uint32_t destination,
+                              uint32_t source, uint32_t length, kg_ota_copy_cursor *);
+kg_ota_result kg_ota_copy_step(const kg_ota_io *, kg_ota_copy_cursor *, bool *complete);
+/* Synchronous convenience for serialized callers; QMK uses start/step to yield. */
+kg_ota_result kg_ota_copy(const kg_ota_io *, uint32_t destination, uint32_t source, uint32_t length);
 kg_ota_result kg_ota_finish(const kg_ota_io *);
 kg_ota_result kg_ota_commit(const kg_ota_io *);
 /* Loader only, called before the application. Repeats safely after interruption.

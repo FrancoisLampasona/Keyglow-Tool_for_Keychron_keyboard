@@ -1,22 +1,30 @@
-# Keyglow OTA engine — experimental, not connected to Bluetooth
+# Keyglow OTA engine — experimental
 
 This directory implements and tests a firmware staging/install engine for the
 **Q6 Max ISO, STM32F401xC, 256 KiB flash / 64 KiB RAM**. It is not a working
-Bluetooth updater. The installed 0.6 firmware and the production RGB protocol
-are unchanged. No code in this directory is installed by the app or build script.
+Bluetooth updater qualified for release. The preserved0.6 firmware and production
+RGB protocol are unchanged. Build scripts do not install this code on hardware.
 
-The missing dependency is a verified bidirectional host↔keyboard transport. The
-current Bluetooth LED carrier can send RGB commands but has no keyboard ACK.
-Successful macOS writes are not acknowledgements of staged or installed data.
-The engine must not be exposed as an available updater until a real transport,
-relocated application, initial loader installation, and hardware qualification
-exist. An initial USB installation is required to provision a custom loader.
+An isolated application now binds the LED downlink and reserved-byte report
+return path. A short hardware nonce/CRC exchange proved the return path on one
+keyboard. On 2026-10-27, both USB bootstrap phases were independently read back,
+the loader installed relocated build 8, and the saved profile was restored and
+verified over USB on that Q6 Max ISO. A complete Bluetooth A→B update remains
+unverified, as do physical power-loss recovery and independent BOOT0/SWD recovery.
+Successful macOS writes alone are not
+acknowledgements. Initial USB installation provisions the custom loader and a
+private owner key; no universal secret or public fixture key is used for devices.
 
 ## What is implemented
 
 - A portable C receiver: target/address/size validation, 256-byte chunks,
   persistent missing-chunk bitmap, duplicate detection, safe retransmission,
   SHA-256 integrity verification, ARM vector checks, explicit finish and commit.
+- Bounded COPY from the current application, with256-byte durable steps and
+  full96KiB coalesced commands. The target still requires its complete SHA256.
+- Owner HMAC-SHA256 authorization binding target manifest, current source,
+  nonce/key ID and replacement policy. A nonce-bound HELLO authenticates current
+  image identity. Blank/missing keys and unsigned legacy staging fail closed.
 - A loader installer that checks staging before erasing the active application,
   copies only application sectors, verifies the result, and can restart after an
   interrupted erase/write. It preserves staging until installation completes.
@@ -27,15 +35,14 @@ exist. An initial USB installation is required to provision a custom loader.
 - An STM32F401 loader linked into sector 0 using the ST/CMSIS headers from QMK.
   Its flash driver executes busy polling from RAM, uses byte programming,
   services an already running watchdog, flushes flash caches, and limits writes.
-- A separate QMK application linker layout with vectors at `0x08008000`. This
-  layout is supplied for integration; no complete QMK application using it has
-  been built or hardware tested in this change.
+- A fully compiled isolated QMK application with vectors at `0x08008000`,
+  staging-only flash driver, and experimental transport. See `integration/`.
 
 ## Flash layout
 
 | Sector | Address range (inclusive) | Use |
 |---|---|---|
-| 0 | `08000000..08003FFF` | 16 KiB loader |
+| 0 | `08000000..08003FFF` | Loader; final256 bytes reserved for private owner slot |
 | 1 | `08004000..08007FFF` | Existing 16 KiB EEPROM, never touched by OTA |
 | 2–4 | `08008000..0801FFFF` | Relocated application, maximum 96 KiB |
 | 5 | `08020000..0803FFFF` | 128 KiB staging |
@@ -66,7 +73,10 @@ retried if every requested bit transition remains `1→0`; conflicting data is
 rejected. `finish` requires every chunk, the digest, and valid initial stack/reset
 vectors. `commit` verifies again and clears a dedicated single-bit state marker.
 
-At boot, the installer validates staging **before any application erase**. If the
+At boot, the secure installer authenticates format2 and validates staging
+**before any application erase**. It verifies the source digest and records a
+durable install-start checkpoint; subsequent interrupted attempts can resume
+without hashing the partly erased old application. If the
 active digest already matches, it only records completion. Otherwise it erases
 sectors 2–4, copies, verifies, and records completion. A restart repeats that
 process using the intact staging sector. It never marks an unverified image as
@@ -78,8 +88,9 @@ implements that callback as four x8 writes. Erase faults affect fractions or
 partial bits of the addressed sector. The model assumes an interrupted operation
 affects only its addressed flash word/sector.
 They do not qualify real brownouts, supply margins, flash wear, arbitrary memory
-corruption, malicious packages, watchdog timing, radio behavior, or electrical
-faults. A hash is not a signature; there is no anti-rollback policy. All these
+corruption, watchdog timing, sustained radio behavior, or electrical faults.
+HMAC provides owner authorization, not publisher identity or physical extraction
+resistance; there is no monotonic anti-rollback policy. All these
 limits matter before enabling an updater in a released app.
 
 ## Build and verification
@@ -105,8 +116,14 @@ The script defaults to the local pinned QMK and ARM toolchain under `build/`.
 Set `QMK_ROOT` and `ARM_TOOLCHAIN` (compiler prefix ending `arm-none-eabi-`) to
 other paths; relative paths resolve from `firmware/ota`. It outputs only a local
 ignored ELF/map, deliberately no flashable `.bin` or programming command.
-Measured loader image: 2820 bytes, including 340 bytes copied into RAM; fits the
-16 KiB region. A successful compile is not a hardware qualification.
+The authenticated loader fits below the reserved owner slot; exact image sizes
+and hashes are emitted by the isolated integration build. A successful compile
+is not a hardware qualification. Default assembly emits no authenticated
+bootstrap until an existing private owner slot and verified current dump are
+explicitly supplied to `integration/provision.py`.
+
+See [the integration build instructions](integration/README.md#build-and-inspect)
+for the pinned source setup, shared RGB patches and exact A8/B9 build commands.
 
 Offline package operations for an already relocated application:
 

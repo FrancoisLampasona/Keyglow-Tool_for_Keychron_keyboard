@@ -1,0 +1,17 @@
+{
+  "buildTimestamp": "2026-10-27-00:00:09",
+  "compatibleBuildTimestamps": [
+    "2026-10-27-00:00:08",
+    "2026-10-26-23:17:58",
+    "2026-10-26-22:25:16"
+  ],
+  "capabilities": [
+    "rgb-ble-v3-direct",
+    "rgb-ble-persistent",
+    "atomic-rgb-transition",
+    "reactive-idle-65520"
+  ],
+  "target": "keychron/q6_max/iso_encoder",
+  "sourceCommit": "2b493ff95f2665db719b1e95c91babb5036e72f3",
+  "status": "Local build catalog for existing RGB capabilities. USB version matching does not establish OTA support: fresh owner-authenticated HELLO is required. The owner-provisioned loader and build 8 booted on one Q6 Max ISO after verified USB installation. A full Bluetooth update remains unverified."
+}

@@ -17,7 +17,8 @@ import Foundation
     func openSettings() -> Bool { settingsOpens += 1; return settingsResult }
 }
 
-@main struct OnboardingTests {
+@main @MainActor struct OnboardingTests {
+    private static var checks = 0
     @MainActor static func main() {
         let suite = "Keyglow.OnboardingTests.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suite)!
@@ -119,10 +120,76 @@ import Foundation
         approved.beginAutomaticSetup()
         expect(approved.canContinue && approvedService.requests == 1 && approvedService.settingsOpens == 0,
                "native approval completes the request without opening Settings")
-        print("Onboarding: 30 checks passed (fake permission service; no system prompts or hardware access).")
+        let freshDefaults = UserDefaults(suiteName: suite + ".fresh")!
+        defer { freshDefaults.removePersistentDomain(forName: suite + ".fresh") }
+        let alreadyGranted = OnboardingModel(permissions: grantedService, defaults: freshDefaults)
+        expect(!alreadyGranted.needsAutomaticPresentation, "a fresh install with current consent does not show a redundant modal")
+        alreadyGranted.updateDeviceState(.notConnected)
+        expect(alreadyGranted.canContinue, "disconnected keyboard does not negate macOS consent or block entry")
+        alreadyGranted.updateDeviceState(.unavailable("Lettura non riuscita"))
+        expect(alreadyGranted.permission == .granted && alreadyGranted.canContinue, "read failure remains separate from system permission")
+
+        var verification = OnboardingAccessVerification()
+        expect(verification.begin(permission: .granted, deviceID: nil, busy: false) == nil, "consent without a unique device cannot start a read")
+        expect(!verification.isVerified, "consent alone never establishes device access")
+        for state in [OnboardingPermissionState.unknown, .denied, .unavailable] {
+            expect(verification.begin(permission: state, deviceID: 10, busy: false) == nil, "missing consent forbids hardware preflight")
+        }
+        let first = verification.begin(permission: .granted, deviceID: 10, busy: false)!
+        expect(!verification.isVerified && verification.active == first, "a read must finish before access becomes ready")
+        expect(verification.begin(permission: .granted, deviceID: 10, busy: true) == nil && !verification.refreshPending,
+               "repeated activation during the same read neither overlaps nor duplicates it")
+        expect(verification.complete(first, succeeded: true, permission: .granted, deviceID: 10), "fresh same-device successful read establishes access")
+        expect(verification.isVerified, "read evidence stays bound to this device")
+        expect(verification.canReuseCurrentRead(permission: .granted, deviceID: 10) && verification.active == nil,
+               "color-panel activation with fresh consent and identical device preserves current read without a new busy operation")
+        expect(verification.canReuseCurrentRead(permission: .granted, deviceID: 10) && !verification.refreshPending,
+               "repeated activation does not queue redundant preflight reads")
+        var forced = verification
+        expect(forced.begin(permission: .granted, deviceID: 10, busy: false) != nil && !forced.isVerified,
+               "explicit verify or wake can force a fresh read despite matching evidence")
+        var changedIdentity = verification
+        expect(!changedIdentity.canReuseCurrentRead(permission: .granted, deviceID: 12) && !changedIdentity.isVerified,
+               "a new registry identity cannot reuse the previous device's evidence")
+        expect(!verification.canReuseCurrentRead(permission: .denied, deviceID: 10) && !verification.isVerified,
+               "fresh permission revocation is never masked by the activation fast path")
+        expect(!verification.canReuseCurrentRead(permission: .granted, deviceID: 10),
+               "regrant after revocation cannot recover cached proof")
+        verification.observe(permission: .denied, deviceID: 10)
+        expect(!verification.isVerified, "permission revocation immediately invalidates device access")
+        verification.observe(permission: .granted, deviceID: 10)
+        expect(!verification.isVerified, "regrant requires a new read rather than cached success")
+        let revoked = verification.begin(permission: .granted, deviceID: 10, busy: false)!
+        expect(!verification.complete(revoked, succeeded: true, permission: .denied, deviceID: 10), "revocation during a successful read rejects stale success")
+        let changed = verification.begin(permission: .granted, deviceID: 10, busy: false)!
+        expect(!verification.complete(changed, succeeded: true, permission: .granted, deviceID: 11), "device replacement during a read rejects its result")
+        expect(verification.refreshPending && verification.takeDeferredRefresh() && !verification.takeDeferredRefresh(), "replacement requests exactly one deferred verification")
+        let replacement = verification.begin(permission: .granted, deviceID: 11, busy: false)!
+        expect(!verification.complete(changed, succeeded: true, permission: .granted, deviceID: 11) && verification.active == replacement,
+               "late callbacks cannot finish another device's read")
+        expect(!verification.complete(replacement, succeeded: false, permission: .granted, deviceID: 11), "granted permission cannot override a read failure")
+        expect(!verification.isVerified, "failed read never enables writes")
+        expect(verification.begin(permission: .granted, deviceID: 11, busy: true) == nil && verification.refreshPending && verification.active == nil,
+               "RGB or OTA occupancy postpones verification without opening HID")
+        expect(verification.takeDeferredRefresh(), "verification resumes once the existing operation ends")
+        let resumed = verification.begin(permission: .granted, deviceID: 11, busy: false)!
+        expect(verification.complete(resumed, succeeded: true, permission: .granted, deviceID: 11), "deferred read can establish fresh access")
+        verification.invalidateEvidence()
+        expect(!verification.isVerified, "a later transport failure discards previous successful evidence")
+        let transient = verification.begin(permission: .granted, deviceID: 11, busy: false)!
+        verification.observe(permission: .denied, deviceID: 11)
+        verification.observe(permission: .granted, deviceID: 11)
+        expect(!verification.complete(transient, succeeded: true, permission: .granted, deviceID: 11), "revoke/regrant during a read invalidates its generation")
+        let lost = verification.begin(permission: .granted, deviceID: 11, busy: false)!
+        expect(!verification.complete(lost, succeeded: true, permission: .granted, deviceID: nil) && !verification.isVerified,
+               "disconnect during read cannot leave access enabled")
+        verification.deferRefresh()
+        expect(verification.takeDeferredRefresh(), "wake while another operation is busy can defer discovery even with no prior device")
+        print("Onboarding: \(checks) checks passed (fake permission service; no system prompts or hardware access).")
     }
 
     private static func expect(_ condition: @autoclosure () -> Bool, _ message: String) {
+        checks += 1
         guard condition() else { fatalError("FAIL: \(message)") }
     }
 }

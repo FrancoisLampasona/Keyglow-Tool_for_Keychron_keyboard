@@ -13,9 +13,9 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>0.7.0</string>
+	<string>0.8.1</string>
 	<key>CFBundleVersion</key>
-	<string>8</string>
+	<string>11</string>
 	<key>CFBundleIconFile</key>
 	<string>Keyglow</string>
 	<key>LSMinimumSystemVersion</key>
@@ -24,6 +24,8 @@
 	<true/>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>Keyglow legge modello, firmware radio e batteria della tua Q6 Max. La verifica non scrive impostazioni e non aggiorna il firmware.</string>
 	<key>NSHumanReadableCopyright</key>
 	<string>Keyglow contributors · GPL-2.0-or-later. Not affiliated with Keychron.</string>
 </dict>

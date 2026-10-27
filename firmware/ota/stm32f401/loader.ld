@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 ENTRY(Reset_Handler)
 MEMORY {
-    LOADER (rx) : ORIGIN = 0x08000000, LENGTH = 16K
+    /* Final 256 bytes are reserved for private, USB-only owner provisioning. */
+    LOADER (rx) : ORIGIN = 0x08000000, LENGTH = 0x3F00
     RAM (rwx) : ORIGIN = 0x20000000, LENGTH = 64K
 }
 SECTIONS {

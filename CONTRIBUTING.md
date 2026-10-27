@@ -15,6 +15,14 @@ zsh scripts/test-quick-launch.sh
 zsh scripts/test-launcher-backup.sh
 zsh scripts/test-launcher-macros.sh
 sh macOS/Tests/Onboarding/run.sh
+sh macOS/Tests/BluetoothInspection/run.sh
+sh macOS/Tests/Probe/run.sh
+sh macOS/Tests/BluetoothOTA/run.sh
+sh macOS/Tests/BluetoothOTAChannel/run.sh
+sh macOS/Tests/FirmwareAuthorization/run.sh
+sh macOS/Tests/FirmwareDelta/run.sh
+sh macOS/Tests/FirmwareUpdate/run.sh
+sh macOS/Tests/LiveRGB/run.sh
 zsh scripts/build-app.sh
 ```
 
@@ -30,9 +38,12 @@ The complete host suite uses a pinned Keychron QMK checkout. It reads and patche
 zsh scripts/setup-firmware.sh --source-only
 sh firmware/test.sh
 make -C firmware/ota test
+sh firmware/ota/ble/test.sh
 ```
 
-Do not replace an existing checkout with uncommitted work. The OTA suite exercises the experimental staging/installer core with simulated flash failures; it does not enable Bluetooth updating. Firmware compilation also requires an Arm toolchain; see [the firmware guide](docs/firmware.md). Host tests are not evidence that an update is safe to install on hardware.
+Do not replace an existing checkout with uncommitted work. The OTA suite exercises the experimental staging/installer core with simulated flash failures; running it never enables or performs an update. Firmware compilation also requires an Arm toolchain; see [the firmware guide](docs/firmware.md). Host tests are not evidence that an update is safe to install on hardware.
+
+After building the isolated A8/B9 candidates in `build/ota-integration/variant-a` and `variant-b`, run `sh macOS/Tests/FirmwareEngine/run.sh`. This connects the production Swift coordinator to the actual C authorization/staging/loader core with RAM-backed flash and a public synthetic key. It checks the installed-stage transition, a lost DATA reply, resumed transfer and authenticated post-boot identity. It does not contact a keyboard or access Keychain.
 
 ## Pull requests
 

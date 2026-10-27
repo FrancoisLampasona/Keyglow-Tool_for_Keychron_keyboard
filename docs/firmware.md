@@ -16,7 +16,7 @@ The Bluetooth HID descriptor observed on the tested board exposes standard indic
 
 The v3 frame includes effect, hue, saturation, brightness, speed, command version and CRC16. Temporary and persistent commands are distinct. Valid commands are applied outside the LED callback; unchanged settings avoid duplicate writes. The sender restores indicator state after transmission. Close other keyboard configurators and avoid Caps/Num input during a transfer.
 
-There is no device acknowledgement. The app cannot infer reception or successful persistence from IOKit accepting a report. Individual-key RGB, Mix, keymaps, macros and advanced configuration continue to use USB.
+RGB commands have no device acknowledgement. The app cannot infer RGB reception or successful persistence from IOKit accepting a report. The firmware updater uses a separate request/reply protocol. Individual-key RGB, Mix, keymaps, macros and advanced configuration continue to use USB.
 
 ## Installing or building firmware
 
@@ -28,11 +28,17 @@ Current installation uses **USB and the STM32 DFU bootloader**. Before replacing
 
 Keep generated firmware and device backups out of source control. Anyone distributing a firmware image must also provide corresponding source and build information under its licenses; see [third-party notices](../THIRD_PARTY_NOTICES.md).
 
-## Bluetooth updates are not enabled
+## Experimental Bluetooth updater in 0.8
 
-RGB control does not provide a verified firmware-transfer channel. A usable updater also needs acknowledged chunks, integrity and target validation, recoverable staging, bootloader integration, and tested recovery from power loss. The experimental OTA code is host-test engineering work and is **not installed by the app or enabled on the keyboard**.
+The app validates a relocated Q6 Max ISO `.kgfw` package, authenticates the keyboard with a fresh nonce and owner HMAC, and compares its current image hash with a local baseline. It can reuse unchanged bytes on the keyboard and transmit changed chunks, checking receipts and staging status. Completion requires a fresh authenticated identity read after reboot matching the target build, length and SHA-256. It does not update the proprietary radio firmware.
 
-The present RGB firmware cannot acquire those capabilities merely through an app update. Do not send a firmware file through the RGB indicator protocol or treat successful host tests as approval to flash a bootloader.
+Initial provisioning requires USB/DFU and an owner key generated explicitly by the app. The key is stored in the user's Keychain and a private local bootstrap file. The personalized loader contains that secret and must never be published, bundled with the public app, or attached to issues. Public firmware packages are owner-authorized when sent; they are not publisher-signed releases or an anti-rollback system.
+
+Hardware evidence so far covers a nonce/CRC return-channel probe at 80, 40 and 20 ms downlink timing; the return path used 100 ms symbols. The two bootstrap phases were written and independently read back on one Q6 Max ISO. Build 8 then booted, and the saved profile was restored and verified over USB. **A complete Bluetooth A→B update has not yet been verified.** Rapid RGB previews are also awaiting a physical test.
+
+Offline tests include authenticated staging, simulated power interruptions, wire framing, typing/disconnect cancellation and the production Swift coordinator connected to the C engine and loader in memory. These do not establish physical power-loss recovery. The initial loader-sector write is not interruption-safe, and independent BOOT0/SWD recovery has not been verified on the test unit. See [the integration notes](../firmware/ota/integration/README.md) before attempting another bootstrap.
+
+The stock firmware and the earlier RGB-only custom firmware cannot acquire the loader through an app update alone. Builds do not flash hardware. The app keeps RGB sending separate from firmware transfer and does not silently retry failed flash mutations.
 
 ## Wake and battery behavior
 

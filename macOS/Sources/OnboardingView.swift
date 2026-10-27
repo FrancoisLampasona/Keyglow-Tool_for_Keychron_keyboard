@@ -13,6 +13,7 @@ struct OnboardingView: View {
                 VStack(alignment: .leading, spacing: 26) {
                     introduction
                     permissionCard
+                    deviceStatus
                     applicationDetails
                 }.padding(32)
             }
@@ -21,15 +22,14 @@ struct OnboardingView: View {
                 Button("Più tardi", action: onLater)
                     .buttonStyle(StudioButton()).keyboardShortcut(.cancelAction)
                 Spacer()
-                Button("Continua", action: onContinue)
+                Button("Apri Keyglow", action: onContinue)
                     .buttonStyle(StudioButton(primary: true)).keyboardShortcut(.defaultAction)
                     .disabled(!model.canContinue)
             }.padding(.horizontal, 32).padding(.vertical, 20)
         }
-        .frame(width: 620, height: 650)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Studio.background).foregroundColor(Studio.text)
         .font(.system(size: 13)).tint(Studio.accent)
-        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in model.refresh() }
     }
 
     private var introduction: some View {
@@ -37,9 +37,9 @@ struct OnboardingView: View {
             Image(systemName: "keyboard")
                 .font(.system(size: 30, weight: .light)).foregroundColor(Studio.accent)
                 .padding(.bottom, 4).accessibilityHidden(true)
-            Text("Benvenuto in \(model.appName)")
+            Text("Accesso alla tastiera")
                 .font(.system(size: 29, weight: .semibold)).tracking(-0.5)
-            Text("Prepariamo l’accesso alla tastiera. La conferma resta nelle tue mani.")
+            Text("Consenti l’accesso in macOS. \(model.appName) lo ricontrolla automaticamente quando torni nell’app.")
                 .font(.system(size: 14)).foregroundColor(Studio.muted)
         }
     }
@@ -61,7 +61,7 @@ struct OnboardingView: View {
                 .foregroundColor(Studio.muted).fixedSize(horizontal: false, vertical: true)
 
             if model.permission == .granted {
-                Text("Accesso consentito da macOS. Puoi continuare nell’app.")
+                Text("Permesso concesso. La tastiera viene verificata separatamente, senza cambiare colori o impostazioni.")
                     .foregroundColor(Studio.success).fixedSize(horizontal: false, vertical: true)
             } else {
                 Text("L’app avvia la richiesta di accesso automaticamente. In Privacy e sicurezza → Monitoraggio input, abilita \(model.appName). Se non compare, aggiungi l’app con il pulsante +.")
@@ -76,7 +76,9 @@ struct OnboardingView: View {
                     Button("Apri Impostazioni") { model.openPrivacySettings() }
                         .buttonStyle(StudioButton(primary: true))
                 }
-                Button("Ricontrolla") { model.refresh() }.buttonStyle(StudioButton())
+                if model.permission != .granted {
+                    Button("Ricontrolla permesso") { model.refresh() }.buttonStyle(StudioButton())
+                }
                 if model.permission == .unknown {
                     Button("Impostazioni") { model.openPrivacySettings() }.buttonStyle(StudioButton())
                 }
@@ -89,6 +91,28 @@ struct OnboardingView: View {
         .padding(22).frame(maxWidth: .infinity, alignment: .leading)
         .background(Studio.panel).clipShape(RoundedRectangle(cornerRadius: 12))
         .overlay(RoundedRectangle(cornerRadius: 12).stroke(Studio.line.opacity(0.7), lineWidth: 1))
+    }
+
+    private var deviceStatus: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 10) {
+                if model.deviceState == .checking { ProgressView().controlSize(.small) }
+                else { Image(systemName: model.deviceState == .verified ? "checkmark.circle" : "keyboard").foregroundColor(Studio.muted).accessibilityHidden(true) }
+                Text("Q6 Max Bluetooth").font(.system(size: 14, weight: .semibold))
+            }
+            Text(deviceMessage).font(.system(size: 12)).foregroundColor(Studio.muted)
+                .fixedSize(horizontal: false, vertical: true).lineSpacing(3)
+        }.frame(maxWidth: .infinity, alignment: .leading)
+    }
+    private var deviceMessage: String {
+        switch model.deviceState {
+        case .notConnected: return "Tastiera non collegata. Puoi entrare nell’app e collegarla in seguito: questo non cambia il permesso di macOS."
+        case .detected: return model.permission == .granted ? "Tastiera rilevata. La verifica in sola lettura parte automaticamente." : "Tastiera rilevata. Completa prima il consenso di macOS."
+        case .waiting: return "Verifica in attesa: terminerà prima l’operazione in corso sulla tastiera."
+        case .checking: return "Verifico l’accesso in sola lettura. Nessun colore o impostazione viene modificato."
+        case .verified: return "Accesso verificato in sola lettura. Colori ed effetti cambiano solo quando li invii dall’app."
+        case .unavailable(let reason): return reason
+        }
     }
 
     private var applicationDetails: some View {

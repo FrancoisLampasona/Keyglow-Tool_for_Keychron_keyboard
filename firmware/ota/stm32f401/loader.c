@@ -4,6 +4,7 @@
  * Uses ST's STM32F401xC CMSIS header; see THIRD_PARTY.md. */
 #include "stm32f401xc.h"
 #include "keyglow_ota.h"
+#include "keyglow_ota_auth.h"
 #include <string.h>
 
 #define RAMFUNC __attribute__((section(".ramfunc"),noinline))
@@ -21,12 +22,20 @@ const uintptr_t vectors[16] = {
 /* Byte programming avoids assuming the x32 minimum supply voltage. Watchdog
  * service and busy polling execute in RAM while the single flash bank stalls.
  * No mass erase, option-byte, RDP, or WRP register operations exist here. */
-static RAMFUNC bool flash_wait(void) {
-    while(FLASH->SR&FLASH_SR_BSY) IWDG->KR=0xaaaa;
+static RAMFUNC void busy_timeout_reset(void) {
+    __DSB();SCB->AIRCR=(0x5fau<<SCB_AIRCR_VECTKEY_Pos)|SCB_AIRCR_SYSRESETREQ_Msk;__DSB();
+    for(;;)__NOP();
+}
+static RAMFUNC bool flash_wait(uint32_t cycles) {
+    uint32_t start=DWT->CYCCNT;
+    while(FLASH->SR&FLASH_SR_BSY){
+        IWDG->KR=0xaaaa;
+        if((uint32_t)(DWT->CYCCNT-start)>cycles)busy_timeout_reset();
+    }
     return (FLASH->SR&FLASH_ERRORS)==0;
 }
 static RAMFUNC bool unlock(void) {
-    if(!flash_wait())FLASH->SR=FLASH_ERRORS|FLASH_SR_EOP;
+    if(!flash_wait(672000000u))FLASH->SR=FLASH_ERRORS|FLASH_SR_EOP;
     if(FLASH->CR&FLASH_CR_LOCK){FLASH->KEYR=0x45670123;FLASH->KEYR=0xcdef89ab;}
     return (FLASH->CR&FLASH_CR_LOCK)==0;
 }
@@ -53,7 +62,7 @@ static RAMFUNC bool program_flash(void *ctx,uint32_t a,uint32_t word) {
         FLASH->SR=FLASH_ERRORS|FLASH_SR_EOP;
         FLASH->CR=FLASH_CR_PG; /* PSIZE=00: x8 */
         *p=v;__DSB();
-        success=flash_wait();FLASH->CR=0;
+        success=flash_wait(8400000u);FLASH->CR=0;
         if(!success)break;
     }
     FLASH->CR=FLASH_CR_LOCK;flush_cache();return success;
@@ -65,7 +74,7 @@ static RAMFUNC bool erase_flash(void *ctx,unsigned sector) {
     FLASH->SR=FLASH_ERRORS|FLASH_SR_EOP;
     FLASH->CR=FLASH_CR_SER|(sector<<FLASH_CR_SNB_Pos); /* PSIZE=00 */
     FLASH->CR|=FLASH_CR_STRT;__DSB();
-    bool ok=flash_wait();FLASH->CR=FLASH_CR_LOCK;flush_cache();return ok;
+    bool ok=flash_wait(672000000u);FLASH->CR=FLASH_CR_LOCK;flush_cache();return ok;
 }
 __attribute__((naked,noreturn)) static void enter(uint32_t address __attribute__((unused))) {
     __asm volatile("ldr r1,[r0]\nldr r2,[r0,#4]\nmsr msp,r1\nmovs r1,#0\nmsr control,r1\nmsr primask,r1\nisb\nbx r2");
@@ -85,8 +94,16 @@ void Reset_Handler(void) {
     SCB->VTOR=KG_OTA_FLASH_BASE;
     /* Reject a different MCU/density before any flash write. */
     if((DBGMCU->IDCODE&0xfffu)!=0x423u||*(volatile uint16_t *)FLASHSIZE_BASE!=256u)jump(0x1fff0000u);
+    /* Deadlines use the MCU's maximum84MHz cycle budget: conservative even if
+     * ROM entry left a slower clock. They remain bounded independently of IRQs. */
+    CoreDebug->DEMCR|=CoreDebug_DEMCR_TRCENA_Msk;DWT->CTRL|=DWT_CTRL_CYCCNTENA_Msk;
+    uint32_t first=DWT->CYCCNT;__NOP();__NOP();__NOP();__NOP();
+    if(DWT->CYCCNT==first)jump(0x1fff0000u);
     const kg_ota_io io={NULL,read_flash,program_flash,erase_flash};
-    kg_ota_result r=kg_ota_install(&io);
+    uint8_t key[32];
+    if(!kg_ota_read_device_key(&io,key))jump(0x1fff0000u);
+    kg_ota_result r=kg_ota_install_authenticated(&io,key);
+    for(unsigned i=0;i<sizeof key;i++)((volatile uint8_t *)key)[i]=0;
     if((r==KG_OTA_OK||r==KG_OTA_NO_SESSION||r==KG_OTA_NOT_READY)&&kg_ota_vectors_valid(&io,KG_OTA_APP_BASE,KG_OTA_APP_MAX))jump(KG_OTA_APP_BASE);
     /* Damaged/incomplete committed image never enters a partly erased app.
      * USB ROM DFU remains the recovery route, not a Bluetooth service. */

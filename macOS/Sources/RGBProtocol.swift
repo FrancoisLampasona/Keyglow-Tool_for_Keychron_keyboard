@@ -3,6 +3,12 @@ import Foundation
 /// Experimental protocol shared with firmware/; this is not Keychron's stock protocol.
 enum RGBProtocol {
     static let interval: TimeInterval = 0.080
+    // Same 53-symbol framing as the successful short diagnostic at20ms.
+    // Actual RGB delivery at this rate still requires visual hardware validation.
+    static let liveInterval: TimeInterval = 0.020
+    static func validInterval(_ interval: TimeInterval) -> Bool {
+        interval.isFinite && (0.020...0.200).contains(interval)
+    }
 
     enum PacketError: LocalizedError {
         case unsupportedEffect

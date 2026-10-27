@@ -27,5 +27,11 @@ check(directBuild.supportsDirectRGB("v1.1.1 2026-10-26-23:00:00"), "Exact direct
 check(!directBuild.supportsDirectRGB("v1.1.1 2026-10-26-21:48:49"), "Installed 0.5 build must remain legacy")
 let missingSave = FirmwareBuildInfo(buildTimestamp: "2026-10-26-23:00:00", capabilities: ["rgb-ble-v3-direct"])
 check(!missingSave.supportsDirectRGB("v1.1.1 2026-10-26-23:00:00"), "Both direct and persistence capabilities required")
+let catalogJSON = Data("""
+{"buildTimestamp":"2026-10-27-01:00:00","compatibleBuildTimestamps":["2026-10-26-23:00:00"],"capabilities":["rgb-ble-v3-direct","rgb-ble-persistent"]}
+""".utf8)
+let catalog = try JSONDecoder().decode(FirmwareBuildInfo.self, from: catalogJSON)
+check(catalog.supportsDirectRGB("v1.1.1 2026-10-26-23:00:00"), "Explicit compatible catalog is decoded")
+check(!catalog.matches("v1.1.1 2026-10-26-22:59:59"), "Catalog still rejects unknown timestamps")
 check(EnergyPolicy.duration(minutes: 1092) == "18 h 12 min", "Must not label finite radio timeout as never")
 print("PASS: reactive timeout range, profile persistence, separate light timer and exact firmware-build recognition.")

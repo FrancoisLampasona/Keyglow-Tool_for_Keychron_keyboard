@@ -36,12 +36,22 @@ jobs:
           zsh scripts/test-launcher-backup.sh
           zsh scripts/test-launcher-macros.sh
           sh macOS/Tests/Onboarding/run.sh
+          sh macOS/Tests/BluetoothInspection/run.sh
+          sh macOS/Tests/Probe/run.sh
+          sh macOS/Tests/BluetoothOTA/run.sh
+          sh macOS/Tests/BluetoothOTAChannel/run.sh
+          sh macOS/Tests/FirmwareAuthorization/run.sh
+          sh macOS/Tests/FirmwareDelta/run.sh
+          sh macOS/Tests/FirmwareUpdate/run.sh
+          sh macOS/Tests/LiveRGB/run.sh
       - name: Fetch pinned QMK source for host integration tests
         run: zsh scripts/setup-firmware.sh --source-only
       - name: RGB firmware host tests
         run: sh firmware/test.sh
       - name: Experimental OTA host fault tests
-        run: make -C firmware/ota test
+        run: |
+          make -C firmware/ota test
+          sh firmware/ota/ble/test.sh
       - name: Build app and verify local signature
         run: zsh scripts/build-app.sh
 

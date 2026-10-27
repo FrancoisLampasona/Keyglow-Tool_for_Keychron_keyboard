@@ -25,8 +25,10 @@ struct StudioView:View {
     private let names=["Illuminazione","Mappa dei tasti","Macro","Test tastiera","Profili","Energia","Connessione","Firmware","Avvio rapido"]
     private let symbols=["sun.max","keyboard","command","checkmark.circle","square.stack","battery.75percent","antenna.radiowaves.left.and.right","cpu","bolt"]
     var body:some View {
+        GeometryReader { geometry in
+        let railWidth: CGFloat = geometry.size.width < 1100 ? 180 : 208
         HStack(spacing:0) {
-            sidebar.frame(width:202)
+            sidebar.frame(width:railWidth).disabled(model.busy && !model.transmitting)
             VStack(spacing:0) {
                 header
                 Divider()
@@ -42,78 +44,108 @@ struct StudioView:View {
                     case 7: FirmwareWorkspaceView(model:model)
                     default: QuickLaunchView()
                     }
-                }.frame(maxWidth:.infinity,maxHeight:.infinity,alignment:.topLeading).disabled(model.busy)
+                // Firmware keeps Interrompi available; lighting may queue the
+                // latest preview while an earlier RGB command finishes.
+                }.frame(maxWidth:.infinity,maxHeight:.infinity,alignment:.topLeading)
+                    .disabled(model.busy && model.section != 7 && !(model.section == 0 && model.transmitting))
                 footer
             }
+        }.environment(\.studioContentWidth, max(0, geometry.size.width - railWidth))
         }.background(Studio.background).foregroundColor(Studio.text).font(.system(size:13)).tint(Studio.accent).ignoresSafeArea()
             .onChange(of:model.section) { _ in model.stopCapture() }
-            .onChange(of:model.brightness) { _ in model.syncLightDraft() }
     }
     private var sidebar:some View {
         VStack(alignment:.leading,spacing:0) {
             HStack(spacing:10) {
                 if let url=Bundle.main.url(forResource:"TastieraIcon",withExtension:"png"),let icon=NSImage(contentsOf:url) { Image(nsImage:icon).resizable().frame(width:34,height:34).clipShape(RoundedRectangle(cornerRadius:8)).accessibilityHidden(true) }
                 Text("Keyglow").font(.system(size:21,weight:.semibold))
-            }.padding(.bottom,30)
-            ForEach(names.indices,id:\.self) { index in
-                Button { model.section=index } label: {
-                    HStack(spacing:10) { Image(systemName:symbols[index]).frame(width:17); Text(names[index]).fontWeight(model.section==index ? .semibold:.regular); Spacer(minLength:0) }
-                        .padding(.horizontal,10).frame(height:40).foregroundColor(model.section==index ? Studio.text:Studio.muted)
-                        .background(model.section==index ? Color.white.opacity(0.07):.clear).clipShape(RoundedRectangle(cornerRadius:7))
-                }.buttonStyle(.plain).padding(.bottom,3).accessibilityElement(children:.ignore).accessibilityLabel(names[index]).accessibilityAddTraits(.isButton).accessibilityAddTraits(model.section==index ? .isSelected:[])
-            }
-            Spacer(minLength:24)
+            }.padding(.bottom,24)
+            ScrollView(.vertical) {
+                VStack(spacing:4) {
+                    ForEach(names.indices,id:\.self) { index in
+                        Button { model.section=index } label: {
+                            Label(names[index], systemImage:symbols[index])
+                                .labelStyle(StudioNavigationLabel())
+                                .frame(maxWidth:.infinity, minHeight:40, alignment:.leading)
+                                .padding(.horizontal,10).contentShape(Rectangle())
+                        }.buttonStyle(StudioNavigationButton(selected:model.section == index))
+                            .keyboardShortcut(KeyEquivalent(Character(String(index + 1))), modifiers:.command)
+                            .help("\(names[index]) · ⌘\(index + 1)")
+                            .accessibilityLabel(names[index])
+                            .accessibilityAddTraits(model.section == index ? .isSelected:[])
+                    }
+                }
+            }.scrollIndicators(.hidden)
+            Spacer(minLength:16)
             VStack(alignment:.leading,spacing:8) {
                 Image(systemName:"keyboard").font(.system(size:23,weight:.light)).foregroundColor(Studio.muted)
                 Text("Q6 Max · ISO IT").fontWeight(.semibold)
                 Label(model.usbSnapshot != nil ? "USB · letta" : model.available ? "Bluetooth rilevata":"Non collegata",systemImage:model.usbSnapshot != nil ? "checkmark.circle":"circle.dotted").font(.system(size:11)).foregroundColor(model.usbSnapshot != nil ? Studio.success:Studio.muted)
             }
             Divider().padding(.vertical,18)
-            HStack { Text("Studio tastiera"); Spacer(); Text(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.7.0") }.font(.system(size:10)).foregroundColor(Studio.muted)
-        }.padding(.horizontal,16).padding(.top,54).padding(.bottom,22).background(Studio.rail)
+            HStack { Text("Studio tastiera"); Spacer(); Text(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "—") }.font(.system(size:10)).foregroundColor(Studio.muted)
+        }.padding(.horizontal,12).padding(.top,44).padding(.bottom,18).background(Studio.rail)
     }
-    private var header:some View {
-        HStack {
-            VStack(alignment:.leading,spacing:6) {
-                Text(names[model.section]).font(.system(size:30,weight:.semibold)).tracking(-0.4)
-                Text(model.section==0 ? "La tua Q6 Max, nella sua luce." : model.section==1 ? "Ogni tasto, ogni livello. La disposizione della tua ISO italiana." : model.section==2 ? "Sequenze precise, pronte da assegnare a un tasto." : model.section==3 ? "Verifica i tasti ricevuti in questa finestra." : model.section==4 ? "Le tue configurazioni, conservate sul Mac." : model.section==5 ? "Prontezza, autonomia e spegnimento delle luci." : model.section==6 ? "Dispositivo, accesso e canali di configurazione." : model.section==7 ? "Identità e strumenti per preparare un aggiornamento." : "Apri app e siti con una scorciatoia dedicata.")
-                    .font(.system(size:12)).foregroundColor(Studio.muted)
+    private var header: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(alignment: .center, spacing: 24) {
+                pageHeading
+                Spacer(minLength: 12)
+                pageStatus
             }
-            Spacer(minLength:12)
-            VStack(alignment:.trailing,spacing:6) {
-                Label(model.usbSnapshot != nil ? (model.hasLocalChanges ? "Bozza modificata" : "Configurazione letta") : model.available ? "Bluetooth rilevato" : "Progetto locale",
-                      systemImage:model.usbSnapshot != nil && !model.hasLocalChanges ? "checkmark.circle" : model.available ? "antenna.radiowaves.left.and.right" : "pencil")
-                    .foregroundColor(model.usbSnapshot != nil && !model.hasLocalChanges ? Studio.success : Studio.muted).font(.system(size:12,weight:.medium))
-                if let sent=model.lastBluetoothSend {
-                    Text("Ultimo invio RGB · \(sent.formatted(date:.omitted,time:.shortened))").font(.system(size:11)).foregroundColor(Studio.muted)
-                } else {
-                    Text(model.hasLocalChanges ? "Le modifiche restano nella bozza" : "Rilettura USB disponibile").font(.system(size:11)).foregroundColor(Studio.muted)
-                }
-            }
-        }.padding(.horizontal,28).padding(.top,45).padding(.bottom,21)
+            VStack(alignment: .leading, spacing: 12) { pageHeading; pageStatus }
+        }.frame(maxWidth: model.section >= 4 ? 1120 : .infinity, alignment: .leading)
+            .padding(.horizontal,28).padding(.top,40).padding(.bottom,20)
+            .frame(maxWidth:.infinity,alignment:.center)
     }
-    private var footer:some View {
+    private var pageHeading: some View {
+        VStack(alignment:.leading,spacing:6) {
+            Text(names[model.section]).font(.system(size:28,weight:.semibold)).tracking(-0.4)
+            Text(model.section==0 ? "La tua Q6 Max, nella sua luce." : model.section==1 ? "Ogni tasto, ogni livello. Il layout della tua ISO italiana." : model.section==2 ? "Sequenze precise, pronte da assegnare a un tasto." : model.section==3 ? "Verifica i tasti ricevuti in questa finestra." : model.section==4 ? "Le tue configurazioni, conservate sul Mac." : model.section==5 ? "Prontezza, autonomia e spegnimento delle luci." : model.section==6 ? "Dispositivo, accesso e collegamenti." : model.section==7 ? "Firmware, verifiche e aggiornamenti." : "Apri app e siti con una scorciatoia dedicata.")
+                .font(.system(size:13)).foregroundColor(Studio.muted).fixedSize(horizontal:false,vertical:true)
+        }
+    }
+    private var pageStatus: some View {
+        VStack(alignment:.leading,spacing:5) {
+            Label(model.usbSnapshot != nil ? (model.hasLocalChanges ? "Bozza modificata" : "Configurazione letta") : model.available ? "Bluetooth rilevato" : "Progetto locale",
+                  systemImage:model.usbSnapshot != nil && !model.hasLocalChanges ? "checkmark.circle" : model.available ? "antenna.radiowaves.left.and.right" : "pencil")
+                .foregroundColor(model.usbSnapshot != nil && !model.hasLocalChanges ? Studio.success : Studio.muted).font(.system(size:12,weight:.medium))
+            if let sent=model.lastBluetoothSend {
+                Text("Ultimo invio RGB · \(sent.formatted(date:.omitted,time:.shortened))").font(.system(size:11)).foregroundColor(Studio.muted)
+            } else if model.usbSnapshot != nil {
+                Text(model.hasLocalChanges ? "Modifiche ancora da applicare" : "Rilettura USB disponibile").font(.system(size:11)).foregroundColor(Studio.muted)
+            }
+        }.fixedSize(horizontal:true,vertical:false)
+    }
+    private var footer: some View {
         VStack(spacing:0) {
             Divider()
             if model.busy { ProgressView().progressViewStyle(.linear).frame(height:3) }
-            HStack(spacing:14) {
-                VStack(alignment:.leading,spacing:5) {
-                    Text(model.busy ? "Operazione in corso…" : model.usbReady ? (model.hasLocalChanges ? "Bozza pronta da applicare via USB" : "Configurazione USB aggiornata") : (model.available && [0,6].contains(model.section)) ? "RGB disponibile via Bluetooth" : model.section == 8 ? "Scorciatoie sul Mac" : "Il progetto è salvato sul Mac")
-                        .font(.system(size:12,weight:.medium))
-                    Text(footerDetail).font(.system(size:11)).foregroundColor(Studio.muted).lineLimit(2)
-                }
-                Spacer(minLength:4)
-                Button { model.archiveCurrentProfile() } label: { Label("Salva profilo",systemImage:"square.and.arrow.down") }.buttonStyle(StudioButton()).disabled(model.busy || model.recording)
-                if model.selectedUSBID != nil {
-                    Button("Leggi tastiera") { model.readUSB() }.buttonStyle(StudioButton()).disabled(model.busy)
-                    Button { model.applyUSB() } label: { Label("Applica via USB",systemImage:"arrow.up.right") }.buttonStyle(StudioButton(primary:true)).disabled(!model.usbReady || !model.hasLocalChanges)
-                } else if model.available && model.section == 0 && model.ready {
-                    Button { model.send(off: false) } label: { Label(model.bluetoothApplyTitle, systemImage: "arrow.up.right") }.buttonStyle(StudioButton(primary:true)).disabled(!model.bluetoothEffectSupported)
-                } else if model.section != 6 && model.section != 8 {
-                    Button(model.available && model.section == 0 ? "Controlli Bluetooth" : "Collega via USB") { model.section=6 }.buttonStyle(StudioButton(primary:true)).disabled(model.busy)
-                }
-            }.padding(.horizontal,28).padding(.vertical,17)
-        }.background(Studio.rail.opacity(0.6))
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing:20) { footerStatus.frame(minWidth:220, maxWidth:.infinity, alignment:.leading); footerActions }
+                VStack(alignment:.leading,spacing:12) { footerStatus; HStack { Spacer(minLength:0); footerActions } }
+            }.padding(.horizontal,24).padding(.vertical,14)
+        }.background(Studio.rail.opacity(0.8))
+    }
+    private var footerStatus: some View {
+        VStack(alignment:.leading,spacing:5) {
+            Text(model.busy ? "Operazione in corso…" : model.usbReady ? (model.hasLocalChanges ? "Bozza pronta da applicare via USB" : "Configurazione USB aggiornata") : (model.available && [0,6].contains(model.section)) ? "RGB via Bluetooth" : model.section == 8 ? "Scorciatoie sul Mac" : "Il progetto è salvato sul Mac")
+                .font(.system(size:12,weight:.medium))
+            Text(footerDetail).font(.system(size:11)).foregroundColor(Studio.muted).lineLimit(2).help(footerDetail)
+        }
+    }
+    private var footerActions: some View {
+        HStack(spacing:10) {
+            Button { model.archiveCurrentProfile() } label: { Label("Salva profilo",systemImage:"square.and.arrow.down") }.buttonStyle(StudioButton()).disabled(model.busy || model.recording)
+            if model.selectedUSBID != nil {
+                Button("Leggi tastiera") { model.readUSB() }.buttonStyle(StudioButton()).disabled(model.busy)
+                Button { model.applyUSB() } label: { Label("Applica via USB",systemImage:"arrow.up.right") }.buttonStyle(StudioButton(primary:true)).disabled(!model.usbReady || !model.hasLocalChanges)
+            } else if model.available && model.section == 0 && model.ready {
+                Button { model.send(off:false) } label: { Label(model.bluetoothApplyTitle,systemImage:"arrow.up.right") }.buttonStyle(StudioButton(primary:true)).disabled(!model.bluetoothEffectSupported)
+            } else if model.section != 6 && model.section != 8 {
+                Button(model.available && model.section == 0 ? "Controlli Bluetooth" : "Collega via USB") { model.section=6 }.buttonStyle(StudioButton(primary:true)).disabled(model.busy)
+            }
+        }.fixedSize(horizontal:true,vertical:false)
     }
     private var footerDetail:String {
         if model.transmitting { return "Invio in corso: lascia terminare il ripristino degli indicatori." }
@@ -196,5 +228,54 @@ struct KeycapLabel: View {
         Text(text).font(.system(size: 13, weight: .medium)).frame(minWidth: 30, minHeight: 29)
             .background(Studio.line.opacity(0.6)).clipShape(RoundedRectangle(cornerRadius: 5))
             .overlay(RoundedRectangle(cornerRadius: 5).strokeBorder(Color.white.opacity(0.09)))
+    }
+}
+
+private struct StudioContentWidthKey: EnvironmentKey {
+    static let defaultValue: CGFloat = 1000
+}
+extension EnvironmentValues {
+    var studioContentWidth: CGFloat {
+        get { self[StudioContentWidthKey.self] }
+        set { self[StudioContentWidthKey.self] = newValue }
+    }
+}
+private struct StudioPageModifier: ViewModifier {
+    @Environment(\.studioContentWidth) private var width
+    let maximum: CGFloat
+    func body(content: Content) -> some View {
+        content.frame(maxWidth:maximum,alignment:.leading)
+            .padding(.horizontal,width < 800 ? 20:32).padding(.vertical,28)
+            .frame(maxWidth:.infinity,alignment:.center)
+    }
+}
+extension View {
+    func studioPage(maxWidth: CGFloat = 1120) -> some View { modifier(StudioPageModifier(maximum:maxWidth)) }
+}
+struct StudioAdaptiveStack<Content: View>: View {
+    @Environment(\.studioContentWidth) private var width
+    var breakpoint: CGFloat = 820
+    var spacing: CGFloat = 20
+    @ViewBuilder let content: Content
+    var body: some View {
+        let layout = width >= breakpoint ? AnyLayout(HStackLayout(alignment:.top,spacing:spacing)) : AnyLayout(VStackLayout(alignment:.leading,spacing:spacing))
+        layout { content }
+    }
+}
+private struct StudioNavigationLabel: LabelStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        HStack(spacing:10) { configuration.icon.frame(width:18); configuration.title; Spacer(minLength:0) }
+    }
+}
+private struct StudioNavigationButton: ButtonStyle {
+    let selected: Bool
+    @Environment(\.isEnabled) private var enabled
+    @State private var hovered = false
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label.font(.system(size:13,weight:selected ? .semibold:.regular))
+            .foregroundColor(selected ? Studio.text:Studio.muted)
+            .background(selected ? Studio.accent.opacity(0.10) : Color.white.opacity(hovered || configuration.isPressed ? 0.055:0))
+            .clipShape(RoundedRectangle(cornerRadius:7)).contentShape(Rectangle())
+            .opacity(enabled ? 1:0.45).onHover { hovered=$0 }
     }
 }

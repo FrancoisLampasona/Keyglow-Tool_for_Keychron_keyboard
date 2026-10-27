@@ -10,13 +10,22 @@ bundle="$stage/Keyglow.app"
 mkdir -p "$bundle/Contents/MacOS" "$bundle/Contents/Resources"
 xcrun swiftc -swift-version 6 -O -module-cache-path "$project/build/swift-cache" \
   -target "${TARGET_ARCH:-arm64}-apple-macos13.0" \
-  -framework AppKit -framework SwiftUI -framework IOKit -framework Carbon -framework CryptoKit \
+  -framework AppKit -framework SwiftUI -framework IOKit -framework Carbon -framework CryptoKit -framework CoreBluetooth -framework Security -framework LocalAuthentication \
   macOS/Sources/*.swift -o "$bundle/Contents/MacOS/Keyglow"
 cp macOS/Assets/Keyglow.icns "$bundle/Contents/Resources/"
 cp macOS/Assets/TastieraIcon.png "$bundle/Contents/Resources/"
 # A known build identity, not a live device capability report.
-manifest="${FIRMWARE_MANIFEST:-firmware/verified-builds/rgb-v06.json}"
+manifest="${FIRMWARE_MANIFEST:-firmware/verified-builds/ota-v08.json}"
 cp "$manifest" "$bundle/Contents/Resources/firmware-manifest.json"
+# Optional public baseline and target contain application code only. Owner keys,
+# personalized loaders and controller backups must never enter the bundle.
+if [[ -n "${FIRMWARE_BASELINE:-}" ]]; then
+  cp "$FIRMWARE_BASELINE" "$bundle/Contents/Resources/firmware-base.bin"
+fi
+if [[ -n "${FIRMWARE_UPDATE_PACKAGE:-}" ]]; then
+  python3 firmware/ota/package.py verify "$FIRMWARE_UPDATE_PACKAGE" >/dev/null
+  cp "$FIRMWARE_UPDATE_PACKAGE" "$bundle/Contents/Resources/firmware-update.kgfw"
+fi
 cp macOS/Info.plist "$bundle/Contents/Info.plist"
 cp LICENSE THIRD_PARTY_NOTICES.md "$bundle/Contents/Resources/"
 if [[ -n "${SIGNING_IDENTITY:-}" ]]; then

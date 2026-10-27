@@ -4,6 +4,13 @@ func require(_ condition: @autoclosure () -> Bool, _ description: String) {
     if !condition() { fatalError(description) }
 }
 
+for interval in [Double.nan, .infinity, -1, 0, 0.019, 0.201] {
+    require(!RGBProtocol.validInterval(interval), "invalid timing rejected before hardware")
+}
+for interval in [RGBProtocol.liveInterval, 0.04, RGBProtocol.interval, 0.2] {
+    require(RGBProtocol.validInterval(interval), "bounded supported timing")
+}
+
 // CRC-16/CCITT-FALSE standard check string; golden packets independently
 // calculated with Python's binascii.crc_hqx, shared with the C decoder tests.
 require(RGBProtocol.crc16(Array("123456789".utf8)) == 0x29b1, "CRC standard vector")

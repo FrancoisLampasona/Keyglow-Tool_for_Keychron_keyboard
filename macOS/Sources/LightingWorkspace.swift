@@ -2,26 +2,36 @@ import SwiftUI
 
 struct LightingWorkspaceView:View {
     @ObservedObject var model:StudioModel
+    @Environment(\.studioContentWidth) private var contentWidth
+    private var hasSideInspector: Bool { contentWidth >= 1060 }
     var body:some View {
-        HStack(alignment:.top,spacing:0) {
-            ScrollView {
-                VStack(alignment:.leading,spacing:28) {
-                    WorkspaceKeyboardHeader(model:model)
-                    Picker("Tipo di illuminazione",selection:$model.lightingTab) {
-                        Text("Effetti").tag(0); Text("RGB per tasto").tag(1); Text("Mix RGB").tag(2); Text("Indicatori").tag(3)
-                    }.pickerStyle(.segmented).labelsHidden().controlSize(.large)
-                    if model.lightingTab==0 { effects }
-                    else if model.lightingTab==1 { perKey }
-                    else if model.lightingTab==2 { mix }
-                    else { indicators }
-                }.padding(28)
+        Group {
+            if hasSideInspector {
+                HStack(alignment:.top,spacing:0) {
+                    ScrollView { workspace.studioPage() }
+                    Divider()
+                    ColorInspectorView(model:model).frame(width:282)
+                }
+            } else {
+                ScrollView { workspace.studioPage() }
             }
-            Divider()
-            ColorInspectorView(model:model).frame(width:266)
         }.onChange(of:model.lightingTab) { tab in
             if tab==1 { model.workspace.lighting.effect=23 }
             else if tab==2 { model.workspace.lighting.effect=24 }
             else if tab==0 && model.workspace.lighting.effect>=23 { model.workspace.lighting.effect=1 }
+        }
+    }
+    private var workspace: some View {
+        VStack(alignment:.leading,spacing:28) {
+            WorkspaceKeyboardHeader(model:model)
+            if !hasSideInspector { ColorInspectorView(model:model,inline:true) }
+            Picker("Tipo di illuminazione",selection:$model.lightingTab) {
+                Text("Effetti").tag(0); Text("RGB per tasto").tag(1); Text("Mix RGB").tag(2); Text("Indicatori").tag(3)
+            }.pickerStyle(.segmented).labelsHidden().controlSize(.large)
+            if model.lightingTab==0 { effects }
+            else if model.lightingTab==1 { perKey }
+            else if model.lightingTab==2 { mix }
+            else { indicators }
         }
     }
     private var effects:some View {
@@ -32,40 +42,57 @@ struct LightingWorkspaceView:View {
                     ForEach(RGBEffect.all.filter { $0.id<23 }) { Text($0.name).tag($0.id) }
                 }.labelsHidden().controlSize(.large).frame(width:190)
             }
-            // Ordinary native stacks keep each effect's button label exposed to VoiceOver.
-            VStack(spacing:8) {
-                ForEach(0..<6, id: \.self) { row in
-                    HStack(spacing:8) {
-                        ForEach(0..<4, id: \.self) { column in
-                            let index = row * 4 + column
-                            if index < 23, let effect = RGBEffect.all.first(where: { $0.id == index }) {
-                                Button { model.workspace.lighting.effect=effect.id } label: {
-                                    HStack(spacing:10) {
-                                        Image(systemName:effect.symbol).font(.system(size:14)).frame(width:18)
-                                        Text(effect.name).font(.system(size:13,weight:model.workspace.lighting.effect==effect.id ? .medium:.regular)).multilineTextAlignment(.leading).lineSpacing(2)
-                                        Spacer(minLength:0)
-                                    }.padding(.horizontal,12).frame(maxWidth:.infinity).frame(height:48)
-                                        .foregroundColor(model.workspace.lighting.effect==effect.id ? Studio.accent:Studio.text)
-                                        .background(model.workspace.lighting.effect==effect.id ? Studio.accent.opacity(0.12):Color.white.opacity(0.035))
-                                        .clipShape(RoundedRectangle(cornerRadius:8))
-                                        .overlay(RoundedRectangle(cornerRadius:8).strokeBorder(model.workspace.lighting.effect==effect.id ? Studio.accent.opacity(0.45):Color.clear,lineWidth:1))
-                                }.buttonStyle(.plain).disabled(model.busy)
-                                    .accessibilityRepresentation { Button(effect.name) { model.workspace.lighting.effect=effect.id }.buttonStyle(.plain).accessibilityAddTraits(model.workspace.lighting.effect==effect.id ? .isSelected:[]) }
-                            } else {
-                                Color.clear.frame(maxWidth:.infinity).frame(height:48).accessibilityHidden(true)
-                            }
-                        }
-                    }
+            livePreview
+            // The custom layout adapts columns without hiding native buttons from VoiceOver.
+            StudioGrid(minimumCellWidth:160,cellHeight:56,spacing:8) {
+                ForEach(RGBEffect.all.filter { $0.id < 23 }) { effect in
+                    Button { model.workspace.lighting.effect=effect.id } label: {
+                        HStack(spacing:10) {
+                            Image(systemName:effect.symbol).font(.system(size:14)).frame(width:18)
+                            Text(effect.name).font(.system(size:13,weight:model.workspace.lighting.effect==effect.id ? .medium:.regular))
+                                .multilineTextAlignment(.leading).lineSpacing(2).fixedSize(horizontal:false,vertical:true)
+                            Spacer(minLength:0)
+                        }.padding(.horizontal,12).frame(maxWidth:.infinity).frame(height:56)
+                            .foregroundColor(model.workspace.lighting.effect==effect.id ? Studio.accent:Studio.text)
+                            .background(model.workspace.lighting.effect==effect.id ? Studio.accent.opacity(0.12):Color.white.opacity(0.035))
+                            .clipShape(RoundedRectangle(cornerRadius:8))
+                            .overlay(RoundedRectangle(cornerRadius:8).strokeBorder(model.workspace.lighting.effect==effect.id ? Studio.accent.opacity(0.45):Color.clear,lineWidth:1))
+                    }.buttonStyle(.plain).disabled(model.lightingControlsDisabled)
+                        .accessibilityRepresentation { Button(effect.name) { model.workspace.lighting.effect=effect.id }.buttonStyle(.plain).accessibilityAddTraits(model.workspace.lighting.effect==effect.id ? .isSelected:[]) }
                 }
             }
-            HStack(alignment: .top, spacing: 18) {
-                Text("Gli effetti animati si vedono sulla tastiera dopo Applica.").font(.system(size:12)).foregroundColor(Studio.muted).lineSpacing(3)
-                Spacer()
+            VStack(alignment: .leading, spacing: 14) {
+                Text(model.liveRGBEnabled ? "Puoi continuare a scegliere: verrà inviata solo l’ultima modifica in attesa." : "Gli effetti animati si vedono sulla tastiera dopo Applica o attivando l’anteprima.").font(.system(size:12)).foregroundColor(Studio.muted).lineSpacing(3)
                 if model.directBluetooth && model.selectedUSBID == nil {
-                    BluetoothSaveChoice(model: model).frame(width: 240)
+                    BluetoothSaveChoice(model: model).frame(maxWidth: 340, alignment: .leading)
                 }
             }
         }
+    }
+    private var livePreview: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 12) {
+                Image(systemName: "antenna.radiowaves.left.and.right").foregroundColor(model.liveRGBEnabled ? Studio.accent : Studio.muted)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Anteprima sulla tastiera").font(.system(size: 13, weight: .semibold))
+                    Text("Invia automaticamente colori ed effetti via Bluetooth.").font(.system(size: 11)).foregroundColor(Studio.muted)
+                }
+                Spacer(minLength: 8)
+                Toggle("Anteprima sulla tastiera", isOn: Binding(get: { model.liveRGBEnabled }, set: { model.setLiveRGBEnabled($0) }))
+                    .labelsHidden().toggleStyle(.switch)
+                    .disabled(!model.liveRGBEnabled && !model.canEnableLiveRGB)
+            }
+            Text(model.liveRGBEnabled || model.transmitting ? model.liveRGBStatus : model.canEnableLiveRGB ? "Modalità rapida sperimentale: attendi il cambiamento sulla tastiera. Durante l’invio evita Caps Lock e Num Lock." : model.liveRGBUnavailableReason)
+                .font(.system(size: 11)).foregroundColor(model.liveRGBQueued ? Studio.accent : Studio.muted)
+                .lineSpacing(3).fixedSize(horizontal: false, vertical: true)
+            if model.liveRGBEnabled && model.saveBluetoothOnKeyboard {
+                Text("Durante le regolazioni gli invii sono temporanei. Lo stato finale viene salvato dopo una pausa; un salvataggio già avviato termina anche se continui a modificare.")
+                    .font(.system(size: 11)).foregroundColor(Studio.muted).lineSpacing(3).fixedSize(horizontal: false, vertical: true)
+            }
+        }.padding(14).frame(maxWidth: .infinity, alignment: .leading)
+            .background(Studio.accent.opacity(model.liveRGBEnabled ? 0.07 : 0.025))
+            .clipShape(RoundedRectangle(cornerRadius: 10))
+            .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Studio.accent.opacity(model.liveRGBEnabled ? 0.25 : 0.10)))
     }
     private var perKey:some View {
         VStack(alignment:.leading,spacing:20) {
@@ -108,9 +135,6 @@ struct LightingWorkspaceView:View {
                             Button("Assegna selezione") { model.assignSelectedToMix() }.buttonStyle(StudioButton()).disabled(model.selectedKeys.isEmpty)
                         }
                     }
-                    HStack(spacing:8) {
-                        Text("#").frame(width:20); Text("Effetto").frame(maxWidth:190,alignment:.leading); Text("HEX").frame(width:80,alignment:.leading); Text("Vel.").frame(width:50,alignment:.leading); Text("Durata").frame(width:70,alignment:.leading); Spacer().frame(width:61)
-                    }.font(.system(size:12,weight:.medium)).foregroundColor(Studio.muted).accessibilityHidden(true)
                     VStack(spacing:8) {
                         ForEach(model.workspace.lighting.mix[model.selectedMixLayer].sequence.indices,id:\.self) { index in mixStep(index) }
                     }
@@ -128,17 +152,38 @@ struct LightingWorkspaceView:View {
         return effects[model.selectedMixLayer].count
     }
     private func mixStep(_ index:Int)->some View {
-        HStack(spacing:8) {
-            Text("\(index+1)").font(.system(size:12)).monospacedDigit().foregroundColor(Studio.muted).frame(width:20)
-            Picker("Effetto",selection:$model.workspace.lighting.mix[model.selectedMixLayer].sequence[index].effect) {
-                ForEach(RGBEffect.all.filter { $0.id<23 }) { Text($0.name).tag($0.id) }
-            }.labelsHidden().frame(maxWidth:190)
-            TextField("HEX",text:$model.workspace.lighting.mix[model.selectedMixLayer].sequence[index].hex).textFieldStyle(.roundedBorder).font(.system(size:12,design:.monospaced)).frame(width:80).accessibilityLabel("Colore HEX del passaggio")
-            TextField("Vel.",value:$model.workspace.lighting.mix[model.selectedMixLayer].sequence[index].speed,format:.number).textFieldStyle(.roundedBorder).frame(width:50).accessibilityLabel("Velocità del passaggio, da 0 a 255").help("Velocità: 0–255")
-            TextField("Durata",value:$model.workspace.lighting.mix[model.selectedMixLayer].sequence[index].durationMilliseconds,format:.number).textFieldStyle(.roundedBorder).frame(width:70).accessibilityLabel("Durata in millisecondi")
-            Text("ms").font(.system(size:12)).foregroundColor(Studio.muted).frame(width:21)
-            Button { model.workspace.lighting.mix[model.selectedMixLayer].sequence.remove(at:index) } label: { Image(systemName:"minus.circle").frame(width:40,height:40) }.buttonStyle(.plain).foregroundColor(Studio.muted).help("Rimuovi passaggio").accessibilityLabel("Rimuovi passaggio \(index+1)")
-        }.controlSize(.large)
+        VStack(alignment:.leading,spacing:10) {
+            HStack {
+                Text("Passaggio \(index+1)").font(.system(size:12,weight:.medium)).monospacedDigit().foregroundColor(Studio.muted)
+                Spacer()
+                Button { model.workspace.lighting.mix[model.selectedMixLayer].sequence.remove(at:index) } label: {
+                    Image(systemName:"minus.circle").frame(width:32,height:32)
+                }.buttonStyle(.plain).foregroundColor(Studio.muted).help("Rimuovi passaggio").accessibilityLabel("Rimuovi passaggio \(index+1)")
+            }
+            HStack(alignment:.top,spacing:14) {
+                VStack(alignment:.leading,spacing:6) {
+                    Text("Effetto").font(.system(size:11)).foregroundColor(Studio.muted)
+                    Picker("Effetto",selection:$model.workspace.lighting.mix[model.selectedMixLayer].sequence[index].effect) {
+                        ForEach(RGBEffect.all.filter { $0.id<23 }) { Text($0.name).tag($0.id) }
+                    }.labelsHidden()
+                }.frame(maxWidth:.infinity,alignment:.leading)
+                VStack(alignment:.leading,spacing:6) {
+                    Text("Colore HEX").font(.system(size:11)).foregroundColor(Studio.muted)
+                    TextField("HEX",text:$model.workspace.lighting.mix[model.selectedMixLayer].sequence[index].hex)
+                        .textFieldStyle(.roundedBorder).font(.system(size:12,design:.monospaced)).accessibilityLabel("Colore HEX del passaggio")
+                }.frame(width:90)
+                VStack(alignment:.leading,spacing:6) {
+                    Text("Velocità").font(.system(size:11)).foregroundColor(Studio.muted)
+                    TextField("Velocità",value:$model.workspace.lighting.mix[model.selectedMixLayer].sequence[index].speed,format:.number)
+                        .textFieldStyle(.roundedBorder).accessibilityLabel("Velocità del passaggio, da 0 a 255").help("Velocità: 0–255")
+                }.frame(width:72)
+                VStack(alignment:.leading,spacing:6) {
+                    Text("Durata · ms").font(.system(size:11)).foregroundColor(Studio.muted)
+                    TextField("Durata",value:$model.workspace.lighting.mix[model.selectedMixLayer].sequence[index].durationMilliseconds,format:.number)
+                        .textFieldStyle(.roundedBorder).accessibilityLabel("Durata in millisecondi")
+                }.frame(width:94)
+            }.controlSize(.large)
+        }.padding(14).background(Color.white.opacity(0.035)).clipShape(RoundedRectangle(cornerRadius:10))
     }
     private var indicators:some View {
         VStack(alignment:.leading,spacing:20) {
@@ -159,12 +204,31 @@ struct LightingWorkspaceView:View {
 
 struct ColorInspectorView:View {
     @ObservedObject var model:StudioModel
+    var inline=false
     var body:some View {
-        ScrollView {
-            VStack(alignment:.leading,spacing:24) {
+        Group {
+            if inline {
+                HStack(alignment:.top,spacing:28) {
+                    colorControls.frame(maxWidth:.infinity)
+                    adjustmentControls.frame(maxWidth:.infinity)
+                }.padding(20)
+            } else {
+                ScrollView {
+                    VStack(alignment:.leading,spacing:24) {
+                        colorControls
+                        Divider()
+                        adjustmentControls
+                    }.padding(24)
+                }
+            }
+        }.disabled(model.lightingControlsDisabled)
+            .background(Studio.panel.opacity(0.6))
+            .clipShape(RoundedRectangle(cornerRadius:inline ? 12:0))
+    }
+    private var colorControls:some View {
                 VStack(alignment:.leading,spacing:14) {
                 HStack { Text("Colore").font(.system(size:20,weight:.semibold));Spacer();ColorPicker("Selettore colore",selection:Binding(get:{model.color},set:{model.setColor($0)}),supportsOpacity:false).labelsHidden() }
-                colorField.frame(height:160)
+                colorField.frame(height:inline ? 130:160)
                 ZStack {
                     LinearGradient(colors:(0...6).map { Color(hue:Double($0)/6,saturation:0.85,brightness:1) },startPoint:.leading,endPoint:.trailing).frame(height:8).clipShape(Capsule())
                     Slider(value:Binding(get:{model.hue},set:{model.hue=$0;model.colorChanged()}),in:0...1).tint(.clear).accessibilityLabel("Tonalità")
@@ -185,7 +249,9 @@ struct ColorInspectorView:View {
                     }
                 }
                 }
-                Divider()
+    }
+    private var adjustmentControls:some View {
+        VStack(alignment:.leading,spacing:24) {
                 VStack(alignment:.leading,spacing:8) {
                     HStack {Text("Luminosità").fontWeight(.medium);Spacer();Text("\(Int(model.brightness))%").monospacedDigit().foregroundColor(Studio.muted)}
                     Slider(value:$model.brightness,in:0...100,step:1).accessibilityLabel("Luminosità")
@@ -203,8 +269,7 @@ struct ColorInspectorView:View {
                     Text("Richiede firmware dedicato e verifica sulla tastiera.").font(.system(size:12)).foregroundColor(Studio.muted).lineSpacing(3)
                     Button("Configura Bluetooth") {model.section=6}.buttonStyle(StudioButton())
                 }
-            }.padding(24).disabled(model.busy)
-        }.background(Studio.panel.opacity(0.6))
+        }
     }
     private var colorField:some View {
         GeometryReader { g in

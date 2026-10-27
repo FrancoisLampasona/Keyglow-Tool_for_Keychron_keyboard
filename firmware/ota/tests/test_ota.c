@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 #include "keyglow_ota.h"
 #include "keyglow_ota_wire.h"
+#include "keyglow_ota_auth.h"
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
@@ -118,4 +119,83 @@ static void explicit_restart_after_bad_chunk(void) {
 }
 static void maximum(void){fresh();kg_ota_manifest m=manifest(KG_OTA_APP_MAX);assert(receive(&m)==KG_OTA_OK);assert(kg_ota_install(&io)==KG_OTA_OK);assert(!memcmp(flash+32768,image,m.length));assert(!protected_writes);puts("Full 96 KiB image installed; sectors 0/1 untouched");}
 static void wire_tests(void){fresh();uint8_t request[16]={ 'K','G','O','T',1,KG_OTA_STATUS,0,0,7,0,0,0 },reply[120];size_t length;put(request+12,kg_ota_crc32(request,12));assert(kg_ota_handle_frame(&io,request,sizeof request,reply,sizeof reply,&length));assert(length==120&&reply[5]==(KG_OTA_STATUS|0x80)&&reply[8]==7&&reply[12]==KG_OTA_NO_SESSION);for(unsigned i=0;i<16;i++){request[i]^=1;assert(!kg_ota_handle_frame(&io,request,sizeof request,reply,sizeof reply,&length));request[i]^=1;}assert(!kg_ota_handle_frame(&io,request,sizeof request,reply,119,&length));assert(!mutations);memcpy(reply,request,16);assert(kg_ota_handle_frame(&io,reply,16,reply,sizeof reply,&length));assert(reply[8]==7);puts("Wire CRC, sizes, request correlation, no-write rejection passed");}
-int main(void){hash_tests();hash_long_tests();receive_cuts();install_cuts();rejects();explicit_restart_after_bad_chunk();maximum();wire_tests();puts("All OTA simulation tests passed (no hardware operations)");return 0;}
+static uint8_t test_key[32]; /* Published deterministic fixture, never a device key. */
+static void sign_authorization(kg_ota_authorization *a){
+    uint8_t digest[32],payload[149],message[136];
+    kg_ota_sha256(test_key,sizeof test_key,digest);memcpy(a->key_id,digest,16);
+    assert(kg_ota_auth_encode(a,payload));memcpy(message,KG_OTA_AUTH_DOMAIN,19);memcpy(message+19,payload,117);
+    kg_ota_hmac_sha256(test_key,message,sizeof message,a->tag);
+}
+static kg_ota_authorization authorization(const kg_ota_manifest *m){
+    kg_ota_authorization a={0};a.manifest=*m;a.source_length=1031;
+    assert(kg_ota_application_sha256(&io,a.source_length,a.source_sha256)==KG_OTA_OK);
+    for(unsigned i=0;i<16;i++)a.nonce[i]=(uint8_t)(0xa0+i);
+    sign_authorization(&a);return a;
+}
+static void hex_equal(const uint8_t *bytes,size_t size,const char *expected){char hex[129];assert(size<=64);for(size_t i=0;i<size;i++)snprintf(hex+2*i,3,"%02x",bytes[i]);assert(!strcmp(hex,expected));}
+static void authentication_vectors(void){
+    for(unsigned i=0;i<32;i++)test_key[i]=(uint8_t)(i+1);
+    kg_ota_authorization a={0};a.manifest=(kg_ota_manifest){KG_OTA_TARGET,KG_OTA_APP_BASE,513,0x01020304,{0}};
+    a.source_length=1024;kg_ota_sha256("keyglow synthetic target",24,a.manifest.sha256);
+    kg_ota_sha256("keyglow synthetic baseline",26,a.source_sha256);
+    for(unsigned i=0;i<16;i++)a.nonce[i]=(uint8_t)(0xa0+i);
+    sign_authorization(&a);
+    hex_equal(a.key_id,16,"ae216c2ef5247a3782c135efa279a3e4");
+    hex_equal(a.tag,32,"d4f5e0aaee3ab706a6ee1aa1183e18167f115ec20ae22e26f1b71174df57224c");
+    assert(kg_ota_auth_valid(test_key,&a));
+    uint8_t payload[149];assert(kg_ota_auth_encode(&a,payload));kg_ota_authorization decoded;
+    for(unsigned i=0;i<149;i++){payload[i]^=1;assert(kg_ota_auth_decode(payload,&decoded));assert(!kg_ota_auth_valid(test_key,&decoded));payload[i]^=1;}
+    payload[116]=2;assert(!kg_ota_auth_decode(payload,&decoded));payload[116]=0;
+    uint8_t blank[32]={0};assert(!kg_ota_auth_valid(blank,&a));memset(blank,255,32);assert(!kg_ota_auth_valid(blank,&a));
+    fresh();uint8_t *slot=flash+(KG_OTA_KEY_SLOT-KG_OTA_FLASH_BASE);memset(slot,255,64);
+    assert(!kg_ota_read_device_key(&io,blank));for(unsigned i=0;i<32;i++)assert(!blank[i]);
+    memcpy(slot,"KGKY0001",8);memcpy(slot+8,test_key,32);memcpy(slot+40,a.key_id,16);put(slot+56,kg_ota_crc32(slot,56));
+    assert(kg_ota_crc32(slot,56)==0x9687bdeeu);assert(kg_ota_read_device_key(&io,blank)&&!memcmp(blank,test_key,32));
+    for(unsigned i=0;i<64;i++){slot[i]^=1;assert(!kg_ota_read_device_key(&io,blank));slot[i]^=1;}
+    puts("HMAC: independent host vector, all149 authorization bytes, blank key and all64 key-slot corruption cases passed");
+}
+static kg_ota_result receive_authenticated(const kg_ota_authorization *a){
+    kg_ota_result r=kg_ota_begin_authenticated(&io,test_key,a);if(r)return r;
+    for(unsigned offset=0;offset<a->manifest.length;offset+=256){size_t n=a->manifest.length-offset;if(n>256)n=256;r=kg_ota_chunk(&io,offset,image+offset,n);if(r)return r;}
+    r=kg_ota_finish(&io);return r==KG_OTA_OK?kg_ota_commit(&io):r;
+}
+static void authentication_rejections(void){
+    fresh();kg_ota_manifest m=manifest(1031);kg_ota_authorization a=authorization(&m),bad=a;
+    bad.tag[0]^=1;assert(kg_ota_begin_authenticated(&io,test_key,&bad)==KG_OTA_AUTH_ERROR);assert(!mutations);
+    bad=a;bad.source_sha256[0]^=1;sign_authorization(&bad);assert(kg_ota_begin_authenticated(&io,test_key,&bad)==KG_OTA_SOURCE_ERROR);assert(!mutations);
+    assert(receive_authenticated(&a)==KG_OTA_OK);kg_ota_status status;assert(kg_ota_inspect(&io,&status)==KG_OTA_OK&&status.authenticated&&!status.install_started);
+    unsigned before=mutations;assert(kg_ota_begin(&io,&m,true)==KG_OTA_AUTH_ERROR);assert(kg_ota_install(&io)==KG_OTA_AUTH_ERROR);assert(mutations==before);
+    a.replace=true;sign_authorization(&a);assert(kg_ota_begin_authenticated(&io,test_key,&a)==KG_OTA_COMMIT_PENDING);assert(mutations==before);
+    flash[KG_OTA_APP_BASE-KG_OTA_FLASH_BASE+10]^=1;
+    assert(kg_ota_install_authenticated(&io,test_key)==KG_OTA_SOURCE_ERROR);assert(mutations==before);
+    flash[KG_OTA_APP_BASE-KG_OTA_FLASH_BASE+10]^=1;
+    uint8_t wrong[32];memcpy(wrong,test_key,32);wrong[0]^=1;
+    assert(kg_ota_install_authenticated(&io,wrong)==KG_OTA_AUTH_ERROR);assert(mutations==before);
+    assert(kg_ota_install_authenticated(&io,test_key)==KG_OTA_OK);
+    assert(kg_ota_inspect(&io,&status)==KG_OTA_OK&&status.install_started&&status.installed);
+    fresh();m=manifest(1031);assert(receive(&m)==KG_OTA_OK);before=mutations;
+    assert(kg_ota_install_authenticated(&io,test_key)==KG_OTA_AUTH_ERROR);assert(before==mutations);
+    puts("HMAC: source binding, pending commit, wrong key and unsigned-format rejection before application erase passed");
+}
+static void authenticated_cuts(void){
+    fresh();kg_ota_manifest m=manifest(1031);kg_ota_authorization a=authorization(&m);memcpy(saved,flash,sizeof flash);
+    assert(receive_authenticated(&a)==KG_OTA_OK);unsigned total=mutations;
+    for(unsigned mode=0;mode<7;mode++)for(unsigned cut=1;cut<=total;cut++){
+        memcpy(flash,saved,sizeof flash);mutations=0;fail_at=cut;fail_mode=mode;
+        assert(receive_authenticated(&a)==KG_OTA_IO);fail_at=0;
+        assert(receive_authenticated(&a)==KG_OTA_OK);assert(!memcmp(flash,saved,KG_OTA_STAGE_BASE-KG_OTA_FLASH_BASE));
+        assert(kg_ota_install_authenticated(&io,test_key)==KG_OTA_OK);assert(!memcmp(flash+32768,image,m.length));assert(!protected_writes);
+    }
+    printf("Authenticated receiver: %u mutation points ×7 interruption modes resumed\n",total);
+    fresh();m=manifest(1031);a=authorization(&m);assert(receive_authenticated(&a)==KG_OTA_OK);memcpy(saved,flash,sizeof flash);mutations=0;
+    assert(kg_ota_install_authenticated(&io,test_key)==KG_OTA_OK);total=mutations;
+    for(unsigned mode=0;mode<7;mode++)for(unsigned cut=1;cut<=total;cut++){
+        memcpy(flash,saved,sizeof flash);mutations=0;fail_at=cut;fail_mode=mode;
+        assert(kg_ota_install_authenticated(&io,test_key)==KG_OTA_IO);fail_at=0;
+        assert(kg_ota_install_authenticated(&io,test_key)==KG_OTA_OK);
+        assert(!memcmp(flash+32768,image,m.length)&&!memcmp(flash,saved,32768));
+        unsigned before=mutations;assert(kg_ota_install_authenticated(&io,test_key)==KG_OTA_OK);assert(before==mutations&&!protected_writes);
+    }
+    printf("Authenticated installer: %u mutation points ×7 interruption modes resumed, including source-check checkpoint\n",total);
+}
+int main(void){hash_tests();hash_long_tests();receive_cuts();install_cuts();rejects();explicit_restart_after_bad_chunk();maximum();wire_tests();authentication_vectors();authentication_rejections();authenticated_cuts();puts("All OTA simulation tests passed (no hardware operations)");return 0;}

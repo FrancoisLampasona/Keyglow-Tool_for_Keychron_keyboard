@@ -1,0 +1,71 @@
+{
+  "schema": 1,
+  "syntheticOnly": true,
+  "frames": [
+    {
+      "name": "request-status",
+      "kind": 1,
+      "frameHex": "4b474f54010300007856341267d733f6"
+    },
+    {
+      "name": "request-copy",
+      "kind": 1,
+      "frameHex": "4b474f5401060c00ddccbbaa000200000004000000100000d5eea381"
+    },
+    {
+      "name": "request-copy-full",
+      "kind": 1,
+      "frameHex": "4b474f5401060c00403020100000000000000000008001000bae8340"
+    },
+    {
+      "name": "request-auth-synthetic",
+      "kind": 1,
+      "frameHex": "4b474f54010795001032547605162738495a6b7c8d9eafc0d1e2f30415263748596a7b8c9daebfd0e1f2031425364758697a8b9cadbecfe0f102132435465768798a9bacbdcedff00112233445566778899aabbccddeef00112233445566778899aabbccddeeff102132435465768798a9bacbdcedfe0f2031425364758697a8b9cadbecfd0e1f30415263748596a7b8c9daebfc0d1e2f405162738495a6b7c8d90e48d59e"
+    },
+    {
+      "name": "request-data-max",
+      "kind": 1,
+      "frameHex": "4b474f5401020401ffffffff000100000726456483a2c1e0ff1e3d5c7b9ab9d8f71635547392b1d0ef0e2d4c6b8aa9c8e70625446382a1c0dffe1d3c5b7a99b84b474f544b5247424b47414b4b505242c7e60524436281a0bfdefd1c3b5a7998b7d6f51433527190afceed0c2b4a6988a7c6e504234261809fbeddfc1b3a597897b6d5f4133251708faecdec0b2a496887a6c5e4032241607f9ebddcfb1a39587796b5d4f31231506f8eadcceb0a29486786a5c4e30221405f7e9dbcdbfa1938577695b4d3f211304f6e8daccbea0928476685a4c3e201203f5e7d9cbbdaf91837567594b3d2f1102f4e6d8cabcae90827466584a3c2e1001f3e5d7c9bbad9f81736557493b2d1f00f2e4d6c8baac9e8a293fcee"
+    },
+    {
+      "name": "ack-data",
+      "kind": 2,
+      "frameHex": "4b47414b010278563412000100b800"
+    },
+    {
+      "name": "ack-auth-error",
+      "kind": 2,
+      "frameHex": "4b47414b0107103254760b0000c08f"
+    },
+    {
+      "name": "ack-source-error",
+      "kind": 2,
+      "frameHex": "4b47414b0106403020100c0100bae1"
+    },
+    {
+      "name": "ack-unauthorized",
+      "kind": 2,
+      "frameHex": "4b47414b0107103254768000000b24"
+    },
+    {
+      "name": "ack-status",
+      "kind": 2,
+      "frameHex": "4b47414b010378563412000360000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f8f1a"
+    },
+    {
+      "name": "ack-max",
+      "kind": 2,
+      "frameHex": "4b47414b0108efbeadde000f80000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f606162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f032f"
+    },
+    {
+      "name": "ack-commit",
+      "kind": 2,
+      "frameHex": "4b47414b0105efcdab89000700c68d"
+    },
+    {
+      "name": "request-receipt",
+      "kind": 1,
+      "frameHex": "4b474f54017f0300efcdab8905c68db45a337a"
+    }
+  ]
+}

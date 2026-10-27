@@ -14,13 +14,16 @@ enum EnergyPolicy {
 struct FirmwareBuildInfo: Decodable, Sendable {
     let buildTimestamp: String
     let capabilities: [String]?
+    var compatibleBuildTimestamps: [String]? = nil
     static let bundled: FirmwareBuildInfo? = {
         guard let url = Bundle.main.url(forResource: "firmware-manifest", withExtension: "json"),
               let data = try? Data(contentsOf: url) else { return nil }
         return try? JSONDecoder().decode(FirmwareBuildInfo.self, from: data)
     }()
     func matches(_ version: String) -> Bool {
-        version == "v1.1.1 \(buildTimestamp)" || version == "1.1.1 \(buildTimestamp)"
+        ([buildTimestamp] + (compatibleBuildTimestamps ?? [])).contains {
+            version == "v1.1.1 \($0)" || version == "1.1.1 \($0)"
+        }
     }
     func supportsDirectRGB(_ version: String) -> Bool {
         matches(version) && capabilities?.contains("rgb-ble-v3-direct") == true &&

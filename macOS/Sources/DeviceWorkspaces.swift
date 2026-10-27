@@ -10,9 +10,9 @@ struct ProfilesWorkspaceView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 26) {
                 StudioSurface {
-                    HStack(alignment: .top) {
-                        PanelTitle(title: "La tua configurazione", subtitle: "Tasti, manopola, macro, colori ed energia. Tutto salvato sul Mac.")
-                        Spacer()
+                    StudioAdaptiveStack(breakpoint: 900, spacing: 18) {
+                        PanelTitle(title: "La tua configurazione", subtitle: "Tasti, manopola, macro, colori ed energia.")
+                            .frame(maxWidth: .infinity, alignment: .leading)
                         Menu("Importa / esporta") {
                             Button("Importa profilo Keyglow") { model.importProfile() }
                             Button("Esporta profilo Keyglow") { model.exportProfile() }
@@ -21,16 +21,24 @@ struct ProfilesWorkspaceView: View {
                             Button("Esporta mappa Launcher") { model.exportLauncher() }
                         }.controlSize(.large).frame(width: 170)
                     }
-                    HStack(spacing: 12) {
-                        TextField("Nome del profilo", text: $model.workspace.name).textFieldStyle(.plain).padding(11).background(Studio.rail).clipShape(RoundedRectangle(cornerRadius: 7)).frame(maxWidth: 460)
+                    StudioAdaptiveStack(breakpoint: 780, spacing: 12) {
+                        TextField("Nome del profilo", text: $model.workspace.name).textFieldStyle(.plain).padding(12).background(Studio.rail).clipShape(RoundedRectangle(cornerRadius: 7)).frame(maxWidth: .infinity).accessibilityLabel("Nome del profilo")
                         Button("Salva una copia") { model.archiveCurrentProfile() }.buttonStyle(StudioButton(primary: true))
                     }
                 }
-                HStack {
-                    Text("Profili salvati").font(.system(size: 20, weight: .semibold))
-                    Text("\(model.savedProfiles.count)").font(.system(size: 12, design: .monospaced)).foregroundColor(Studio.muted)
-                    Spacer()
-                    HStack { Image(systemName: "magnifyingglass").foregroundColor(Studio.muted); TextField("Cerca un profilo", text: $search).textFieldStyle(.plain) }.padding(10).frame(width: 260).background(Studio.panel).clipShape(RoundedRectangle(cornerRadius: 7))
+                StudioAdaptiveStack(breakpoint: 840, spacing: 14) {
+                    HStack(alignment: .firstTextBaseline, spacing: 10) {
+                        Text("Profili salvati").font(.system(size: 19, weight: .semibold))
+                        Text("\(model.savedProfiles.count)").font(.system(size: 12)).monospacedDigit().foregroundColor(Studio.muted)
+                    }.frame(maxWidth: .infinity, minHeight: 40, alignment: .leading)
+                    HStack(spacing: 8) {
+                        Image(systemName: "magnifyingglass").foregroundColor(Studio.muted)
+                        TextField("Cerca un profilo", text: $search).textFieldStyle(.plain).accessibilityLabel("Cerca un profilo")
+                        if !search.isEmpty {
+                            Button { search = "" } label: { Image(systemName: "xmark.circle.fill").frame(width:24,height:24) }
+                                .buttonStyle(.plain).foregroundColor(Studio.muted).accessibilityLabel("Cancella ricerca")
+                        }
+                    }.padding(.horizontal,12).frame(height:40).frame(maxWidth:320).background(Studio.panel).clipShape(RoundedRectangle(cornerRadius:7))
                 }
                 if visibleProfiles.isEmpty {
                     Text(model.savedProfiles.isEmpty ? "Salva una copia per conservare la tua prima configurazione." : "Nessun profilo corrisponde alla ricerca.").foregroundColor(Studio.muted).padding(.vertical, 20)
@@ -38,14 +46,14 @@ struct ProfilesWorkspaceView: View {
                 LazyVStack(spacing: 0) {
                     ForEach(visibleProfiles) { profile in
                         HStack(spacing: 16) {
-                            Image(systemName: "keyboard").font(.system(size: 22, weight: .light)).foregroundColor(Studio.muted).frame(width: 42)
+                            Image(systemName: "keyboard").font(.system(size: 21, weight: .regular)).foregroundColor(Studio.muted).frame(width:32)
                             VStack(alignment: .leading, spacing: 6) {
-                                Text(profile.name).font(.system(size: 13, weight: .medium))
+                                Text(profile.name).font(.system(size: 14, weight: .medium)).lineLimit(2).help(profile.name)
                                 Text(profile.updatedAt.formatted(date: .abbreviated, time: .shortened)).font(.system(size: 12)).monospacedDigit().foregroundColor(Studio.muted)
                             }
                             Spacer()
                             Button("Carica") { model.loadProfile(profile) }.buttonStyle(StudioButton()).help("Carica nella bozza: non modifica la tastiera")
-                            Button { model.deleteProfile(profile.id) } label: { Image(systemName: "trash").frame(width: 32, height: 40) }.buttonStyle(.plain).foregroundColor(Studio.muted).accessibilityLabel("Rimuovi profilo \(profile.name)")
+                            Button { model.deleteProfile(profile.id) } label: { Image(systemName: "trash").frame(width:40,height:40).contentShape(Rectangle()) }.buttonStyle(.plain).foregroundColor(Studio.muted).accessibilityLabel("Rimuovi profilo \(profile.name)")
                         }.padding(.vertical, 13)
                         Divider()
                     }
@@ -57,7 +65,7 @@ struct ProfilesWorkspaceView: View {
                     }.padding(.top, 14)
                 }
                 if !model.projectMessage.isEmpty { Text(model.projectMessage).font(.system(size: 12)).foregroundColor(Studio.accent) }
-            }.frame(maxWidth: 1000, alignment: .leading).padding(30)
+            }.studioPage()
         }.disabled(model.busy)
     }
 }
@@ -80,7 +88,7 @@ struct AdvancedWorkspaceView: View {
                         Text("Timeout letto via USB").font(.system(size: 11)).foregroundColor(Studio.muted)
                     }.frame(minWidth: 160)
                 }
-                HStack(alignment: .top, spacing: 14) {
+                StudioAdaptiveStack(breakpoint: 900, spacing: 14) {
                     energyPreset(title: "Reattiva", detail: "18 h 12 min", description: "Per lavorare a lungo. Il firmware Tastiera aggiornato mantiene attivo anche il controller quando il Bluetooth è connesso.", minutes: EnergyPolicy.reactiveMinutes, symbol: "bolt.horizontal")
                     energyPreset(title: "Bilanciata", detail: "2 ore", description: "Più spazio al risparmio energetico. Dopo un periodo di inattività, il primo tasto può richiedere la riconnessione.", minutes: EnergyPolicy.balancedMinutes, symbol: "leaf")
                 }
@@ -135,7 +143,7 @@ struct AdvancedWorkspaceView: View {
                         Text("Debounce e polling non sono configurabili da questa versione. Le funzioni dei modelli HE non si applicano alla Q6 Max.").font(.system(size: 12)).foregroundColor(Studio.muted).frame(maxWidth: .infinity, alignment: .leading)
                     }.padding(.top, 14)
                 }.foregroundColor(Studio.muted)
-            }.frame(maxWidth: 1000, alignment: .leading).padding(30)
+            }.studioPage()
         }.disabled(model.busy)
     }
     private func energyPreset(title: String, detail: String, description: String, minutes: Int, symbol: String) -> some View {
@@ -182,12 +190,12 @@ struct ConnectionWorkspaceView: View {
                         Spacer()
                         Text(model.directBluetooth ? "Controllo diretto selezionato" : "Modalità precedente").font(.system(size: 10, weight: .medium)).foregroundColor(Studio.muted)
                     }
-                    HStack(alignment: .top, spacing: 26) {
+                    StudioAdaptiveStack(breakpoint: 1050, spacing: 26) {
                         VStack(alignment: .leading, spacing: 22) {
                             HStack(alignment: .top, spacing: 12) {
                                 stepMarker("1", done: model.accessVerified)
                                 VStack(alignment: .leading, spacing: 10) {
-                                    Text("Consenti l’accesso").font(.system(size: 16, weight: .semibold))
+                                    Text(model.accessVerified ? "Accesso pronto" : "Accesso alla tastiera").font(.system(size: 16, weight: .semibold))
                                     Text(model.accessMessage).font(.system(size: 12)).foregroundColor(Studio.muted).lineSpacing(3).fixedSize(horizontal: false, vertical: true)
                                     Button(model.accessVerified ? "Verifica di nuovo" : "Verifica accesso Bluetooth") { model.checkAccess() }.buttonStyle(StudioButton()).disabled(!model.available || model.busy)
                                     if !model.accessVerified {
@@ -200,10 +208,10 @@ struct ConnectionWorkspaceView: View {
                                 stepMarker("2", done: model.directBluetooth || model.firmwareArmed)
                                 VStack(alignment: .leading, spacing: 12) {
                                     Text("Controllo dall’app").font(.system(size: 16, weight: .semibold))
-                                    Toggle("Firmware Tastiera 0.6 installato", isOn: $model.directBluetooth).toggleStyle(.checkbox).disabled(model.busy)
+                                    Toggle("Firmware Keyglow con RGB diretti installato", isOn: $model.directBluetooth).toggleStyle(.checkbox).disabled(model.busy)
                                     if model.directBluetooth {
                                         Label("Nessuna combinazione di tasti", systemImage: "cursorarrow.click").font(.system(size: 13, weight: .medium)).foregroundColor(Studio.accent)
-                                        Text("Scegli gli RGB e premi Applica, anche dalla pagina Illuminazione. Questa scelta viene ricordata; via Bluetooth la versione non viene letta.").font(.system(size: 12)).foregroundColor(Studio.muted).lineSpacing(3).fixedSize(horizontal: false, vertical: true)
+                                        Text("Scegli gli RGB e premi Applica, anche dalla pagina Illuminazione. Questa scelta viene ricordata; non equivale alla verifica firmware della pagina Firmware.").font(.system(size: 12)).foregroundColor(Studio.muted).lineSpacing(3).fixedSize(horizontal: false, vertical: true)
                                     } else {
                                         Text("La versione 0.6 abilita invio diretto e salvataggio. Va prima installata sulla tastiera. Con il firmware precedente usa la combinazione qui sotto.").font(.system(size: 12)).foregroundColor(Studio.muted).lineSpacing(3).fixedSize(horizontal: false, vertical: true)
                                         HStack(spacing: 7) { KeycapLabel(text: "fn"); Text("+").foregroundColor(Studio.muted); KeycapLabel(text: "○"); Text("2 secondi").font(.system(size: 12)).foregroundColor(Studio.muted) }
@@ -236,7 +244,7 @@ struct ConnectionWorkspaceView: View {
                             if model.transmitting { ProgressView(value: model.progress).tint(Studio.accent) }
                             if !model.bluetoothEffectSupported { Text("Per-tasto e Mix richiedono USB.").font(.system(size: 12)).foregroundColor(Studio.accent) }
                             Text(model.message).font(.system(size: 12)).foregroundColor(Studio.muted).lineSpacing(3).fixedSize(horizontal: false, vertical: true)
-                        }.padding(20).frame(width: 330, alignment: .leading).background(Studio.rail.opacity(0.7)).clipShape(RoundedRectangle(cornerRadius: 10))
+                        }.padding(20).frame(maxWidth: .infinity, alignment: .leading).background(Studio.rail.opacity(0.7)).clipShape(RoundedRectangle(cornerRadius: 10))
                     }
                 }
                 Text(model.directBluetooth ? "Invio in circa 5 secondi. Evita Caps Lock e Num Lock durante l’invio. Con Salva nella tastiera, l’ultimo RGB applicato viene conservato anche dopo lo spegnimento; attendi 2 secondi al termine." : "Invio in circa 5 secondi. Evita Caps Lock e Num Lock durante l’invio. Con il firmware precedente gli RGB Bluetooth sono temporanei.").font(.system(size: 12)).foregroundColor(Studio.muted).lineSpacing(3)
@@ -253,7 +261,7 @@ struct ConnectionWorkspaceView: View {
                         Text("Il ricevitore 2,4 GHz non è ancora gestito da Keyglow.").font(.system(size: 11)).foregroundColor(Studio.muted)
                     }.padding(.top, 15)
                 }
-            }.frame(maxWidth: 1000, alignment: .leading).padding(30)
+            }.studioPage()
         }.onChange(of: model.selectedUSBID) { _ in model.usbSnapshot = nil; model.baselineWorkspace = nil; model.cableModeConfirmed = false }
     }
     private func stepMarker(_ number: String, done: Bool) -> some View {
@@ -270,21 +278,25 @@ struct BluetoothSaveChoice: View {
             Toggle("Salva nella tastiera", isOn: $model.saveBluetoothOnKeyboard).toggleStyle(.checkbox)
             Text(model.saveBluetoothOnKeyboard ? "Mantieni gli RGB anche dopo lo spegnimento." : "Prova temporanea, fino al riavvio della tastiera.")
                 .font(.system(size: 11)).foregroundColor(Studio.muted).fixedSize(horizontal: false, vertical: true)
-        }.disabled(model.busy)
+        }.disabled(model.lightingControlsDisabled)
     }
 }
 
 struct FirmwareWorkspaceView: View {
     @ObservedObject var model: StudioModel
+    @StateObject private var bluetooth = BluetoothFirmwareInspector()
+    @StateObject private var updater = FirmwareUpdateModel()
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 26) {
+                FirmwareUpdateView(model: updater).disabled(model.busy && !updater.isBusy)
+                Group {
                 PanelTitle(title: "Due firmware, una tastiera", subtitle: "Il controller gestisce tasti e luci. Il modulo radio gestisce Bluetooth e riconnessione.")
                 StudioSurface {
                     Label("Controller Q6 Max ISO", systemImage: "cpu").font(.system(size: 18, weight: .semibold))
                     info("Versione letta", model.usbSnapshot?.firmwareVersion ?? "Collega USB e leggi la tastiera")
                     info("Protocollo VIA", model.usbSnapshot.map { String($0.protocolVersion) } ?? "—")
-                    info("Build Tastiera aggiornata", model.reactiveFirmwareRecognized ? "Riconosciuta via USB" : "Non verificata sul dispositivo")
+                    info("Firmware reattivo", model.reactiveFirmwareRecognized ? "Riconosciuta via USB" : "Non verificata sul dispositivo")
                 }
                 StudioSurface {
                     HStack {
@@ -301,13 +313,53 @@ struct FirmwareWorkspaceView: View {
                     Text("La lettura recupera informazioni: non avvia l’aggiornamento.").font(.system(size: 11)).foregroundColor(Studio.muted)
                 }
                 StudioSurface {
-                    PanelTitle(title: "Backup e aggiornamenti", subtitle: "Conserva un profilo prima di modificare il firmware. Il flash resta negli strumenti dedicati.")
+                    HStack {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Label("Verifica senza cavo", systemImage: "wave.3.right").font(.system(size: 18, weight: .semibold))
+                            Text("Identità della radio e batteria").font(.system(size: 12)).foregroundColor(Studio.muted)
+                        }
+                        Spacer()
+                        if bluetooth.isRunning {
+                            ProgressView().controlSize(.small)
+                            Button("Interrompi") { bluetooth.cancel() }.buttonStyle(StudioButton())
+                        } else {
+                            Button("Verifica Bluetooth") { bluetooth.start() }.buttonStyle(StudioButton())
+                        }
+                    }
+                    Text(bluetooth.message).font(.system(size: 12)).foregroundColor(Studio.muted).fixedSize(horizontal: false, vertical: true)
+                    if bluetooth.permissionDenied {
+                        Button("Apri permessi Bluetooth") { model.openURL("x-apple.systempreferences:com.apple.preference.security?Privacy_Bluetooth") }.buttonStyle(StudioButton())
+                    }
+                    if let result = bluetooth.inspection {
+                        Label("Q6 Max ISO identificata · 3434:0861", systemImage: "checkmark.circle.fill").font(.system(size: 12, weight: .medium)).foregroundColor(Studio.success)
+                        info("Firmware radio via Bluetooth", result.radioFirmware ?? "Non esposto")
+                        info("Batteria letta", result.batteryPercent.map { "\($0)%" } ?? "Non esposta")
+                        info("Ultima lettura", result.inspectedAt.formatted(date: .abbreviated, time: .shortened))
+                        Text(result.vendorServicePresent ? "È presente un servizio proprietario della radio. La sua presenza non conferma un canale di aggiornamento del controller." : "Nessun servizio proprietario riconosciuto in questa lettura.")
+                            .font(.system(size: 12)).foregroundColor(Studio.muted).fixedSize(horizontal: false, vertical: true)
+                        DisclosureGroup("Servizi e caratteristiche rilevati") {
+                            VStack(alignment: .leading, spacing: 12) {
+                                Text("Servizi: \(result.serviceIDs.joined(separator: ", "))").font(.system(size: 10, design: .monospaced)).textSelection(.enabled)
+                                ForEach(result.characteristics) { characteristic in
+                                    VStack(alignment: .leading, spacing: 3) {
+                                        Text("\(characteristic.service) / \(characteristic.uuid)").font(.system(size: 10, design: .monospaced)).textSelection(.enabled)
+                                        Text(characteristic.properties).font(.system(size: 11)).foregroundColor(Studio.muted)
+                                    }
+                                }
+                            }.padding(.top, 10).frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                    }
+                    Text("La verifica legge solo identità, firmware e batteria. Le caratteristiche proprietarie vengono elencate senza leggerne i valori. Nessuna scrittura o aggiornamento viene avviato.")
+                        .font(.system(size: 11)).foregroundColor(Studio.muted).fixedSize(horizontal: false, vertical: true)
+                }
+                StudioSurface {
+                    PanelTitle(title: "Backup e recupero", subtitle: "Conserva un profilo prima di modificare il firmware.")
                     HStack {
                         Button("Esporta profilo") { model.exportProfile() }.buttonStyle(StudioButton())
                         Button("Identifica file firmware") { model.inspectFirmwareFile() }.buttonStyle(StudioButton())
                     }
                     if !model.firmwareFileDescription.isEmpty { Text(model.firmwareFileDescription).font(.system(size: 12, design: .monospaced)).textSelection(.enabled).fixedSize(horizontal: false, vertical: true) }
-                    Text("Aggiornamento via Bluetooth non disponibile. Il firmware 0.6 si installa via USB/DFU; dopo l’installazione, colori ed effetti si applicano e si salvano dall’app senza fn + ○.").font(.system(size: 12)).foregroundColor(Studio.muted).fixedSize(horizontal: false, vertical: true)
+                    Text("Il firmware 0.6 richiede USB/DFU. Il nuovo percorso Bluetooth richiede la prima installazione del loader e la chiave proprietario: usa la sezione di aggiornamento qui sopra.").font(.system(size: 12)).foregroundColor(Studio.muted).fixedSize(horizontal: false, vertical: true)
                 }
                 HStack {
                     Button("Launcher Keychron") { model.openURL("https://launcher.keychron.com/") }.buttonStyle(StudioButton())
@@ -315,10 +367,12 @@ struct FirmwareWorkspaceView: View {
                     Button("Design hardware Q6 Max") { model.openURL("https://github.com/Keychron/Keychron-Keyboards-Hardware-Design/tree/main/Q-Max-Series/Q6%20Max") }.buttonStyle(StudioButton())
                 }
                 Text("I file CAD ufficiali documentano scocca, plate e assemblaggio. Il layout dell’app usa la matrice ISO ufficiale e le legende italiane della tua tastiera.").font(.system(size: 12)).foregroundColor(Studio.muted).lineSpacing(3)
-            }.frame(maxWidth: 1000, alignment: .leading).padding(30)
-        }.disabled(model.busy)
+                }.disabled(model.busy || updater.isBusy)
+            }.studioPage()
+        }.onAppear { updater.onBusyChanged = { model.busy = $0 } }
+            .onDisappear { bluetooth.cancel(); updater.cancel() }
     }
     private func info(_ label: String, _ value: String) -> some View {
-        HStack(alignment: .firstTextBaseline) { Text(label).foregroundColor(Studio.muted); Spacer(); Text(value).font(.system(size: 12, weight: .medium, design: .monospaced)).textSelection(.enabled) }
+        HStack(alignment: .firstTextBaseline) { Text(label).foregroundColor(Studio.muted); Spacer(); Text(value).font(.system(size: 12, weight: .medium, design: .monospaced)).multilineTextAlignment(.trailing).fixedSize(horizontal:false,vertical:true).textSelection(.enabled) }
     }
 }

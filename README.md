@@ -16,7 +16,8 @@ Keyglow is an independent community project, not affiliated with or endorsed by 
 | Four keymap layers, knob, macros, per-key RGB, Mix and supported advanced settings | USB | Read, edit, apply and read back; availability follows device capabilities |
 | Profiles, import/export, keyboard preview and foreground key test | Local app | Available without a connected keyboard |
 | Quick Launch shortcuts for apps and websites | Local app | Opt-in; Keyglow must remain open |
-| Firmware update over Bluetooth | — | **Experimental engineering work; not available for installation** |
+| Automatic RGB preview while editing | Bluetooth with custom v3 firmware | Implemented in 0.8; rapid sending still needs hardware validation |
+| Firmware update over Bluetooth | Custom Keyglow loader and owner key | Experimental 0.8 app workflow implemented; initial loader installed and verified on one unit; full Bluetooth update still under validation |
 
 Hardware validation covers **one Q6 Max ISO encoder, Italian layout**, USB VID `3434`, PID `0861`. It does not establish support for ANSI, JIS, other Keychron models, or every effect individually. Stock firmware does not interpret Keyglow's Bluetooth RGB commands. The 2.4 GHz receiver is not a configuration backend in this app.
 
@@ -39,26 +40,30 @@ When access is missing, the setup assistant starts the macOS request automatical
 
 1. Pair the Q6 Max in macOS and select BT on the keyboard.
 2. Follow the setup assistant to **System Settings → Privacy & Security → Input Monitoring** and enable Keyglow. If necessary, add the actual `Keyglow.app` you intend to use.
-3. Reopen the app if macOS requests it, then verify access in Keyglow.
+3. Reopen the app if macOS requests it. Keyglow checks the granted permission and automatically verifies a uniquely connected Q6 Max with a read-only request.
 4. Select the compatible custom firmware only if it is actually installed on the keyboard.
 
 Apple documents the system control in [Input Monitoring settings](https://support.apple.com/guide/mac-help/control-access-to-input-monitoring-on-mac-mchl4cedafb6/mac). Rebuilding an ad-hoc signed application can invalidate an earlier grant; remove the stale entry, add the current bundle, and authorize it again if access is refused. Moving a bundle does not let the app bypass macOS permission checks.
 
 Input Monitoring is used for the HID connection. The app does not run a background keystroke recorder. Macro recording and the key test are explicit foreground actions. Quick Launch registers only the selected shortcuts. There is no analytics service, account, or cloud profile sync.
 
+The interface adapts from a 900 × 640 window to a large desktop. Entire sidebar rows are clickable, with ⌘1–9 shortcuts. Narrow windows place the color/key inspectors below the keyboard, and the window size is remembered and constrained to the current display.
+
 ## Everyday RGB control
 
 With the custom v3 firmware installed, open **Illuminazione**, choose a color and effect, keep **Salva nella tastiera** enabled, and select **Applica e salva RGB**. No keyboard shortcut is needed. Disable saving for a temporary preview.
 
-A transfer takes about five seconds. Avoid Caps Lock and Num Lock during it, then wait at least two seconds after completion before switching the keyboard off. Editing a slider or opening the app changes no keyboard settings by itself.
+A manual transfer takes about five seconds. Avoid Caps Lock and Num Lock during it, then wait at least two seconds after completion before switching the keyboard off. Opening the app does not send RGB settings.
 
-The Bluetooth transport uses HID indicator reports and has **no device acknowledgement**. A completed send means macOS accepted the reports; confirm the visible result on the keyboard. The saved green Breathing setting has been tested through a real power cycle with USB disconnected. Other effects, temporary preview and persistent off have automated coverage but have not all been tested physically.
+In 0.8, **Anteprima sulla tastiera** enables automatic Bluetooth sending while editing. It starts disabled, debounces changes, and keeps only the latest pending setting while a command is in flight. Preview commands are temporary; with saving enabled, the final setting is saved after editing settles. Leaving the page discards unsent changes. The rapid 20 ms timing is experimental: automatic sending does not mean instantaneous response, and its RGB behavior still needs a physical test.
+
+The RGB transport uses HID indicator reports and has **no device acknowledgement**. A completed RGB send means macOS accepted the reports; confirm the visible result on the keyboard. The saved green Breathing setting has been tested through a real power cycle with USB disconnected. Other effects, rapid preview and persistent off have automated coverage but have not all been tested physically. Firmware updates use a separate acknowledged protocol.
 
 For USB editing, select **Leggi tastiera**, edit the local draft, save a profile, then apply. The app checks for conflicting changes and reads settings back after writes. Close other keyboard configurators while applying settings.
 
 ## Firmware and wake behavior
 
-The custom firmware is based on Keychron QMK commit [`2b493ff95f2665db719b1e95c91babb5036e72f3`](https://github.com/Keychron/qmk_firmware/tree/2b493ff95f2665db719b1e95c91babb5036e72f3). Initial installation and current supported firmware updates require **USB/DFU**. Read [the firmware guide](docs/firmware.md) before building or installing anything.
+The custom firmware is based on Keychron QMK commit [`2b493ff95f2665db719b1e95c91babb5036e72f3`](https://github.com/Keychron/qmk_firmware/tree/2b493ff95f2665db719b1e95c91babb5036e72f3). Initial installation requires **USB/DFU**. Version 0.8 adds an experimental authenticated Bluetooth updater for keyboards already provisioned with the Keyglow loader and owner key. Read [the firmware guide](docs/firmware.md) for its current hardware validation and recovery limits.
 
 The optional **Reattiva** policy reduces keyboard-side sleeping while connected, subject to battery safeguards. Its effect on wake latency and battery life has not been measured. It cannot promise an instant Bluetooth connection while macOS is starting or waking.
 
