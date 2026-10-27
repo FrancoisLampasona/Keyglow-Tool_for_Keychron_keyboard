@@ -2,9 +2,9 @@
 
 **A native macOS app for your keyboard’s lights, layout and profiles.**
 
-Keyglow brings RGB controls, a visual keyboard editor and firmware tools into one desktop app. The current release supports **Keychron Q6 Max ISO with encoder** on Apple Silicon Macs running macOS 13 or later. Its interface and keyboard legends are in Italian.
+Keyglow brings RGB controls, a visual keyboard editor and firmware tools into one desktop app. The current release supports **Keychron Q6 Max ISO with encoder** on Apple Silicon Macs running macOS 13 or later. The interface is available in **Italian, English and French**; the keyboard preview retains the real Italian ISO legends.
 
-[Download the DMG](https://github.com/FrancoisLampasona/Keyglow-Tool_for_Keychron_keyboard/releases/tag/v0.10.1) · [Guida in italiano](docs/it.md) · [Firmware details](docs/firmware.md)
+[Download the DMG](https://github.com/FrancoisLampasona/Keyglow-Tool_for_Keychron_keyboard/releases/tag/v0.11.0) · [Guida in italiano](docs/it.md) · [Firmware details](docs/firmware.md)
 
 ![Keyglow lighting workspace with the Q6 Max ISO layout, color picker and effect controls](docs/screenshots/lighting.png)
 
@@ -14,7 +14,9 @@ Keyglow brings RGB controls, a visual keyboard editor and firmware tools into on
 
 Choose a color or effect, adjust brightness and speed, and save the result on your keyboard. With the custom Keyglow firmware installed, RGB changes can travel over **Bluetooth**, without plugging in USB or pressing a keyboard shortcut each time. Optional automatic preview sends your latest edits; it is not an instantaneous video stream.
 
-**Battery level** is visible in the sidebar, read from the connected Q6 Max over Bluetooth. It refreshes once a minute while the app is active and idle. Missing, old and unavailable readings are labeled; Cable mode and charging status are not exposed by this reader. Bluetooth permission is requested only when you choose to read it.
+**Battery level** is visible in the sidebar, read from the connected Q6 Max over Bluetooth. It refreshes once a minute while the app is active and idle. Missing, old and unavailable readings are labeled; Cable mode and charging status are not exposed by this reader. Bluetooth permission is requested only when you choose to read it. A normal pause during another operation keeps the last valid reading and resumes automatically when the app can read again.
+
+On one Q6 Max ISO, the battery changed from an initial **96%** reading to automatic readings of **94%** and **92%**, without pressing Refresh. USB → Bluetooth was recognized without restarting the app. The reverse transition and a complete round trip still need a physical test; see the [validation record](docs/dmg-validation.md).
 
 Over **USB**, Keyglow also lets you edit four keymap layers, the encoder, macros, per-key RGB, mixed effects and supported power settings. Profiles stay on your Mac. You can prepare a draft without a keyboard and apply it explicitly when connected.
 
@@ -22,14 +24,24 @@ Keyglow is an independent, open-source project, **not affiliated with or endorse
 
 ## Install the app
 
-1. Download **Keyglow-0.10.1-macOS-arm64.dmg** from the [release page](https://github.com/FrancoisLampasona/Keyglow-Tool_for_Keychron_keyboard/releases/tag/v0.10.1).
+1. Download **Keyglow-0.11.0-macOS-arm64.dmg** from the [release page](https://github.com/FrancoisLampasona/Keyglow-Tool_for_Keychron_keyboard/releases/tag/v0.11.0).
 2. Open the DMG and drag **Keyglow** into **Applications**.
 3. Open Keyglow from Applications, then eject the installation disk.
-4. Follow **Keyboard → Access → Firmware → Summary** in the first-run assistant.
+4. Choose **Italiano**, **English** or **Français** in the first-run assistant, then follow **Keyboard → Permissions → Firmware → Summary**.
 
 The DMG includes the public firmware package and USB tools; you do not need Python, Homebrew, Xcode or this repository to run it. Moving the whole app does not move or delete your profiles and backups.
 
 **Experimental release:** the app is locally signed and **not notarized by Apple**. The development certificate is not a trusted Developer ID on another Mac. If macOS blocks opening it, review the source and release before using the system’s per-app approval. Do not disable system security globally.
+
+## Choose your language
+
+Use the globe menu in the first-run assistant or at the bottom of the sidebar. The change takes effect immediately and is remembered on your Mac; Italian is the initial default. Navigation, controls, guidance and app messages use the selected language. The app does not send text to a translation service.
+
+Changing language leaves profile names, macro contents, key assignments and physical keyboard legends unchanged. macOS-owned windows may follow the system language. See the [localization guide](docs/localization.md) for translation contributions.
+
+![The setup assistant in French, identifying the Q6 Max ISO](docs/screenshots/languages-fr.png)
+
+*The language can be changed in the setup assistant or the sidebar, without changing the keyboard’s physical layout.*
 
 ## First launch and firmware setup
 
@@ -59,7 +71,7 @@ Opening the page does not start a flash. An already installed target version is 
 | Save RGB across keyboard power-off | Bluetooth + custom firmware | Green Breathing and persistence physically verified |
 | Automatic RGB preview while editing | Bluetooth + custom firmware | Latest edits queued; blue Breathing confirmed at 20 ms |
 | Keymap, encoder, macros, per-key RGB and Mix | USB | Read, edit, apply and verify; capabilities depend on firmware |
-| Battery percentage | Bluetooth, including stock firmware | Read-only sidebar status; unavailable and old readings distinguished |
+| Battery percentage | Bluetooth, including stock firmware | Automatic readings verified on one Q6 Max ISO; unavailable and old readings distinguished |
 | Energy settings | USB | Includes the experimental Reattiva policy; latency and battery impact not measured |
 | Profiles, import/export, preview and foreground key test | Local app | No account required |
 | Controller firmware updates | Bluetooth + Keyglow loader and owner key | Build 8 → 9 completed through resumed transfers on one keyboard |

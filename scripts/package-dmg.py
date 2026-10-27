@@ -24,7 +24,7 @@ with tempfile.TemporaryDirectory(prefix='keyglow-dmg-',dir=ROOT/'build') as temp
     stage=Path(temporary)/'contents';stage.mkdir()
     subprocess.run(['ditto','--norsrc','--noextattr',str(bundle),str(stage/'Keyglow.app')],check=True)
     os.symlink('/Applications',stage/'Applications')
-    (stage/'Inizia qui.txt').write_text(f'''Keyglow {version} · Mac con Apple Silicon · macOS 13 o successivo
+    (stage/'Read Me - Leggimi - Lisez-moi.txt').write_text(f'''Keyglow {version} · Mac con Apple Silicon · macOS 13 o successivo
 
 Trascina Keyglow in Applications, poi aprila da Applicazioni ed espelli questo disco.
 Al primo avvio l’app guida nel modello, nei permessi e nella scelta del firmware.
@@ -47,6 +47,35 @@ Profili, backup e chiavi rimangono sul Mac: non si trovano dentro questo DMG.
 Puoi spostare l’intera app senza spostare i suoi dati.
 Sorgenti: https://github.com/FrancoisLampasona/Keyglow-Tool_for_Keychron_keyboard
 Licenza GPL-2.0-or-later. Progetto indipendente, non affiliato a Keychron.
+
+
+ENGLISH
+Drag Keyglow into Applications, open it there, then eject this disk.
+Choose English in the globe menu during setup or in the sidebar footer.
+The assistant checks the model, macOS permissions and firmware requirements.
+Initial firmware installation requires USB/DFU; backup and restore are guided
+inside the app. The integrated first-install path has not yet been physically
+validated end to end. Keep power connected during the initial loader write.
+This experimental app is locally signed, not Apple-notarized; the local certificate
+is not a trusted Developer ID on other Macs. Review the official release before
+using macOS per-app approval. Do not disable system security globally.
+Use only the mouse during Bluetooth firmware updates. Saved blocks can be resumed.
+Your profiles, backups and keys stay on your Mac, outside this disk image.
+Independent GPL-2.0-or-later project, not affiliated with Keychron.
+
+FRANÇAIS
+Glissez Keyglow dans Applications, ouvrez-la depuis ce dossier, puis éjectez ce disque.
+Choisissez Français dans le menu globe de l’assistant ou au bas de la barre latérale.
+L’assistant vérifie le modèle, les autorisations macOS et le firmware requis.
+La première installation du firmware nécessite USB/DFU ; sauvegarde et restauration
+sont guidées dans l’app. Ce parcours intégré n’a pas encore été validé physiquement
+de bout en bout. Gardez l’alimentation connectée pendant l’écriture initiale du chargeur.
+Cette app expérimentale est signée localement, sans notarisation Apple ; le certificat
+local n’est pas un Developer ID reconnu sur les autres Mac. Vérifiez la version officielle
+avant d’utiliser l’autorisation macOS par app. Ne désactivez pas la sécurité du système.
+Utilisez uniquement la souris pendant les mises à jour Bluetooth. Les blocs enregistrés
+peuvent être repris. Profils, sauvegardes et clés restent sur votre Mac, hors de ce disque.
+Projet indépendant GPL-2.0-or-later, non affilié à Keychron.
 ''')
     with DSStore.open(str(stage/'.DS_Store'),'w+') as store:
         store['.']['bwsp']={'ShowToolbar':False,'ShowStatusBar':False,'ShowSidebar':False,'ShowPathbar':False,'ShowTabView':False,'WindowBounds':'{{200, 160}, {660, 420}}'}
@@ -55,7 +84,7 @@ Licenza GPL-2.0-or-later. Progetto indipendente, non affiliato a Keychron.
         store['.']['vstl']=('type',b'icnv')
         store['Keyglow.app']['Iloc']=(170,140)
         store['Applications']['Iloc']=(490,140)
-        store['Inizia qui.txt']['Iloc']=(330,300)
+        store['Read Me - Leggimi - Lisez-moi.txt']['Iloc']=(330,300)
     subprocess.run(['hdiutil','create','-volname','Keyglow '+version,'-srcfolder',str(stage),'-format','UDZO','-imagekey','zlib-level=9','-ov',str(output)],check=True)
 subprocess.run(['hdiutil','verify',str(output)],check=True)
 checksum=hashlib.sha256(output.read_bytes()).hexdigest()

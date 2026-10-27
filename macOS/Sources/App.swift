@@ -361,9 +361,13 @@ import Combine
     private let model = StudioModel()
     private let onboarding = OnboardingCoordinator()
     private var wakeSubscription: AnyCancellable?
+    private var languageSubscription: AnyCancellable?
     private var setupReady = false
     func applicationDidFinishLaunching(_ notification: Notification) {
         buildMenu()
+        languageSubscription = NotificationCenter.default.publisher(for: AppLanguageStore.didChange).sink { [weak self] _ in
+            Task { @MainActor in self?.buildMenu() }
+        }
         let visible = NSScreen.main?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1400, height: 900)
         window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: min(1400, visible.width), height: min(900, visible.height)), styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView], backing: .buffered, defer: false)
         window.title = "Keyglow · Q6 Max ISO"
@@ -419,28 +423,28 @@ import Combine
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply { mayClose() ? .terminateNow : .terminateCancel }
     private func mayClose() -> Bool {
         guard model.busy else { return true }
-        let alert = NSAlert(); alert.messageText = "Operazione in corso"
-        alert.informativeText = "Attendi il completamento e il ripristino degli indicatori prima di chiudere l’app."
+        let alert = NSAlert(); alert.messageText = L10n.string("Operazione in corso")
+        alert.informativeText = L10n.string("Attendi il completamento e il ripristino degli indicatori prima di chiudere l’app.")
         alert.runModal(); return false
     }
     private func buildMenu() {
         let menu = NSMenu(); let item = NSMenuItem(); menu.addItem(item)
         let app = NSMenu(); item.submenu = app
-        app.addItem(withTitle: "Informazioni su Keyglow", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
-        let setup = app.addItem(withTitle: "Configura tastiera e accessi…", action: #selector(showSetup(_:)), keyEquivalent: ",")
+        app.addItem(withTitle: L10n.string("Informazioni su Keyglow"), action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
+        let setup = app.addItem(withTitle: L10n.string("Configura tastiera e accessi…"), action: #selector(showSetup(_:)), keyEquivalent: ",")
         setup.target = self
         app.addItem(.separator())
-        app.addItem(withTitle: "Esci da Keyglow", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
-        let editItem = NSMenuItem(); let edit = NSMenu(title: "Modifica"); editItem.submenu = edit; menu.addItem(editItem)
-        edit.addItem(withTitle: "Taglia", action: #selector(NSText.cut(_:)), keyEquivalent: "x")
-        edit.addItem(withTitle: "Copia", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
-        edit.addItem(withTitle: "Incolla", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
-        edit.addItem(withTitle: "Seleziona tutto", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
-        let windowItem=NSMenuItem(); let windowMenu=NSMenu(title:"Finestra"); windowItem.submenu=windowMenu; menu.addItem(windowItem)
-        windowMenu.addItem(withTitle:"Contrai",action:#selector(NSWindow.performMiniaturize(_:)),keyEquivalent:"m")
+        app.addItem(withTitle: L10n.string("Esci da Keyglow"), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        let editItem = NSMenuItem(); let edit = NSMenu(title: L10n.string("Modifica")); editItem.submenu = edit; menu.addItem(editItem)
+        edit.addItem(withTitle: L10n.string("Taglia"), action: #selector(NSText.cut(_:)), keyEquivalent: "x")
+        edit.addItem(withTitle: L10n.string("Copia"), action: #selector(NSText.copy(_:)), keyEquivalent: "c")
+        edit.addItem(withTitle: L10n.string("Incolla"), action: #selector(NSText.paste(_:)), keyEquivalent: "v")
+        edit.addItem(withTitle: L10n.string("Seleziona tutto"), action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
+        let windowItem=NSMenuItem(); let windowMenu=NSMenu(title:L10n.string("Finestra")); windowItem.submenu=windowMenu; menu.addItem(windowItem)
+        windowMenu.addItem(withTitle:L10n.string("Contrai"),action:#selector(NSWindow.performMiniaturize(_:)),keyEquivalent:"m")
         windowMenu.addItem(.separator())
-        let compact=windowMenu.addItem(withTitle:"Dimensione compatta",action:#selector(compactWindow(_:)),keyEquivalent:""); compact.target=self
-        let comfortable=windowMenu.addItem(withTitle:"Dimensione comoda",action:#selector(comfortableWindow(_:)),keyEquivalent:""); comfortable.target=self
+        let compact=windowMenu.addItem(withTitle:L10n.string("Dimensione compatta"),action:#selector(compactWindow(_:)),keyEquivalent:""); compact.target=self
+        let comfortable=windowMenu.addItem(withTitle:L10n.string("Dimensione comoda"),action:#selector(comfortableWindow(_:)),keyEquivalent:""); comfortable.target=self
         NSApp.windowsMenu=windowMenu
         NSApp.mainMenu = menu
     }

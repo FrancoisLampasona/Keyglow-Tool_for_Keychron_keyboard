@@ -1,15 +1,23 @@
 import AppKit
 import SwiftUI
+import Combine
 
 @MainActor final class OnboardingCoordinator: NSObject, NSWindowDelegate {
     let model: OnboardingModel
     let setup = KeyboardSetupModel()
     var onCompletion: ((SetupFirmwareChoice, Int) -> Void)?
     private var setupWindow: NSWindow?
+    private var languageSubscription: AnyCancellable?
 
     init(model: OnboardingModel? = nil) {
         self.model = model ?? OnboardingModel()
         super.init()
+        languageSubscription = NotificationCenter.default.publisher(for: AppLanguageStore.didChange).sink { [weak self] _ in
+            Task { @MainActor in
+                guard let self else { return }
+                self.setupWindow?.title = L10n.string("Configura \(self.model.appName)")
+            }
+        }
     }
 
     func showIfNeeded(parent: NSWindow) {
@@ -29,7 +37,7 @@ import SwiftUI
         let sheet = NSWindow(contentRect: NSRect(origin: .zero, size: available),
                              styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false)
         sheet.contentMinSize = NSSize(width: min(480, available.width), height: min(480, available.height))
-        sheet.title = "Configura \(model.appName)"
+        sheet.title = L10n.string("Configura \(model.appName)")
         sheet.isReleasedWhenClosed = false
         sheet.delegate = self
         sheet.contentView = NSHostingView(rootView: OnboardingView(model: model, setup:setup, onContinue: { [weak self] in

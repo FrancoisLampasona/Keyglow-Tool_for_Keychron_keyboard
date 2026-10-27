@@ -11,6 +11,7 @@ zsh scripts/test-protocol.sh
 zsh scripts/test-energy.sh
 zsh scripts/test-via.sh
 zsh scripts/test-workspace.sh
+zsh scripts/test-localization.sh
 zsh scripts/test-quick-launch.sh
 zsh scripts/test-launcher-backup.sh
 zsh scripts/test-launcher-macros.sh
@@ -29,6 +30,10 @@ zsh scripts/build-app.sh
 Run the tests relevant to a change before opening a pull request. Keep transport errors, device acknowledgements and visible hardware results distinct in UI wording.
 
 All app resources must resolve through the application bundle. User data must use macOS user storage, not the source tree or current working directory. Preserve preference compatibility when renaming the app. Changes to permission handling must query the current macOS authorization state and keep consent under the user's control.
+
+## Interface translations
+
+Italian, English and French are bundled in the app. Follow the [localization guide](docs/localization.md) when adding or changing user-facing text. Keep technical identifiers and stored user content separate from translated presentation. Check the English and French layouts at both 900 × 640 and 1400 × 900; include the first-run guide and error/recovery text when they change.
 
 ## Local build cleanup
 

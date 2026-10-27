@@ -27,7 +27,8 @@ struct BatteryStatusView: View {
     }
     private var detail: String {
         if !context.connected { return "La percentuale si legge quando la Q6 Max è collegata in Bluetooth. In modalità Cable non è disponibile." }
-        if context.paused { return "La lettura riprende quando termini l’operazione e lasci la pagina Firmware." }
+        if model.busy { return "Lettura in pausa durante l’operazione. Riprende automaticamente al termine." }
+        if model.section == 7 { return "Lettura in pausa nella pagina Firmware. Riprende quando torni alle altre pagine." }
         if authorization == .denied || authorization == .restricted { return "Consenti Bluetooth a Keyglow nelle impostazioni macOS per leggere la batteria." }
         if authorization == .notDetermined { return "Leggi la batteria per autorizzare l’accesso Bluetooth. È distinto da Monitoraggio input." }
         if reader.isRunning { return "Lettura della batteria dalla Q6 Max…" }
@@ -40,33 +41,33 @@ struct BatteryStatusView: View {
         Button { showingDetails.toggle() } label: {
             HStack(spacing:8) {
                 Image(systemName:reading?.symbol ?? "battery.0percent").font(.system(size:16))
-                Text(title).font(.system(size:12,weight:.medium)).monospacedDigit()
+                LText(title).font(.system(size:12,weight:.medium)).monospacedDigit()
                 Spacer(minLength:0)
                 Image(systemName:"chevron.right").font(.system(size:9,weight:.semibold)).accessibilityHidden(true)
             }.foregroundColor(current && reading?.isLow == true ? Color(hex:0xF1BD79) : Studio.muted)
                 .padding(.horizontal,8).frame(minHeight:36)
                 .background(Studio.panel).clipShape(RoundedRectangle(cornerRadius:7)).contentShape(Rectangle())
-        }.buttonStyle(.plain).accessibilityLabel("Batteria tastiera, \(title)")
-            .help(detail)
+        }.buttonStyle(.plain).localizedAccessibilityLabel("Batteria tastiera, \(title)")
+            .localizedHelp(detail)
             .popover(isPresented:$showingDetails,arrowEdge:.trailing) {
                 VStack(alignment:.leading,spacing:14) {
-                    Text("Batteria della Q6 Max").font(.system(size:17,weight:.semibold))
+                    LText("Batteria della Q6 Max").font(.system(size:17,weight:.semibold))
                     if let reading {
-                        Label("\(reading.percent)%\(current ? "" : " · ultima lettura")",systemImage:reading.symbol)
+                        LLabel("\(reading.percent)%\(current ? "" : " · ultima lettura")",systemImage:reading.symbol)
                             .font(.system(size:20,weight:.medium)).monospacedDigit()
-                        Text("Letta alle \(reading.date.formatted(date:.omitted,time:.shortened))")
+                        LText("Letta alle \(L10n.date(reading.date))")
                             .font(.system(size:11)).foregroundColor(Studio.muted)
                     }
-                    Text(detail).font(.system(size:13)).fixedSize(horizontal:false,vertical:true)
+                    LText(detail).font(.system(size:13)).fixedSize(horizontal:false,vertical:true)
                     if authorization == .denied || authorization == .restricted {
-                        Button("Apri impostazioni Bluetooth") {
+                        LButton("Apri impostazioni Bluetooth") {
                             model.openURL("x-apple.systempreferences:com.apple.preference.security?Privacy_Bluetooth")
                         }.buttonStyle(StudioButton())
                     } else {
-                        Button(reader.isRunning ? "Lettura in corso…" : reading == nil ? "Leggi batteria" : "Aggiorna batteria") { refresh() }
+                        LButton(reader.isRunning ? "Lettura in corso…" : reading == nil ? "Leggi batteria" : "Aggiorna batteria") { refresh() }
                             .buttonStyle(StudioButton()).disabled(!context.connected || context.paused || reader.isRunning)
                     }
-                    Text("Aggiornamento ogni minuto quando l’app è attiva. Lo stato di ricarica non è esposto dalla tastiera.")
+                    LText("Aggiornamento ogni minuto quando l’app è attiva. Lo stato di ricarica non è esposto dalla tastiera.")
                         .font(.system(size:11)).foregroundColor(Studio.muted).fixedSize(horizontal:false,vertical:true)
                 }.padding(20).frame(width:310).foregroundColor(Studio.text).background(Studio.panel)
             }
@@ -89,7 +90,13 @@ struct BatteryStatusView: View {
                 if let percent=result.batteryPercent { reading=BatteryReading(percent:percent,date:result.inspectedAt); failed=false }
             }
             .onChange(of:reader.isRunning) { running in
-                if !running { failed=reader.inspection?.batteryPercent == nil; now=Date() }
+                if !running {
+                    // A normal pause is not a failed read. Keep a fresh value and
+                    // retry as soon as the app is eligible again, without a minute's delay.
+                    if reader.wasCancelled { failed=false; lastAttempt=nil }
+                    else { failed=reader.inspection?.batteryPercent == nil }
+                    now=Date()
+                }
             }
             .onReceive(NotificationCenter.default.publisher(for:NSApplication.didBecomeActiveNotification)) { _ in active=true; now=Date(); authorization=CBCentralManager.authorization }
             .onReceive(NotificationCenter.default.publisher(for:NSApplication.didResignActiveNotification)) { _ in active=false }

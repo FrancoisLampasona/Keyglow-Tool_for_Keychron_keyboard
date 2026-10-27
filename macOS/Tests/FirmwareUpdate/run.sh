@@ -9,6 +9,6 @@ xcrun swiftc -swift-version 6 -parse-as-library -module-cache-path "$PWD/build/s
     macOS/Sources/FirmwareAuthorization.swift macOS/Sources/FirmwareDeltaPlan.swift \
     macOS/Sources/BluetoothOTAWire.swift macOS/Sources/BluetoothOTAChannel.swift \
     macOS/Sources/BluetoothOTAIO.swift macOS/Sources/HIDTransport.swift macOS/Sources/RGBProtocol.swift \
-    macOS/Sources/FirmwareUpdateModel.swift macOS/Tests/FirmwareUpdate/FirmwareUpdateTests.swift \
+    macOS/Sources/Localization.swift macOS/Sources/FirmwareUpdateModel.swift macOS/Tests/FirmwareUpdate/FirmwareUpdateTests.swift \
     -o build/tests/firmware-update
 build/tests/firmware-update

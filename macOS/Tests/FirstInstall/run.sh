@@ -8,7 +8,7 @@ xcrun swiftc -swift-version 6 -parse-as-library -module-cache-path "$PWD/build/s
   -target arm64-apple-macos13.0 -framework AppKit -framework Combine -framework CryptoKit -framework Security -framework LocalAuthentication -framework IOKit \
   macOS/Sources/FirmwareAuthorization.swift macOS/Sources/FirmwareDeltaPlan.swift \
   macOS/Sources/BluetoothOTAWire.swift macOS/Sources/BluetoothOTAChannel.swift macOS/Sources/BluetoothOTAIO.swift \
-  macOS/Sources/HIDTransport.swift macOS/Sources/RGBProtocol.swift macOS/Sources/FirmwareUpdateModel.swift \
+  macOS/Sources/HIDTransport.swift macOS/Sources/RGBProtocol.swift macOS/Sources/Localization.swift macOS/Sources/FirmwareUpdateModel.swift \
   macOS/Sources/VIAProtocol.swift macOS/Sources/FirstInstallCore.swift macOS/Tests/FirstInstall/FirstInstallTests.swift \
   -o build/tests/first-install
 build/tests/first-install "$fixture"

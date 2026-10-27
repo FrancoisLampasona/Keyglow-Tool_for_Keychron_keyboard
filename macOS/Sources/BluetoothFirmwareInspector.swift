@@ -64,6 +64,7 @@ final class BluetoothFirmwareInspector: NSObject, ObservableObject,
     @Published private(set) var message = "Leggi modello, firmware radio e batteria direttamente via Bluetooth."
     @Published private(set) var inspection: BluetoothFirmwareInspection?
     @Published private(set) var permissionDenied = false
+    private(set) var wasCancelled = false
 
     private var central: CBCentralManager?
     private var target: CBPeripheral?
@@ -91,6 +92,7 @@ final class BluetoothFirmwareInspector: NSObject, ObservableObject,
         self.batteryOnly = batteryOnly
         inspection = nil
         permissionDenied = false
+        wasCancelled = false
         candidates.removeAll(); names.removeAll(); pendingServices.removeAll()
         characteristics.removeAll(); inventory.removeAll(); reads.removeAll()
         modelName = nil; pnp = nil; radioFirmware = nil; batteryPercent = nil
@@ -106,6 +108,7 @@ final class BluetoothFirmwareInspector: NSObject, ObservableObject,
 
     func cancel() {
         guard isRunning else { return }
+        wasCancelled = true
         finish("Verifica interrotta.")
     }
 

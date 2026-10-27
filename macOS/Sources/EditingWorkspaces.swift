@@ -29,16 +29,16 @@ struct KeymapWorkspaceView:View {
     private var catalog:some View {
                     VStack(alignment:.leading,spacing:16) {
                     HStack(alignment:.firstTextBaseline) {
-                        Text("Assegna un’azione").font(.system(size:20,weight:.semibold))
+                        LText("Assegna un’azione").font(.system(size:20,weight:.semibold))
                         Spacer()
-                        Text("\(model.visibleKeycodes.count) azioni").font(.system(size:12)).monospacedDigit().foregroundColor(Studio.muted)
+                        LText("\(model.visibleKeycodes.count) azioni").font(.system(size:12)).monospacedDigit().foregroundColor(Studio.muted)
                     }
                     HStack(spacing:12) {
                         HStack(spacing:8) {
                             Image(systemName:"magnifyingglass").foregroundColor(Studio.muted)
-                            TextField("Cerca tasto, azione o codice",text:$model.keySearch).textFieldStyle(.plain).accessibilityLabel("Cerca un’azione")
+                            LTextField("Cerca tasto, azione o codice",text:$model.keySearch).textFieldStyle(.plain).localizedAccessibilityLabel("Cerca un’azione")
                         }.padding(.horizontal,12).frame(height:40).background(Studio.panel).clipShape(RoundedRectangle(cornerRadius:8))
-                        Picker("Categoria",selection:$model.keyCategory) { Text("Tutte le categorie").tag("Tutti"); ForEach(Array(Set(KeycodeCatalog.entries.map(\.category))).sorted(),id:\.self) { Text($0).tag($0) } }.labelsHidden().controlSize(.large).frame(width:175)
+                        LPicker("Categoria",selection:$model.keyCategory) { LText("Tutte le categorie").tag("Tutti"); ForEach(Array(Set(KeycodeCatalog.entries.map(\.category))).sorted(),id:\.self) { LText($0).tag($0) } }.labelsHidden().controlSize(.large).frame(width:175)
                     }
                     StudioGrid(minimumCellWidth:110,cellHeight:58,spacing:8) {
                         ForEach(model.visibleKeycodes) { item in
@@ -47,10 +47,10 @@ struct KeymapWorkspaceView:View {
                                 model.assignKeycode(code)
                             } label:{
                                 VStack(spacing:5) {
-                                    Text(item.shortName).font(.system(size:13,weight:.semibold)).lineLimit(1)
-                                    Text(item.name).font(.system(size:12)).lineLimit(1).foregroundColor(Studio.muted)
+                                    LText(item.shortName).font(.system(size:13,weight:.semibold)).lineLimit(1)
+                                    LText(item.name).font(.system(size:12)).lineLimit(1).foregroundColor(Studio.muted)
                                 }.padding(.horizontal,8).frame(maxWidth:.infinity).frame(height:58).background(Color.white.opacity(0.04)).clipShape(RoundedRectangle(cornerRadius:8))
-                            }.buttonStyle(.plain).disabled(model.selectedKeys.isEmpty || model.busy).help(item.name).accessibilityLabel(item.name)
+                            }.buttonStyle(.plain).disabled(model.selectedKeys.isEmpty || model.busy).localizedHelp(item.name).localizedAccessibilityLabel(item.name)
                         }
                     }
                     if model.visibleKeycodes.isEmpty { CapabilityNote(text:"Nessuna azione trovata. Prova un altro nome o inserisci un codice QMK nell’inspector.") }
@@ -64,63 +64,63 @@ struct KeymapWorkspaceView:View {
                 layout {
                     VStack(alignment:.leading,spacing:14) {
                         VStack(alignment:.leading,spacing:8) {
-                            Text("Azione attuale").font(.system(size:12)).foregroundColor(Studio.muted)
-                            Text(KeycodeCatalog.display(model.workspace.layers[model.selectedLayer][key.matrixIndex]))
+                            LText("Azione attuale").font(.system(size:12)).foregroundColor(Studio.muted)
+                            LText(KeycodeCatalog.display(model.workspace.layers[model.selectedLayer][key.matrixIndex]))
                                 .font(.system(size:20,weight:.semibold)).foregroundColor(Studio.accent).fixedSize(horizontal:false,vertical:true)
                         }
-                        Button(model.captureMapping ? "In attesa del tasto…":"Cattura un tasto") { model.startMappingCapture() }
+                        LButton(model.captureMapping ? "In attesa del tasto…":"Cattura un tasto") { model.startMappingCapture() }
                             .buttonStyle(StudioButton()).disabled(model.captureMapping)
-                        if model.captureMapping { Text("Premi un tasto. Esc annulla.").font(.system(size:12)).foregroundColor(Studio.accent) }
+                        if model.captureMapping { LText("Premi un tasto. Esc annulla.").font(.system(size:12)).foregroundColor(Studio.accent) }
                         if model.selectedKey?.isEncoder == true { encoderControls }
-                        DisclosureGroup("Codice QMK") {
+                        LDisclosureGroup("Codice QMK") {
                             HStack(spacing:8) {
-                                Text("0x").foregroundColor(Studio.muted)
-                                TextField("0004",text:$model.rawKeycode).textFieldStyle(.roundedBorder).font(.system(size:13,design:.monospaced)).onSubmit{model.assignRawKeycode()}
-                                Button("Assegna"){model.assignRawKeycode()}.buttonStyle(StudioButton()).disabled(model.selectedKeys.isEmpty)
+                                LText("0x").foregroundColor(Studio.muted)
+                                LTextField("0004",text:$model.rawKeycode).textFieldStyle(.roundedBorder).font(.system(size:13,design:.monospaced)).onSubmit{model.assignRawKeycode()}
+                                LButton("Assegna"){model.assignRawKeycode()}.buttonStyle(StudioButton()).disabled(model.selectedKeys.isEmpty)
                             }.padding(.top,10)
                         }.font(.system(size:13,weight:.medium))
-                        Menu("Altre azioni") {
-                            Button("Ripristina selezione") {model.resetSelectedKeys()}.disabled(model.selectedKeys.isEmpty)
-                            Button("Scambia i due tasti") {
+                        LMenu("Altre azioni") {
+                            LButton("Ripristina selezione") {model.resetSelectedKeys()}.disabled(model.selectedKeys.isEmpty)
+                            LButton("Scambia i due tasti") {
                                 let keys=model.selectedKeys.compactMap{model.definition.key(id:$0)}
                                 if keys.count==2 {model.workspace.layers[model.selectedLayer].swapAt(keys[0].matrixIndex,keys[1].matrixIndex)}
                             }.disabled(model.selectedKeys.count != 2)
                         }.controlSize(.large)
                     }.frame(maxWidth:.infinity,alignment:.leading)
                     VStack(alignment:.leading,spacing:14) {
-                        Text("Modificatori").font(.system(size:13,weight:.semibold))
+                        LText("Modificatori").font(.system(size:13,weight:.semibold))
                         ForEach(Array([(1,"Control"),(2,"Shift"),(4,"Option / Alt"),(8,"Command / Win")].enumerated()),id:\.offset) { _, pair in
-                            Toggle(pair.1,isOn:Binding(get:{model.mappingModifiers & pair.0 != 0},set:{if $0 {model.mappingModifiers |= pair.0}else{model.mappingModifiers &= ~pair.0}})).toggleStyle(.checkbox)
+                            LToggle(pair.1,isOn:Binding(get:{model.mappingModifiers & pair.0 != 0},set:{if $0 {model.mappingModifiers |= pair.0}else{model.mappingModifiers &= ~pair.0}})).toggleStyle(.checkbox)
                         }
-                        Text("Aggiungili all’azione che scegli dal catalogo.").font(.system(size:12)).foregroundColor(Studio.muted).lineSpacing(3).fixedSize(horizontal:false,vertical:true)
+                        LText("Aggiungili all’azione che scegli dal catalogo.").font(.system(size:12)).foregroundColor(Studio.muted).lineSpacing(3).fixedSize(horizontal:false,vertical:true)
                     }.frame(maxWidth:.infinity,alignment:.leading)
                 }
             } else {
                 HStack(alignment:.top,spacing:14) {
                     Image(systemName:"cursorarrow.click.2").font(.system(size:25,weight:.light)).foregroundColor(Studio.accent)
                     VStack(alignment:.leading,spacing:8) {
-                        Text("Scegli un tasto").font(.system(size:15,weight:.semibold))
-                        Text("Selezionalo sulla tastiera per modificarne l’azione. Tieni premuto ⌘ o ⇧ per selezionarne più di uno.")
+                        LText("Scegli un tasto").font(.system(size:15,weight:.semibold))
+                        LText("Selezionalo sulla tastiera per modificarne l’azione. Tieni premuto ⌘ o ⇧ per selezionarne più di uno.")
                             .font(.system(size:13)).foregroundColor(Studio.muted).lineSpacing(4).fixedSize(horizontal:false,vertical:true)
                     }
                 }.padding(.vertical,4)
             }
             Divider()
-            DisclosureGroup("Come funzionano i livelli") {
-                Text("Mac e Windows seguono il selettore fisico della tastiera. Fn attiva il livello associato finché lo tieni premuto.")
+            LDisclosureGroup("Come funzionano i livelli") {
+                LText("Mac e Windows seguono il selettore fisico della tastiera. Fn attiva il livello associato finché lo tieni premuto.")
                     .padding(.top,8).lineSpacing(3).fixedSize(horizontal:false,vertical:true)
             }.font(.system(size:12)).foregroundColor(Studio.muted)
         }.disabled(model.busy)
     }
     private var encoderControls:some View {
         VStack(alignment:.leading,spacing:12) {
-            Divider();Text("Rotazione").fontWeight(.semibold)
+            Divider();LText("Rotazione").fontWeight(.semibold)
             ForEach(0..<2,id:\.self) { direction in
-                Picker(direction==0 ? "Antiorario":"Orario",selection:$model.workspace.encoders[model.selectedLayer][direction]) {
-                    ForEach(KeycodeCatalog.entries) {Text($0.shortName).tag($0.code)}
+                LPicker(direction==0 ? "Antiorario":"Orario",selection:$model.workspace.encoders[model.selectedLayer][direction]) {
+                    ForEach(KeycodeCatalog.entries) {LText($0.shortName).tag($0.code)}
                 }
             }
-            Text("Assegna la pressione dal catalogo, come un normale tasto.").font(.system(size:12)).foregroundColor(Studio.muted).lineSpacing(3)
+            LText("Assegna la pressione dal catalogo, come un normale tasto.").font(.system(size:12)).foregroundColor(Studio.muted).lineSpacing(3)
         }
     }
 }
@@ -140,9 +140,9 @@ struct MacroWorkspaceView:View {
             } else {
                 ScrollView {
                     VStack(alignment:.leading,spacing:24) {
-                        Picker("Le tue macro",selection:Binding(get:{model.selectedMacro},set:{model.stopCapture();model.selectedMacro=$0})) {
+                        LPicker("Le tue macro",selection:Binding(get:{model.selectedMacro},set:{model.stopCapture();model.selectedMacro=$0})) {
                             ForEach(model.workspace.macros.indices,id:\.self) { index in
-                                Text("M\(index) · \(model.workspace.macros[index].name)").tag(index)
+                                Text(verbatim: "M\(index) · \(model.workspace.macros[index].name)").tag(index)
                             }
                         }.controlSize(.large).frame(maxWidth:420,alignment:.leading)
                         macroEditor
@@ -153,14 +153,14 @@ struct MacroWorkspaceView:View {
     }
     private var macroList:some View {
                 VStack(alignment:.leading,spacing:5) {
-                    Text("Le tue macro").font(.system(size:13,weight:.semibold)).foregroundColor(Studio.muted).padding(.horizontal,12).padding(.bottom,12)
+                    LText("Le tue macro").font(.system(size:13,weight:.semibold)).foregroundColor(Studio.muted).padding(.horizontal,12).padding(.bottom,12)
                     ForEach(model.workspace.macros.indices,id:\.self) { index in
                         Button {model.stopCapture();model.selectedMacro=index} label:{
                             HStack(spacing:12) {
-                                Text("M\(index)").font(.system(size:12,weight:.medium,design:.monospaced)).foregroundColor(model.selectedMacro==index ? Studio.accent:Studio.muted).frame(width:28,alignment:.leading)
+                                LText("M\(index)").font(.system(size:12,weight:.medium,design:.monospaced)).foregroundColor(model.selectedMacro==index ? Studio.accent:Studio.muted).frame(width:28,alignment:.leading)
                                 VStack(alignment:.leading,spacing:5){
-                                    Text(model.workspace.macros[index].name).font(.system(size:13,weight:model.selectedMacro==index ? .semibold:.regular)).lineLimit(1)
-                                    Text("\(model.workspace.macros[index].actions.count) eventi").font(.system(size:12)).foregroundColor(Studio.muted)
+                                    Text(verbatim: model.workspace.macros[index].name).font(.system(size:13,weight:model.selectedMacro==index ? .semibold:.regular)).lineLimit(1)
+                                    LText("\(model.workspace.macros[index].actions.count) eventi").font(.system(size:12)).foregroundColor(Studio.muted)
                                 }
                                 Spacer(minLength:0)
                             }.padding(12).background(model.selectedMacro==index ? Studio.accent.opacity(0.08):.clear).clipShape(RoundedRectangle(cornerRadius:8))
@@ -172,36 +172,36 @@ struct MacroWorkspaceView:View {
                 if model.workspace.macros.indices.contains(model.selectedMacro) {
                     VStack(alignment:.leading,spacing:24) {
                         HStack {
-                            TextField("Nome macro",text:$model.workspace.macros[model.selectedMacro].name).textFieldStyle(.plain).font(.system(size:20,weight:.semibold))
+                            LTextField("Nome macro",text:$model.workspace.macros[model.selectedMacro].name).textFieldStyle(.plain).font(.system(size:20,weight:.semibold))
                             Spacer()
-                            Text("\(model.macroBytesUsed) / \(model.usbSnapshot.map{String($0.macroCapacity)} ?? "—") byte").font(.system(size:12)).monospacedDigit().foregroundColor(Studio.muted).help("Memoria usata da tutte le macro")
+                            LText("\(model.macroBytesUsed) / \(model.usbSnapshot.map{String($0.macroCapacity)} ?? "—") byte").font(.system(size:12)).monospacedDigit().foregroundColor(Studio.muted).localizedHelp("Memoria usata da tutte le macro")
                         }
                         if model.workspace.macros[model.selectedMacro].rawBytes != nil {
                             CapabilityNote(text:"Questa macro contiene comandi non riconosciuti. Viene conservata nel profilo, ma non può essere modificata qui.")
                         } else {
                             HStack(spacing:9) {
                                 Button {if model.recording{model.stopCapture()}else{model.startRecording()}} label:{
-                                    Label(model.recording ? "Ferma":"Registra",systemImage:model.recording ? "stop.circle":"record.circle")
+                                    LLabel(model.recording ? "Ferma":"Registra",systemImage:model.recording ? "stop.circle":"record.circle")
                                 }.buttonStyle(StudioButton(primary:true))
-                                Menu("Aggiungi evento") {ForEach(MacroActionKind.allCases,id:\.self){kind in Button(kind.title){model.addMacroAction(kind)}}}.controlSize(.large).frame(width:155).disabled(model.recording)
+                                LMenu("Aggiungi evento") {ForEach(MacroActionKind.allCases,id:\.self){kind in LButton(kind.title){model.addMacroAction(kind)}}}.controlSize(.large).frame(width:155).disabled(model.recording)
                                 Spacer()
-                                Menu("File macro") {
-                                    Button("Importa macro Keyglow"){model.importMacro()}
-                                    Button("Importa slot Launcher"){model.importLauncherMacros()}
-                                    Button("Importa Launcher legacy · senza checksum"){model.importLauncherMacros(legacy:true)}
+                                LMenu("File macro") {
+                                    LButton("Importa macro Keyglow"){model.importMacro()}
+                                    LButton("Importa slot Launcher"){model.importLauncherMacros()}
+                                    LButton("Importa Launcher legacy · senza checksum"){model.importLauncherMacros(legacy:true)}
                                     Divider()
-                                    Button("Esporta questa macro"){model.exportMacro()}
-                                    Button("Esporta tutti gli slot Launcher"){model.exportLauncherMacros()}
+                                    LButton("Esporta questa macro"){model.exportMacro()}
+                                    LButton("Esporta tutti gli slot Launcher"){model.exportLauncherMacros()}
                                 }.controlSize(.large).frame(width:125).disabled(model.recording)
                             }
-                            Text(model.recording ? "Registrazione in questa finestra · Esc per fermare" : "Quando è pronta, assegna M\(model.selectedMacro) a un tasto nella mappa.").font(.system(size:13)).foregroundColor(model.recording ? Studio.accent:Studio.muted).lineSpacing(3)
+                            LText(model.recording ? "Registrazione in questa finestra · Esc per fermare" : "Quando è pronta, assegna M\(model.selectedMacro) a un tasto nella mappa.").font(.system(size:13)).foregroundColor(model.recording ? Studio.accent:Studio.muted).lineSpacing(3)
                             Divider()
                             if model.workspace.macros[model.selectedMacro].actions.isEmpty {
                                 HStack(alignment:.top,spacing:18) {
                                     Image(systemName:"command").font(.system(size:30,weight:.light)).foregroundColor(Studio.accent)
                                     VStack(alignment:.leading,spacing:8){
-                                        Text("Crea la prima sequenza").font(.system(size:20,weight:.semibold))
-                                        Text("Premi Registra oppure aggiungi testo, tasti e attese. Gli eventi seguiranno l’ordine che scegli.")
+                                        LText("Crea la prima sequenza").font(.system(size:20,weight:.semibold))
+                                        LText("Premi Registra oppure aggiungi testo, tasti e attese. Gli eventi seguiranno l’ordine che scegli.")
                                             .font(.system(size:13)).foregroundColor(Studio.muted).lineSpacing(4).frame(maxWidth:480,alignment:.leading)
                                     }
                                 }.padding(.vertical,32)
@@ -209,8 +209,8 @@ struct MacroWorkspaceView:View {
                             VStack(spacing:8) {
                                 ForEach(model.workspace.macros[model.selectedMacro].actions.indices,id:\.self) { index in macroRow(index) }
                             }
-                            DisclosureGroup("Testo e compatibilità") {
-                                Text("Il testo usa ASCII e la mappatura del firmware. Per accenti e simboli italiani usa sequenze di tasti. Le macro vengono eseguite dalla tastiera dopo Applica.")
+                            LDisclosureGroup("Testo e compatibilità") {
+                                LText("Il testo usa ASCII e la mappatura del firmware. Per accenti e simboli italiani usa sequenze di tasti. Le macro vengono eseguite dalla tastiera dopo Applica.")
                                     .padding(.top,8).lineSpacing(3).fixedSize(horizontal:false,vertical:true)
                             }.font(.system(size:12)).foregroundColor(Studio.muted)
                         }
@@ -221,29 +221,29 @@ struct MacroWorkspaceView:View {
         let action=model.workspace.macros[model.selectedMacro].actions[index]
         return VStack(alignment:.leading,spacing:10) {
             HStack(spacing:10) {
-                Text(String(format:"%02d",index+1)).font(.system(size:12,design:.monospaced)).foregroundColor(Studio.muted).frame(width:25)
-                Picker("Evento",selection:$model.workspace.macros[model.selectedMacro].actions[index].kind) {
-                    ForEach(MacroActionKind.allCases,id:\.self){Text($0.title).tag($0)}
+                LText(String(format:"%02d",index+1)).font(.system(size:12,design:.monospaced)).foregroundColor(Studio.muted).frame(width:25)
+                LPicker("Evento",selection:$model.workspace.macros[model.selectedMacro].actions[index].kind) {
+                    ForEach(MacroActionKind.allCases,id:\.self){LText($0.title).tag($0)}
                 }.labelsHidden().frame(maxWidth:180)
                 Spacer(minLength:12)
                 HStack(spacing:2) {
-                    Button {model.moveMacroAction(index,by:-1)} label:{Image(systemName:"arrow.up").frame(width:36,height:36)}.buttonStyle(.plain).disabled(index==0).help("Sposta prima").accessibilityLabel("Sposta evento \(index+1) prima")
-                    Button {model.moveMacroAction(index,by:1)} label:{Image(systemName:"arrow.down").frame(width:36,height:36)}.buttonStyle(.plain).disabled(index==model.workspace.macros[model.selectedMacro].actions.count-1).help("Sposta dopo").accessibilityLabel("Sposta evento \(index+1) dopo")
-                    Button {model.workspace.macros[model.selectedMacro].actions.remove(at:index)} label:{Image(systemName:"trash").frame(width:36,height:36)}.buttonStyle(.plain).help("Rimuovi evento").accessibilityLabel("Rimuovi evento \(index+1)")
+                    Button {model.moveMacroAction(index,by:-1)} label:{Image(systemName:"arrow.up").frame(width:36,height:36)}.buttonStyle(.plain).disabled(index==0).localizedHelp("Sposta prima").localizedAccessibilityLabel("Sposta evento \(index+1) prima")
+                    Button {model.moveMacroAction(index,by:1)} label:{Image(systemName:"arrow.down").frame(width:36,height:36)}.buttonStyle(.plain).disabled(index==model.workspace.macros[model.selectedMacro].actions.count-1).localizedHelp("Sposta dopo").localizedAccessibilityLabel("Sposta evento \(index+1) dopo")
+                    Button {model.workspace.macros[model.selectedMacro].actions.remove(at:index)} label:{Image(systemName:"trash").frame(width:36,height:36)}.buttonStyle(.plain).localizedHelp("Rimuovi evento").localizedAccessibilityLabel("Rimuovi evento \(index+1)")
                 }.foregroundColor(Studio.muted)
             }
             if action.kind == .text {
-                TextField("Testo da scrivere",text:$model.workspace.macros[model.selectedMacro].actions[index].text).textFieldStyle(.roundedBorder)
-                    .accessibilityLabel("Testo dell’evento \(index+1)")
+                LTextField("Testo da scrivere",text:$model.workspace.macros[model.selectedMacro].actions[index].text).textFieldStyle(.roundedBorder)
+                    .localizedAccessibilityLabel("Testo dell’evento \(index+1)")
             } else if action.kind == .delay {
                 HStack(spacing:10) {
-                    TextField("Attesa",value:$model.workspace.macros[model.selectedMacro].actions[index].milliseconds,format:.number)
-                        .textFieldStyle(.roundedBorder).frame(maxWidth:120).accessibilityLabel("Attesa in millisecondi")
-                    Text("millisecondi").font(.system(size:12)).foregroundColor(Studio.muted)
+                    LTextField("Attesa",value:$model.workspace.macros[model.selectedMacro].actions[index].milliseconds,format:.number)
+                        .textFieldStyle(.roundedBorder).frame(maxWidth:120).localizedAccessibilityLabel("Attesa in millisecondi")
+                    LText("millisecondi").font(.system(size:12)).foregroundColor(Studio.muted)
                 }
             } else {
-                Picker("Tasto",selection:$model.workspace.macros[model.selectedMacro].actions[index].keycode) {
-                    ForEach(KeycodeCatalog.entries.filter{$0.code>0 && $0.code<=255}){Text($0.name).tag($0.code)}
+                LPicker("Tasto",selection:$model.workspace.macros[model.selectedMacro].actions[index].keycode) {
+                    ForEach(KeycodeCatalog.entries.filter{$0.code>0 && $0.code<=255}){LText($0.name).tag($0.code)}
                 }
             }
         }.controlSize(.large).padding(14).background(Color.white.opacity(0.035)).clipShape(RoundedRectangle(cornerRadius:10)).disabled(model.recording)
@@ -260,26 +260,26 @@ struct TestWorkspaceView:View {
                     PanelTitle(title:model.testing ? "Test in corso":"Controlla i tuoi tasti",subtitle:model.testing ? "Premi i tasti. Esc termina il test." : "Avvia il test e premi i tasti sulla tastiera.")
                         .frame(maxWidth:.infinity,alignment:.leading)
                     HStack(spacing:10) {
-                    Button(model.testing ? "Ferma test":"Avvia test") {if model.testing{model.stopCapture()}else{model.startTest()}}.buttonStyle(StudioButton(primary:true))
-                    Button("Azzera"){model.testedKeys=[]}.buttonStyle(StudioButton())
+                    LButton(model.testing ? "Ferma test":"Avvia test") {if model.testing{model.stopCapture()}else{model.startTest()}}.buttonStyle(StudioButton(primary:true))
+                    LButton("Azzera"){model.testedKeys=[]}.buttonStyle(StudioButton())
                     }
                 }
                 PhysicalKeyboardView(model:model,testMode:true)
                 HStack(spacing:20) {
-                    Label(model.lastTestKey,systemImage:"keyboard").font(.system(size:13,weight:.medium)).fixedSize(horizontal:false,vertical:true)
+                    LLabel(model.lastTestKey,systemImage:"keyboard").font(.system(size:13,weight:.medium)).fixedSize(horizontal:false,vertical:true)
                     Spacer()
-                    Text("\(model.testedKeys.count) tasti rilevati").font(.system(size:13)).monospacedDigit().foregroundColor(Studio.muted)
+                    LText("\(model.testedKeys.count) tasti rilevati").font(.system(size:13)).monospacedDigit().foregroundColor(Studio.muted)
                 }.padding(18).background(Studio.panel).clipShape(RoundedRectangle(cornerRadius:10))
-                DisclosureGroup("Cosa rileva questo test") {
-                    Text("Riceve solo i tasti diretti a questa finestra, senza registrazione globale. Non distingue fra più tastiere collegate. Alcune scorciatoie vengono intercettate da macOS e possono non comparire.")
+                LDisclosureGroup("Cosa rileva questo test") {
+                    LText("Riceve solo i tasti diretti a questa finestra, senza registrazione globale. Non distingue fra più tastiere collegate. Alcune scorciatoie vengono intercettate da macOS e possono non comparire.")
                         .padding(.top,8).lineSpacing(4).frame(maxWidth:680,alignment:.leading)
                 }.font(.system(size:12)).foregroundColor(Studio.muted)
                 Divider()
-                DisclosureGroup("Diagnostica della matrice USB") {
+                LDisclosureGroup("Diagnostica della matrice USB") {
                     VStack(alignment:.leading,spacing:14) {
-                        Text("Legge la matrice se il firmware lo supporta. Una risposta tutta a zero non conferma che i tasti siano rilasciati.")
+                        LText("Legge la matrice se il firmware lo supporta. Una risposta tutta a zero non conferma che i tasti siano rilasciati.")
                             .font(.system(size:13)).foregroundColor(Studio.muted).lineSpacing(4).frame(maxWidth:680,alignment:.leading)
-                        Button("Leggi matrice Q6 Max"){model.readHardwareMatrix()}.buttonStyle(StudioButton()).disabled(!model.usbReady)
+                        LButton("Leggi matrice Q6 Max"){model.readHardwareMatrix()}.buttonStyle(StudioButton()).disabled(!model.usbReady)
                     }.padding(.top,14)
                 }.font(.system(size:15,weight:.semibold))
             }.studioPage()

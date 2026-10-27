@@ -523,7 +523,7 @@ final class FirmwareUpdateModel: ObservableObject {
     func chooseFile() {
         guard !isBusy else { return }
         let panel = NSOpenPanel()
-        panel.title = "Scegli firmware Q6 Max ISO"
+        panel.title = L10n.string("Scegli firmware Q6 Max ISO")
         panel.allowedContentTypes = [UTType(filenameExtension: "kgfw"), UTType(filenameExtension: "bin")].compactMap { $0 }
         panel.allowsMultipleSelection = false; panel.canChooseDirectories = false
         guard panel.runModal() == .OK, let url = panel.url else { return }

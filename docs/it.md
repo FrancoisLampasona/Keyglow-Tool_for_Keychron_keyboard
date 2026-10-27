@@ -4,7 +4,7 @@ Keyglow è un'app macOS nativa per **Keychron Q6 Max ISO**, con layout italiano 
 
 ## Installazione e primo avvio
 
-Scarica il **[DMG Keyglow 0.10.1](https://github.com/FrancoisLampasona/Keyglow-Tool_for_Keychron_keyboard/releases/tag/v0.10.1)**, aprilo e trascina Keyglow in Applicazioni. Avvia l’app da lì ed espelli il disco. Servono un Mac Apple Silicon e macOS 13 o successivo. Il pacchetto contiene già firmware e strumenti USB.
+Scarica il **[DMG Keyglow 0.11.0](https://github.com/FrancoisLampasona/Keyglow-Tool_for_Keychron_keyboard/releases/tag/v0.11.0)**, aprilo e trascina Keyglow in Applicazioni. Avvia l’app da lì ed espelli il disco. Servono un Mac Apple Silicon e macOS 13 o successivo. Il pacchetto contiene già firmware e strumenti USB.
 
 È una versione sperimentale con firma locale, non notarizzata da Apple. La nuova prima installazione guidata è verificata tramite test software, ma non ancora provata fisicamente dall’inizio alla fine. La prima scrittura del loader non resiste a un’interruzione di alimentazione: l’app richiede una conferma esplicita prima di iniziare.
 
@@ -30,11 +30,19 @@ Per le compilazioni ripetute è disponibile una [firma locale stabile](local-sig
 
 Tutta la riga della sidebar è cliccabile; puoi anche usare ⌘1–9. La finestra ricorda le dimensioni e si adatta allo schermo, fino a 900 × 640. Nelle finestre strette, Illuminazione mette in primo piano colore ed effetto e permette di espandere l’anteprima della tastiera. Dal menu **Finestra** scegli **Dimensione compatta** o **Dimensione comoda**.
 
+## Lingua dell’app
+
+Keyglow è disponibile in **italiano, inglese e francese**. Il menu con il globo è nel primo avvio e in fondo alla barra laterale. Scegli **Italiano**, **English** o **Français**: l’interfaccia cambia subito, senza riaprire l’app, e la scelta resta salvata sul Mac. L’italiano è la lingua iniziale.
+
+La lingua dell’interfaccia non cambia il layout fisico ISO italiano, le assegnazioni dei tasti, i nomi dei profili o il contenuto delle macro. Le traduzioni sono incluse nell’app e funzionano senza Internet. Le finestre gestite da macOS possono seguire la lingua del sistema.
+
 ## Batteria
 
 La barra laterale mostra la percentuale letta dalla Q6 Max via Bluetooth. Si aggiorna ogni minuto quando Keyglow è attiva, fuori dalla pagina Firmware e senza altre operazioni in corso. Clicca la batteria per vedere l’ora della lettura o aggiornare il dato. Il primo accesso Bluetooth viene richiesto soltanto premendo **Leggi batteria**; un consenso già valido viene riutilizzato.
 
-In Cable compare **Batteria —**: questa lettura richiede il collegamento BT. Un dato vecchio è indicato come precedente; nessuna percentuale viene stimata. Lo stato di ricarica non è esposto dal servizio letto.
+In Cable compare **Batteria —**: questa lettura richiede il collegamento BT. Un dato vecchio è indicato come precedente; nessuna percentuale viene stimata. Lo stato di ricarica non è esposto dal servizio letto. Una pausa durante un’altra operazione conserva il dato valido e non viene mostrata come un errore; la lettura riprende automaticamente quando possibile.
+
+La prova sulla Q6 Max reale ha mostrato il passaggio da una lettura iniziale del **96%** a letture automatiche del **94%** e del **92%**, senza premere Aggiorna batteria. Il passaggio USB → Bluetooth è stato riconosciuto senza riaprire l’app. Il ciclo completo Bluetooth → USB → Bluetooth richiede ancora una prova fisica: [dettagli della verifica](dmg-validation.md).
 
 ## RGB senza cavo
 

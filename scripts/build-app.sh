@@ -34,6 +34,7 @@ if [[ -n "${FIRMWARE_UPDATE_PACKAGE:-}" ]]; then
   cp "$FIRMWARE_UPDATE_PACKAGE" "$bundle/Contents/Resources/firmware-update.kgfw"
 fi
 python3 scripts/bundle-bootstrap.py "$bundle"
+cp -R macOS/Resources/. "$bundle/Contents/Resources/"
 cp macOS/Info.plist "$bundle/Contents/Info.plist"
 cp LICENSE THIRD_PARTY_NOTICES.md "$bundle/Contents/Resources/"
 python3 scripts/sign-app.py "$bundle"

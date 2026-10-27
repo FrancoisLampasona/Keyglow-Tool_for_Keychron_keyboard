@@ -35,8 +35,29 @@ Private recovery material is retained outside the checkout under the user's Appl
 
 The battery extension uses the existing read-only CoreBluetooth identity and Battery Level parser. It does not modify the controller firmware. Automatic refresh requires an existing Bluetooth authorization, one detected Q6 Max, an active app and no competing operation; the Firmware page pauses it. An explicit read can request the separate Bluetooth permission. Values outside 0–100 are rejected, reads older than three minutes are marked previous, and disconnected/Cable mode has no percentage. No charging or runtime estimate is inferred.
 
-Identity/parsing and freshness/refresh-gating tests passed. The native sidebar and Cable explanation were inspected at 1400 × 900 and 900 × 640. A fresh physical percentage read for this build remains pending a Bluetooth-mode test; screenshots do not substitute for it.
+Identity/parsing and freshness/refresh-gating tests passed. The native sidebar and Cable explanation were inspected at 1400 × 900 and 900 × 640. A physical Bluetooth test subsequently read 96% at 18:27, then 94% at 18:31 and 92% at 18:52 on October 27, 2026 (Europe/Rome). The latter two readings appeared automatically, without pressing **Aggiorna batteria**. The native popover showed the device percentage and read time. These observations verify automatic refresh/resumption on this Q6 Max ISO, not a precisely measured one-minute cadence or battery-life estimate.
 
 The complete 0.10.1 DMG was mounted read-only and its files matched the installed app, with strict signature verification and bundled USB-helper launch. A separate signing test confirmed stable reciprocal requirements between different binaries and rejection of wrong identities/ad-hoc replacements. No privacy permissions were reset.
 
-Final 0.10.1 DMG SHA-256: `a6493a24d0823b4e868ece2802c72fbf9cd97d479369a412789e182bcb234a6f`. The UI review resolved a cached-connection issue: USB/Bluetooth metadata refreshes on activation and every five seconds while active and unpaused, including when disconnected. Physical connection transitions remain to be checked.
+Final 0.10.1 DMG SHA-256: `a6493a24d0823b4e868ece2802c72fbf9cd97d479369a412789e182bcb234a6f`. The UI review resolved a cached-connection issue: USB/Bluetooth metadata refreshes on activation and every five seconds while active and unpaused, including when disconnected. The owner’s subsequent USB → Bluetooth transition was recognized without restarting Keyglow. A complete Bluetooth → USB → Bluetooth cycle, including recognition of the return to Cable, remains unverified; it requires physically moving the cable and selector.
+
+
+## Multilingual update — 0.11.0, build 24
+
+The app adds Italian, English and French presentation, with a language menu in the first-run assistant and sidebar. Italian remains the initial default. The selection uses a separate local preference; it does not rewrite the keyboard definition, profiles, macro content or protocol identifiers. Translation resources are bundled and require no online service. Native system windows can retain the macOS language.
+
+Catalog checks passed for English/French coverage parity, interpolation parameters, Unicode and literal braces in filenames, multiline fallback, preservation of user-provided names and the stored language preference. The main sources passed Swift 6 type checking. These software checks do not establish a complete VoiceOver journey. The native checks below cover the rendered paths and inspected accessibility labels, not a full screen-reader session.
+
+Normal battery-read cancellation for another operation is now a pause rather than a failed reading. It preserves a valid value and clears the retry delay, so reading can resume when the app becomes eligible. This change does not alter the keyboard firmware. No firmware installation was performed during the multilingual work.
+
+### Final app and DMG checks
+
+The installed 0.11.0 app was inspected in Italian, English and French at 1400 × 900 and 900 × 640. Language changed immediately in navigation, lighting controls, effects, app-owned menus and the setup assistant without resetting its step. French persisted after quitting and reopening. The first-install instructions and step labels were checked in English and French without starting a hardware operation; the existing Input Monitoring grant remained valid. A targeted independent UI review found no remaining material issues in this localization scope.
+
+The final app was returned to Italian. Before/after preference exports confirmed `workspace.v3` and `profiles.v3` were byte-identical, including macro content; the only changed preference was the new `app.language = it`. No RGB command was sent by changing language or navigating. The final UI retained the same color and reported a real 92% battery reading automatically.
+
+The new DMG was mounted read-only. Every app file matched `/Applications/Keyglow.app`; strict signature verification and the bundled USB helper's version command passed. The stable-signature test also passed across distinct binaries and rejected wrong identities and ad-hoc replacements. The DMG includes installation notes in all three languages and the same public A8/B9 firmware payloads; no owner key or device backup is bundled.
+
+0.11.0 DMG SHA-256: `446956230cee6ece609ee9a1e13d27f327aa8100d8fd79f0b507c1f0869a37d4`.
+
+These checks do not change the documented limits: no fresh-Mac consent proof, no complete physical USB/Bluetooth round trip, no new firmware flash, and no Apple notarization.

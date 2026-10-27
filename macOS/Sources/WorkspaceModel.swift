@@ -17,7 +17,10 @@ extension StudioModel {
     }
     var selectedKey: PhysicalKey? { selectedKeys.sorted().first.flatMap { definition.key(id:$0) } }
     var visibleKeycodes: [KeycodeInfo] {
-        KeycodeCatalog.search(keySearch).filter { keyCategory == "Tutti" || $0.category == keyCategory }
+        KeycodeCatalog.entries.filter { item in
+            let term = keySearch.trimmingCharacters(in: .whitespacesAndNewlines)
+            return (term.isEmpty || [item.name, item.shortName, item.category, L10n.string(item.name), L10n.string(item.shortName), L10n.string(item.category), String(format: "0x%04X", item.code)].contains { $0.localizedCaseInsensitiveContains(term) }) && (keyCategory == "Tutti" || item.category == keyCategory)
+        }
     }
     var macroBytesUsed: Int {
         (try? VIAMacroCodec.encode(macroActions(), count:max(1, workspace.macros.count), capacity:65535).prefix(while: { _ in true }).count).map { _ in
@@ -307,7 +310,7 @@ extension StudioModel {
     }
     func resetDraft() { guard !busy else{return};stopCapture();archiveCurrentProfile(suffix:" · prima del ripristino"); replaceLocalDraft(KeyboardWorkspace());selectedMacro=0;selectedMixLayer=0;selectedKeys=[]; projectMessage="Valori di fabbrica caricati nella bozza. Nessuna modifica alla tastiera." }
     func inspectFirmwareFile() {
-        let panel=NSOpenPanel(); panel.allowsMultipleSelection=false; panel.message="Seleziona un firmware da identificare. Non verrà eseguito alcun flash."
+        let panel=NSOpenPanel(); panel.allowsMultipleSelection=false; panel.message=L10n.string("Seleziona un firmware da identificare. Non verrà eseguito alcun flash.")
         guard panel.runModal() == .OK, let url=panel.url else { return }
         do {
             guard (try url.resourceValues(forKeys:[.fileSizeKey]).fileSize ?? 0)<=16_000_000 else { throw WorkspaceError.tooLarge }
@@ -361,7 +364,7 @@ extension StudioModel {
     func importMacro() {
         guard !busy else{return};stopCapture()
         guard workspace.macros.indices.contains(selectedMacro) else{return}
-        let panel=NSOpenPanel();panel.allowedContentTypes=[.json];panel.allowsMultipleSelection=false;panel.message="Importa una macro nel formato Keyglow (compatibile con Tastiera)."
+        let panel=NSOpenPanel();panel.allowedContentTypes=[.json];panel.allowsMultipleSelection=false;panel.message=L10n.string("Importa una macro nel formato Keyglow (compatibile con Tastiera).")
         guard panel.runModal() == .OK,let url=panel.url else{return}
         do{guard (try url.resourceValues(forKeys:[.fileSizeKey]).fileSize ?? 0)<2_000_000 else{throw WorkspaceError.tooLarge};var macro=try JSONDecoder().decode(MacroDraft.self,from:Data(contentsOf:url));macro.id=selectedMacro;var proposed=workspace;proposed.macros[selectedMacro]=macro;try proposed.validate();workspace=proposed;projectMessage="Macro importata nella bozza."}catch{projectMessage=error.localizedDescription}
     }

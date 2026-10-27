@@ -3,6 +3,7 @@ import AppKit
 
 struct PhysicalKeyboardView: View {
     @ObservedObject var model: StudioModel
+    @ObservedObject private var language = AppLanguageStore.shared
     var showsAssignments = false
     var testMode = false
     var body: some View {
@@ -30,12 +31,12 @@ struct PhysicalKeyboardView: View {
                             } else {
                                 VStack(spacing:max(1,u*0.05)) {
                                     if showsAssignments {
-                                        Text(KeycodeCatalog.display(model.workspace.layers[model.selectedLayer][key.matrixIndex]))
+                                        LText(KeycodeCatalog.display(model.workspace.layers[model.selectedLayer][key.matrixIndex]))
                                             .font(.system(size:max(6.5,u*0.21),weight:.medium)).lineLimit(1).minimumScaleFactor(0.65).multilineTextAlignment(.center)
                                     } else {
                                         if let symbol=key.symbolName { Image(systemName:symbol).font(.system(size:max(7,u*0.22))) }
-                                        if !key.secondaryLegend.isEmpty { Text(key.secondaryLegend).font(.system(size:max(6,u*0.18))) }
-                                        if !key.legend.isEmpty { Text(key.legend).font(.system(size:max(6.5,u*0.23),weight:.medium)).lineLimit(1).minimumScaleFactor(0.65) }
+                                        if !key.secondaryLegend.isEmpty { Text(verbatim: key.secondaryLegend).font(.system(size:max(6,u*0.18))) }
+                                        if !key.legend.isEmpty { Text(verbatim: key.legend).font(.system(size:max(6.5,u*0.23),weight:.medium)).lineLimit(1).minimumScaleFactor(0.65) }
                                     }
                                 }.padding(3).offset(x:key.secondary == nil ? 0 : u*0.05)
                                     .foregroundColor(key.appearance == .light || held || (testMode && tested) ? Color(hex:0x242D2F) : Color(hex:0xE3E9E7))
@@ -44,8 +45,8 @@ struct PhysicalKeyboardView: View {
                     }.buttonStyle(KeycapButtonStyle())
                         .frame(width:(width-0.08)*u,height:(key.height-0.08)*u)
                         .position(x:(key.x+offset+0.45+(width-0.08)/2)*u,y:(key.y+0.45+(key.height-0.08)/2)*u)
-                        .help(keyHelp(key))
-                        .accessibilityLabel(keyHelp(key))
+                        .localizedHelp(keyHelp(key))
+                        .localizedAccessibilityLabel(keyHelp(key))
                         .accessibilityAddTraits(selected ? .isSelected : [])
                         .disabled(model.busy || testMode)
                 }
@@ -63,8 +64,8 @@ struct PhysicalKeyboardView: View {
         return model.color.opacity(0.25+model.brightness/100*0.65)
     }
     private func keyHelp(_ key:PhysicalKey)->String {
-        let name=key.isEncoder ? "Manopola · pressione" : key.legend.isEmpty ? "Tasto \(key.id)" : key.legend
-        return "\(name) · \(KeycodeCatalog.display(model.workspace.layers[model.selectedLayer][key.matrixIndex])) · riga \(key.row), colonna \(key.col)"
+        let name=key.isEncoder ? L10n.string("Manopola · pressione") : key.legend.isEmpty ? L10n.format("Tasto {0}", [key.id]) : key.legend
+        return L10n.catalog.format("{0} · {1} · riga {2}, colonna {3}", arguments: [name, L10n.string(KeycodeCatalog.display(model.workspace.layers[model.selectedLayer][key.matrixIndex])), String(key.row), String(key.col)], language: language.language)
     }
 }
 private struct KeycapButtonStyle:ButtonStyle {

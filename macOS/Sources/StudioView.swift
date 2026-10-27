@@ -23,6 +23,7 @@ struct StudioButton:ButtonStyle {
     }
 }
 struct StudioView:View {
+    @ObservedObject private var language = AppLanguageStore.shared
     @ObservedObject var model:StudioModel
     @StateObject private var firmwareUpdater = FirmwareUpdateModel()
     @StateObject private var firstInstaller = FirstInstallModel()
@@ -55,28 +56,28 @@ struct StudioView:View {
                 if [0,1,2,5].contains(model.section) { footer }
             }
         }.environment(\.studioContentWidth, max(0, geometry.size.width - railWidth))
-        }.background(Studio.background).foregroundColor(Studio.text).font(.system(size:13)).tint(Studio.accent).ignoresSafeArea()
+        }.background(Studio.background).foregroundColor(Studio.text).font(.system(size:13)).tint(Studio.accent).environment(\.locale, language.language.locale).ignoresSafeArea()
             .onChange(of:model.section) { _ in model.stopCapture(); model.projectMessage="" }
     }
     private func sidebar(compact:Bool)->some View {
         VStack(alignment:.leading,spacing:0) {
             HStack(spacing:10) {
                 if let url=Bundle.main.url(forResource:"TastieraIcon",withExtension:"png"),let icon=NSImage(contentsOf:url) { Image(nsImage:icon).resizable().frame(width:34,height:34).clipShape(RoundedRectangle(cornerRadius:8)).accessibilityHidden(true) }
-                Text("Keyglow").font(.system(size:21,weight:.semibold))
+                LText("Keyglow").font(.system(size:21,weight:.semibold))
             }.padding(.bottom,compact ? 16:24)
             ScrollView(.vertical) {
                 VStack(spacing:4) {
                     ForEach(names.indices,id:\.self) { index in
                         if index == 3 || index == 6 { Divider().padding(.vertical,8) }
                         Button { model.section=index } label: {
-                            Label(names[index], systemImage:symbols[index])
+                            LLabel(names[index], systemImage:symbols[index])
                                 .labelStyle(StudioNavigationLabel())
                                 .frame(maxWidth:.infinity, minHeight:40, alignment:.leading)
                                 .padding(.horizontal,10).contentShape(Rectangle())
                         }.buttonStyle(StudioNavigationButton(selected:model.section == index))
                             .keyboardShortcut(KeyEquivalent(Character(String(index + 1))), modifiers:.command)
-                            .help("\(names[index]) · ⌘\(index + 1)")
-                            .accessibilityLabel(names[index])
+                            .localizedHelp("\(names[index]) · ⌘\(index + 1)")
+                            .localizedAccessibilityLabel(names[index])
                             .accessibilityAddTraits(model.section == index ? .isSelected:[])
                     }
                 }
@@ -84,12 +85,12 @@ struct StudioView:View {
             Spacer(minLength:compact ? 8:16)
             VStack(alignment:.leading,spacing:8) {
                 if !compact { Image(systemName:"keyboard").font(.system(size:23,weight:.light)).foregroundColor(Studio.muted) }
-                Text("Q6 Max · ISO IT").fontWeight(.semibold)
-                Label(model.selectedUSBID != nil ? (model.usbSnapshot != nil ? "USB · letta" : "USB rilevata") : model.available ? "Bluetooth rilevata":"Non collegata",systemImage:model.selectedUSBID != nil ? "cable.connector":"circle.dotted").font(.system(size:11)).foregroundColor(model.usbSnapshot != nil ? Studio.success:Studio.muted)
+                LText("Q6 Max · ISO IT").fontWeight(.semibold)
+                LLabel(model.selectedUSBID != nil ? (model.usbSnapshot != nil ? "USB · letta" : "USB rilevata") : model.available ? "Bluetooth rilevata":"Non collegata",systemImage:model.selectedUSBID != nil ? "cable.connector":"circle.dotted").font(.system(size:11)).foregroundColor(model.usbSnapshot != nil ? Studio.success:Studio.muted)
                 BatteryStatusView(model:model)
             }
             Divider().padding(.vertical,compact ? 10:18)
-            HStack { Text("Studio tastiera"); Spacer(); Text(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "—") }.font(.system(size:10)).foregroundColor(Studio.muted)
+            HStack { LanguageMenu(); Spacer(minLength:4); LText(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "—") }.font(.system(size:10)).foregroundColor(Studio.muted)
         }.padding(.horizontal,12).padding(.top,compact ? 36:44).padding(.bottom,compact ? 12:18).background(Studio.rail)
     }
     private var header: some View {
@@ -106,17 +107,17 @@ struct StudioView:View {
     }
     private var pageHeading: some View {
         VStack(alignment:.leading,spacing:6) {
-            Text(names[model.section]).font(.system(size:28,weight:.semibold)).tracking(-0.4)
-            Text(model.section==0 ? "La tua Q6 Max, nella sua luce." : model.section==1 ? "Ogni tasto, ogni livello. Il layout della tua ISO italiana." : model.section==2 ? "Sequenze precise, pronte da assegnare a un tasto." : model.section==3 ? "Verifica i tasti ricevuti in questa finestra." : model.section==4 ? "Le tue configurazioni, conservate sul Mac." : model.section==5 ? "Prontezza, autonomia e spegnimento delle luci." : model.section==6 ? "Dispositivo, accesso e collegamenti." : model.section==7 ? "Firmware, verifiche e aggiornamenti." : "Apri app e siti con una scorciatoia dedicata.")
+            LText(names[model.section]).font(.system(size:28,weight:.semibold)).tracking(-0.4)
+            LText(model.section==0 ? "La tua Q6 Max, nella sua luce." : model.section==1 ? "Ogni tasto, ogni livello. Il layout della tua ISO italiana." : model.section==2 ? "Sequenze precise, pronte da assegnare a un tasto." : model.section==3 ? "Verifica i tasti ricevuti in questa finestra." : model.section==4 ? "Le tue configurazioni, conservate sul Mac." : model.section==5 ? "Prontezza, autonomia e spegnimento delle luci." : model.section==6 ? "Dispositivo, accesso e collegamenti." : model.section==7 ? "Firmware, verifiche e aggiornamenti." : "Apri app e siti con una scorciatoia dedicata.")
                 .font(.system(size:13)).foregroundColor(Studio.muted).fixedSize(horizontal:false,vertical:true)
         }
     }
     private var pageStatus: some View {
         VStack(alignment:.trailing,spacing:5) {
-            Label(statusTitle, systemImage: statusSymbol)
+            LLabel(statusTitle, systemImage: statusSymbol)
                 .font(.system(size:12,weight:.medium)).foregroundColor(Studio.muted)
             if model.section == 0, let sent=model.lastBluetoothSend {
-                Text("Ultimo invio · \(sent.formatted(date:.omitted,time:.shortened))")
+                LText("Ultimo invio · \(L10n.date(sent))")
                     .font(.system(size:11)).foregroundColor(Studio.muted)
             }
         }.fixedSize(horizontal:true,vertical:false)
@@ -145,21 +146,21 @@ struct StudioView:View {
     }
     private var footerStatus: some View {
         VStack(alignment:.leading,spacing:5) {
-            Text(model.busy ? "Operazione in corso…" : model.usbReady ? (model.hasLocalChanges ? "Bozza pronta da applicare via USB" : "Configurazione USB aggiornata") : (model.available && model.section == 0 && model.lightingTab == 0) ? "RGB via Bluetooth" : model.section == 8 ? "Scorciatoie sul Mac" : "Il progetto è salvato sul Mac")
+            LText(model.busy ? "Operazione in corso…" : model.usbReady ? (model.hasLocalChanges ? "Bozza pronta da applicare via USB" : "Configurazione USB aggiornata") : (model.available && model.section == 0 && model.lightingTab == 0) ? "RGB via Bluetooth" : model.section == 8 ? "Scorciatoie sul Mac" : "Il progetto è salvato sul Mac")
                 .font(.system(size:12,weight:.medium))
-            Text(footerDetail).font(.system(size:11)).foregroundColor(Studio.muted).lineLimit(2).help(footerDetail)
+            LText(footerDetail).font(.system(size:11)).foregroundColor(Studio.muted).lineLimit(2).localizedHelp(footerDetail)
         }
     }
     private var footerActions: some View {
         HStack(spacing:10) {
-            Button { model.section=4 } label: { Label("Salva profilo…",systemImage:"square.and.arrow.down") }.buttonStyle(StudioButton()).disabled(model.busy || model.recording)
+            Button { model.section=4 } label: { LLabel("Salva profilo…",systemImage:"square.and.arrow.down") }.buttonStyle(StudioButton()).disabled(model.busy || model.recording)
             if model.selectedUSBID != nil {
-                Button("Leggi tastiera") { model.readUSB() }.buttonStyle(StudioButton()).disabled(model.busy)
-                Button { model.applyUSB() } label: { Label("Applica via USB",systemImage:"arrow.up.right") }.buttonStyle(StudioButton(primary:true)).disabled(!model.usbReady || !model.hasLocalChanges)
+                LButton("Leggi tastiera") { model.readUSB() }.buttonStyle(StudioButton()).disabled(model.busy)
+                Button { model.applyUSB() } label: { LLabel("Applica via USB",systemImage:"arrow.up.right") }.buttonStyle(StudioButton(primary:true)).disabled(!model.usbReady || !model.hasLocalChanges)
             } else if model.available && model.section == 0 && model.lightingTab == 0 && model.ready {
-                Button { model.send(off:false) } label: { Label(model.liveRGBEnabled ? "Invia ora" : model.bluetoothApplyTitle,systemImage:"arrow.up.right") }.buttonStyle(StudioButton(primary:true)).disabled(!model.bluetoothEffectSupported)
+                Button { model.send(off:false) } label: { LLabel(model.liveRGBEnabled ? "Invia ora" : model.bluetoothApplyTitle,systemImage:"arrow.up.right") }.buttonStyle(StudioButton(primary:true)).disabled(!model.bluetoothEffectSupported)
             } else if model.section != 6 && model.section != 8 {
-                Button(model.available && model.section == 0 && model.lightingTab == 0 ? "Controlli Bluetooth" : "Collega via USB") { model.section=6 }.buttonStyle(StudioButton(primary:true)).disabled(model.busy)
+                LButton(model.available && model.section == 0 && model.lightingTab == 0 ? "Controlli Bluetooth" : "Collega via USB") { model.section=6 }.buttonStyle(StudioButton(primary:true)).disabled(model.busy)
             }
         }.fixedSize(horizontal:true,vertical:false)
     }
@@ -207,18 +208,18 @@ struct WorkspaceKeyboardHeader:View {
     var body:some View {
         VStack(alignment:.leading,spacing:17) {
             HStack {
-                Text("Keychron Q6 Max").font(.system(size:17,weight:.semibold))
-                Text("ISO italiano").font(.system(size:11)).foregroundColor(Studio.muted)
+                LText("Keychron Q6 Max").font(.system(size:17,weight:.semibold))
+                LText("ISO italiano").font(.system(size:11)).foregroundColor(Studio.muted)
                 Spacer()
                 if assignments {
-                    Picker("Livello",selection:$model.selectedLayer) { ForEach(0..<4,id:\.self) { Text(model.definition.layerNames[$0]).tag($0) } }.labelsHidden().frame(width:160)
-                } else { Label("Anteprima locale",systemImage:"eye").font(.system(size:11)).foregroundColor(Studio.muted) }
+                    LPicker("Livello",selection:$model.selectedLayer) { ForEach(0..<4,id:\.self) { LText(model.definition.layerNames[$0]).tag($0) } }.labelsHidden().frame(width:160)
+                } else { LLabel("Anteprima locale",systemImage:"eye").font(.system(size:11)).foregroundColor(Studio.muted) }
             }
             PhysicalKeyboardView(model:model,showsAssignments:assignments)
             if selectionEnabled { HStack {
-                Text(model.selectedKeys.isEmpty ? "Seleziona un tasto · ⌘ o ⇧ per selezionarne più di uno" : model.selectedKeys.count==1 ? "1 tasto selezionato" : "\(model.selectedKeys.count) tasti selezionati").font(.system(size:11)).foregroundColor(Studio.muted)
+                LText(model.selectedKeys.isEmpty ? "Seleziona un tasto · ⌘ o ⇧ per selezionarne più di uno" : model.selectedKeys.count==1 ? "1 tasto selezionato" : "\(model.selectedKeys.count) tasti selezionati").font(.system(size:11)).foregroundColor(Studio.muted)
                 Spacer()
-                if !model.selectedKeys.isEmpty { Button("Deseleziona") { model.selectedKeys=[] }.buttonStyle(.plain).font(.system(size:11)).foregroundColor(Studio.accent) }
+                if !model.selectedKeys.isEmpty { LButton("Deseleziona") { model.selectedKeys=[] }.buttonStyle(.plain).font(.system(size:11)).foregroundColor(Studio.accent) }
             } }
         }
     }
@@ -226,11 +227,11 @@ struct WorkspaceKeyboardHeader:View {
 struct PanelTitle:View {
     let title:String
     var subtitle:String?=nil
-    var body:some View { VStack(alignment:.leading,spacing:6) { Text(title).font(.system(size:20,weight:.semibold)).tracking(-0.25); if let subtitle { Text(subtitle).foregroundColor(Studio.muted).font(.system(size:13)).lineSpacing(3).fixedSize(horizontal:false,vertical:true) } } }
+    var body:some View { VStack(alignment:.leading,spacing:6) { LText(title).font(.system(size:20,weight:.semibold)).tracking(-0.25); if let subtitle { LText(subtitle).foregroundColor(Studio.muted).font(.system(size:13)).lineSpacing(3).fixedSize(horizontal:false,vertical:true) } } }
 }
 struct CapabilityNote:View {
     var text:String
-    var body:some View { Label { Text(text).fixedSize(horizontal:false,vertical:true) } icon:{ Image(systemName:"info.circle") }.font(.system(size:12)).foregroundColor(Studio.muted).padding(.vertical,12) }
+    var body:some View { Label { LText(text).fixedSize(horizontal:false,vertical:true) } icon:{ Image(systemName:"info.circle") }.font(.system(size:12)).foregroundColor(Studio.muted).padding(.vertical,12) }
 }
 
 struct StudioSurface<Content: View>: View {
@@ -244,7 +245,7 @@ struct StudioSurface<Content: View>: View {
 struct KeycapLabel: View {
     let text: String
     var body: some View {
-        Text(text).font(.system(size: 13, weight: .medium)).frame(minWidth: 30, minHeight: 29)
+        LText(text).font(.system(size: 13, weight: .medium)).frame(minWidth: 30, minHeight: 29)
             .background(Studio.line.opacity(0.6)).clipShape(RoundedRectangle(cornerRadius: 5))
             .overlay(RoundedRectangle(cornerRadius: 5).strokeBorder(Color.white.opacity(0.09)))
     }
