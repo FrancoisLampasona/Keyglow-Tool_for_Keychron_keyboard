@@ -404,6 +404,7 @@ import Combine
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
         model.onBluetoothAccessStateChanged = { [weak self] state in self?.onboarding.model.updateDeviceState(state) }
+        onboarding.onRelaunchRequested = { [weak self] in self?.relaunchForPermission() }
         onboarding.onCompletion = { [weak self] choice,destination in
             guard let self else { return }
             self.model.directBluetooth = choice == .installed
@@ -431,7 +432,7 @@ import Combine
         onboarding.refreshAfterActivation()
         model.refreshBluetoothAccess()
     }
-    func applicationDidResignActive(_ notification: Notification) { model.stopCapture() }
+    func applicationDidResignActive(_ notification: Notification) { model.stopCapture(); onboarding.noteResignedActive() }
     func applicationWillTerminate(_ notification: Notification) { model.batteryMonitor.stop() }
     func windowDidResize(_ notification: Notification) { if let window { onboarding.fitToParent(window) } }
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
@@ -442,6 +443,25 @@ import Combine
         let alert = NSAlert(); alert.messageText = L10n.string("Operazione in corso")
         alert.informativeText = L10n.string("Attendi il completamento e il ripristino degli indicatori prima di chiudere l’app.")
         alert.runModal(); return false
+    }
+    /// Input Monitoring reaches only a process started after the grant. Start a
+    /// new instance of this bundle, then quit this one; the guide resumes at the
+    /// access step. The busy check is the same as for Quit.
+    private func relaunchForPermission() {
+        guard mayClose() else { return }
+        onboarding.setup.saveResumePoint()
+        UserDefaults.standard.synchronize()
+        let configuration = NSWorkspace.OpenConfiguration()
+        configuration.createsNewApplicationInstance = true
+        NSWorkspace.shared.openApplication(at: Bundle.main.bundleURL, configuration: configuration) { _, error in
+            let failure = error?.localizedDescription
+            Task { @MainActor in
+                guard let failure else { NSApp.terminate(nil); return }
+                let alert = NSAlert(); alert.messageText = L10n.string("Riapertura non riuscita")
+                alert.informativeText = L10n.string("Esci da Keyglow e riaprilo manualmente.") + "\n" + failure
+                alert.runModal()
+            }
+        }
     }
     private func buildMenu() {
         let menu = NSMenu(); let item = NSMenuItem(); menu.addItem(item)

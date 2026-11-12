@@ -1863,10 +1863,6 @@
     "en": "Keyglow uses HID access to communicate with Q6 Max. It does not record typing in the background. Macro recording and key tests are explicit foreground actions.",
     "fr": "Keyglow utilise l’accès HID pour communiquer avec la Q6 Max. Il n’enregistre pas la saisie en arrière-plan. L’enregistrement de macros et les tests de touches sont des actions explicites au premier plan."
   },
-  "In Impostazioni di Sistema → Privacy e sicurezza → Monitoraggio input, abilita Keyglow. Al ritorno verifichiamo automaticamente il permesso.": {
-    "en": "In System Settings → Privacy & Security → Input Monitoring, enable Keyglow. We’ll check permission automatically when you return.",
-    "fr": "Dans Réglages Système → Confidentialité et sécurité → Surveillance de l’entrée, activez Keyglow. L’autorisation sera vérifiée automatiquement à votre retour."
-  },
   "Ricontrolla": {
     "en": "Check again",
     "fr": "Revérifier"
@@ -4806,5 +4802,37 @@
   "Play/Pausa": {
     "en": "Play/Pause",
     "fr": "Lecture/Pause"
+  },
+  "In Impostazioni di Sistema → Privacy e sicurezza → Monitoraggio input, abilita Keyglow. macOS applica il permesso solo alle app avviate dopo averlo concesso: dopo averlo abilitato, esci e riapri Keyglow. La guida riprende da questo passo.": {
+    "en": "In System Settings → Privacy & Security → Input Monitoring, enable Keyglow. macOS applies the permission only to apps started after it is granted: after enabling it, quit and reopen Keyglow. The guide resumes at this step.",
+    "fr": "Dans Réglages Système → Confidentialité et sécurité → Surveillance de l’entrée, activez Keyglow. macOS n’applique l’autorisation qu’aux apps lancées après son octroi : après l’avoir activée, quittez puis rouvrez Keyglow. Le guide reprend à cette étape."
+  },
+  "Esci e riapri Keyglow": {
+    "en": "Quit and Reopen Keyglow",
+    "fr": "Quitter et rouvrir Keyglow"
+  },
+  "Usi solo il cavo? Mappa, macro e RGB via USB non richiedono questo permesso. Gli RGB via Bluetooth restano non disponibili finché non lo abiliti.": {
+    "en": "Using the cable only? Keymap, macros and RGB over USB do not need this permission. Bluetooth RGB stays unavailable until you enable it.",
+    "fr": "Vous utilisez uniquement le câble ? La disposition, les macros et le RGB en USB ne nécessitent pas cette autorisation. Le RGB en Bluetooth reste indisponible tant que vous ne l’activez pas."
+  },
+  "Continua senza accesso": {
+    "en": "Continue Without Access",
+    "fr": "Continuer sans accès"
+  },
+  "Se la voce Keyglow è già attiva ma l’app non vede il permesso, rimuovila con − e aggiungila di nuovo, poi esci e riapri Keyglow.": {
+    "en": "If the Keyglow entry is already enabled but the app does not see the permission, remove it with − and add it again, then quit and reopen Keyglow.",
+    "fr": "Si l’entrée Keyglow est déjà activée mais que l’app ne voit pas l’autorisation, supprimez-la avec − et ajoutez-la de nouveau, puis quittez et rouvrez Keyglow."
+  },
+  "Senza Monitoraggio input: gli RGB via Bluetooth restano non disponibili": {
+    "en": "Without Input Monitoring: Bluetooth RGB stays unavailable",
+    "fr": "Sans Surveillance de l’entrée : le RGB en Bluetooth reste indisponible"
+  },
+  "Riapertura non riuscita": {
+    "en": "Could Not Reopen",
+    "fr": "Réouverture impossible"
+  },
+  "Esci da Keyglow e riaprilo manualmente.": {
+    "en": "Quit Keyglow and reopen it manually.",
+    "fr": "Quittez Keyglow et rouvrez-le manuellement."
   }
 }

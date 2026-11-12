@@ -6,6 +6,9 @@ import Combine
     let model: OnboardingModel
     let setup = KeyboardSetupModel()
     var onCompletion: ((SetupFirmwareChoice, Int) -> Void)?
+    /// The app delegate owns quitting: it applies the same busy check as Quit.
+    var onRelaunchRequested: (() -> Void)?
+    private var leftAppOnAccessStep = false
     private var setupWindow: NSWindow?
     private var languageSubscription: AnyCancellable?
 
@@ -22,7 +25,7 @@ import Combine
 
     func showIfNeeded(parent: NSWindow) {
         model.refresh()
-        guard model.needsAutomaticPresentation || setup.needsPresentation else { return }
+        guard model.needsAutomaticPresentation || setup.needsPresentation || setup.hasResumePoint else { return }
         show(parent: parent)
     }
 
@@ -32,7 +35,8 @@ import Combine
             setupWindow.makeKeyAndOrderFront(nil)
             return
         }
-        setup.scan(); setup.step=0
+        // After "quit and reopen" the guide resumes at the access step.
+        if !setup.restoreResumePoint() { setup.scan(); setup.step=0 }
         let available = availableSheetSize(parent: parent)
         let sheet = NSWindow(contentRect: NSRect(origin: .zero, size: available),
                              styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false)
@@ -48,10 +52,12 @@ import Combine
                 if self.setup.step == 1 { self.model.beginAutomaticSetup() }
                 return
             }
-            guard self.model.completeSetup(), self.setup.complete(permissionGranted:self.model.canContinue) else { return }
+            guard self.model.completeSetup(withoutAccess:self.setup.skippedAccess), self.setup.complete(permissionGranted:self.model.canContinue) else { return }
             let choice=self.setup.firmwareChoice, destination=self.setup.destination
             self.dismiss()
             self.onCompletion?(choice,destination)
+        }, onRelaunch: { [weak self] in
+            self?.onRelaunchRequested?()
         }, onLater: { [weak self] in
             self?.model.deferSetup()
             self?.dismiss()
@@ -77,6 +83,13 @@ import Combine
     func refreshAfterActivation() {
         model.refresh()
         if setupWindow != nil { setup.scan() }
+        if leftAppOnAccessStep {
+            leftAppOnAccessStep = false
+            if setupWindow != nil && setup.step == 1 { model.noteReturnedToApp() }
+        }
+    }
+    func noteResignedActive() {
+        if setupWindow != nil && setup.step == 1 { leftAppOnAccessStep = true }
     }
     func windowShouldClose(_ sender: NSWindow) -> Bool {
         model.deferSetup()

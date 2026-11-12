@@ -6,6 +6,7 @@ struct OnboardingView: View {
     @ObservedObject var model: OnboardingModel
     @ObservedObject var setup: KeyboardSetupModel
     let onContinue: () -> Void
+    let onRelaunch: () -> Void
     let onLater: () -> Void
     private let steps=["Tastiera","Accessi","Firmware","Riepilogo"]
     var body: some View {
@@ -102,10 +103,20 @@ struct OnboardingView: View {
             LText("Keyglow usa l’accesso HID per comunicare con la Q6 Max. Non registra la digitazione in background. Registrazione macro e test dei tasti sono azioni esplicite in primo piano.")
                 .foregroundColor(Studio.muted).fixedSize(horizontal:false,vertical:true)
             if model.permission != .granted {
-                LText("In Impostazioni di Sistema → Privacy e sicurezza → Monitoraggio input, abilita Keyglow. Al ritorno verifichiamo automaticamente il permesso.").fixedSize(horizontal:false,vertical:true)
+                LText("In Impostazioni di Sistema → Privacy e sicurezza → Monitoraggio input, abilita Keyglow. macOS applica il permesso solo alle app avviate dopo averlo concesso: dopo averlo abilitato, esci e riapri Keyglow. La guida riprende da questo passo.").fixedSize(horizontal:false,vertical:true)
                 HStack(spacing:10) {
-                    LButton("Apri Impostazioni") {model.openPrivacySettings()}.buttonStyle(StudioButton(primary:true))
+                    if model.needsRelaunch {
+                        LButton("Esci e riapri Keyglow",action:onRelaunch).buttonStyle(StudioButton(primary:true))
+                        LButton("Apri Impostazioni") {model.openPrivacySettings()}.buttonStyle(StudioButton())
+                    } else {
+                        LButton("Apri Impostazioni") {model.openPrivacySettings()}.buttonStyle(StudioButton(primary:true))
+                    }
                     LButton("Ricontrolla") {model.refresh()}.buttonStyle(StudioButton())
+                }
+                VStack(alignment:.leading,spacing:8) {
+                    LText("Usi solo il cavo? Mappa, macro e RGB via USB non richiedono questo permesso. Gli RGB via Bluetooth restano non disponibili finché non lo abiliti.")
+                        .font(.system(size:12)).foregroundColor(Studio.muted).fixedSize(horizontal:false,vertical:true)
+                    LButton("Continua senza accesso") {setup.advanceWithoutAccess()}.buttonStyle(StudioButton())
                 }
             } else {
                 LLabel("Non serve autorizzare di nuovo questo accesso.",systemImage:"checkmark.circle").foregroundColor(Studio.success)
@@ -116,6 +127,8 @@ struct OnboardingView: View {
                     LText("Usa + e aggiungi questa copia dell’app:")
                     Text(verbatim: model.appURL.path).font(.system(size:11,design:.monospaced)).textSelection(.enabled).fixedSize(horizontal:false,vertical:true)
                     LButton("Mostra nel Finder") {model.revealApplication()}.buttonStyle(StudioButton())
+                    LText("Se la voce Keyglow è già attiva ma l’app non vede il permesso, rimuovila con − e aggiungila di nuovo, poi esci e riapri Keyglow.")
+                        .fixedSize(horizontal:false,vertical:true)
                 }.padding(.top,12)
             }.foregroundColor(Studio.muted)
             LText("Bluetooth di sistema e Portachiavi chiedono un consenso separato solo quando usi la relativa verifica o la chiave per un aggiornamento firmware.")
@@ -148,7 +161,7 @@ struct OnboardingView: View {
     private var summaryStep:some View {
         VStack(alignment:.leading,spacing:20) {
             LLabel(setup.selected?.modelTitle ?? "Tastiera da rilevare",systemImage:"keyboard").font(.system(size:17,weight:.semibold))
-            LLabel(model.permission == .granted ? "Monitoraggio input consentito":"Permesso da verificare",systemImage:"hand.raised")
+            LLabel(model.permission == .granted ? "Monitoraggio input consentito" : setup.skippedAccess ? "Senza Monitoraggio input: gli RGB via Bluetooth restano non disponibili" : "Permesso da verificare",systemImage:"hand.raised")
             Divider()
             if setup.firmwareChoice == .install {
                 LText("Prima installazione del firmware").font(.system(size:17,weight:.semibold))
