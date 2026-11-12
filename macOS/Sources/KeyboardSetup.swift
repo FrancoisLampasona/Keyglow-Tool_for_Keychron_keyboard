@@ -53,6 +53,33 @@ enum SetupFirmwareChoice: String, CaseIterable {
     }
 }
 
+/// What the guide knows about the installed firmware. Only `recognized` and
+/// `unrecognized` come from a keyboard read; Bluetooth cannot provide one here.
+enum SetupFirmwareRecognition: Equatable, Sendable {
+    case idle, reading
+    case recognized(String)
+    case unrecognized(String)
+    case failed(String)
+    case bluetooth
+}
+
+/// Read-only USB identification for the firmware step. It runs only when the
+/// user reaches that step, off the main thread, and never writes to the keyboard.
+enum SetupFirmwareProbe {
+    static func version(exchange: any VIAExchange, productID: Int) throws -> String {
+        try VIAClient(exchange: exchange, productID: productID).readFirmwareIdentity().firmwareVersion
+    }
+    static func recognition(version: String, build: FirmwareBuildInfo?) -> SetupFirmwareRecognition {
+        build?.supportsDirectRGB(version) == true ? .recognized(version) : .unrecognized(version)
+    }
+    static func systemVersion(productID: Int) throws -> String {
+        let devices = try VIAUSBTransport.enumerate().filter { $0.productID == productID }
+        guard !devices.isEmpty else { throw VIAError.missingDevice }
+        guard devices.count == 1 else { throw VIAError.invalid("Più Q6 Max rilevate. Lascia collegata solo quella da configurare.") }
+        return try VIAUSBTransport.withSession(deviceID: devices[0].id) { try version(exchange: $0, productID: productID) }
+    }
+}
+
 @MainActor final class KeyboardSetupModel: ObservableObject {
     static let completionKey="onboarding.keyboardFlowVersion"
     static let version=1
@@ -65,10 +92,17 @@ enum SetupFirmwareChoice: String, CaseIterable {
     @Published private(set) var keyboards:[SetupKeyboard]=[]
     @Published var selectedID:UInt64?
     @Published var firmwareChoice:SetupFirmwareChoice = .install
+    @Published private(set) var firmwareRecognition:SetupFirmwareRecognition = .idle
+    struct FirmwareReadTicket: Equatable, Sendable { let generation:UInt64; let keyboardID:UInt64; let productID:Int; let choice:SetupFirmwareChoice }
+    private var firmwareGeneration:UInt64=0
     private let defaults:UserDefaults
     private let inventory:()->[SetupKeyboard]
-    init(defaults:UserDefaults = .standard, inventory:@escaping ()->[SetupKeyboard] = SystemSetupKeyboards.scan) {
-        self.defaults=defaults; self.inventory=inventory
+    private let firmwareVersion:@Sendable (Int) throws -> String
+    private let firmwareBuild:()->FirmwareBuildInfo?
+    init(defaults:UserDefaults = .standard, inventory:@escaping ()->[SetupKeyboard] = SystemSetupKeyboards.scan,
+         firmwareVersion:@escaping @Sendable (Int) throws -> String = SetupFirmwareProbe.systemVersion,
+         firmwareBuild:@escaping ()->FirmwareBuildInfo? = { FirmwareBuildInfo.bundled }) {
+        self.defaults=defaults; self.inventory=inventory; self.firmwareVersion=firmwareVersion; self.firmwareBuild=firmwareBuild
         // A remembered choice is shown as a declaration, never a firmware readback.
         if defaults.bool(forKey:"bluetooth.directV3") { firmwareChoice = .installed }
         scan()
@@ -79,7 +113,7 @@ enum SetupFirmwareChoice: String, CaseIterable {
     var destination:Int { firmwareChoice == .installed ? 0 : firmwareChoice == .usb ? 6 : 7 }
     func scan() {
         keyboards=inventory()
-        if !keyboards.contains(where:{$0.id == selectedID}) { selectedID=nil }
+        if !keyboards.contains(where:{$0.id == selectedID}) { selectedID=nil; firmwareGeneration &+= 1; firmwareRecognition = .idle }
         // Do not silently select one of several connected keyboards.
         if selectedID == nil && keyboards.count == 1 { selectedID=keyboards[0].id }
     }
@@ -87,6 +121,36 @@ enum SetupFirmwareChoice: String, CaseIterable {
         guard (step == 0 && supportsSelection) || (step == 1 && permissionGranted) || step == 2 else { return }
         if step == 1 { skippedAccess=false }
         step += 1
+    }
+    /// Starts a firmware read for the selected keyboard, or records why none is
+    /// possible. Returns nil when no USB read must run.
+    func beginFirmwareRecognition() -> FirmwareReadTicket? {
+        firmwareGeneration &+= 1
+        guard let selected, selected.supported else { firmwareRecognition = .idle; return nil }
+        // Without the owner key a Bluetooth link cannot identify the firmware.
+        guard selected.transport.lowercased() == "usb" else { firmwareRecognition = .bluetooth; return nil }
+        firmwareRecognition = .reading
+        return FirmwareReadTicket(generation:firmwareGeneration,keyboardID:selected.id,productID:selected.product,choice:firmwareChoice)
+    }
+    /// Accepts a result only for the read and keyboard it belongs to. A verified
+    /// Keyglow firmware preselects "installed" unless the user chose meanwhile.
+    func finishFirmwareRecognition(_ ticket:FirmwareReadTicket, result:Result<String,Error>) {
+        guard ticket.generation == firmwareGeneration, selectedID == ticket.keyboardID else { return }
+        switch result {
+        case .success(let version):
+            firmwareRecognition = SetupFirmwareProbe.recognition(version:version,build:firmwareBuild())
+            if case .recognized = firmwareRecognition, firmwareChoice == ticket.choice, !skippedAccess { firmwareChoice = .installed }
+        case .failure(let error): firmwareRecognition = .failed(error.localizedDescription)
+        }
+    }
+    /// Explicit read-only action of the firmware step.
+    func recognizeFirmware() {
+        guard step == 2, let ticket=beginFirmwareRecognition() else { return }
+        let read=firmwareVersion
+        DispatchQueue.global(qos:.userInitiated).async {
+            let result=Result { try read(ticket.productID) }
+            DispatchQueue.main.async { [weak self] in self?.finishFirmwareRecognition(ticket,result:result) }
+        }
     }
     /// USB configuration does not use Input Monitoring. Nothing is recorded as granted.
     func advanceWithoutAccess() {

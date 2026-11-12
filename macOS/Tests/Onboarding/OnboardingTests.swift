@@ -17,6 +17,24 @@ import Foundation
     func openSettings() -> Bool { settingsOpens += 1; return settingsResult }
 }
 
+/// Answers only the two read commands of the identity probe and records every request.
+private final class FakeFirmwareExchange: VIAExchange {
+    var version: String
+    var requests = [[UInt8]]()
+    init(version: String) { self.version = version }
+    func exchange(_ request: [UInt8]) throws -> [UInt8] {
+        requests.append(request)
+        var response = request
+        switch request[0] {
+        case 0x01: response[1] = 0; response[2] = 12
+        case 0xA1: for (index, byte) in version.utf8.enumerated() { response[index + 1] = byte }
+        default: response[0] = 0xFF // VIA "unhandled": anything else is a test failure below
+        }
+        return response
+    }
+}
+private struct ProbeFailure: LocalizedError { var errorDescription: String? { "Lettura simulata non riuscita" } }
+
 @main @MainActor struct OnboardingTests {
     private static var checks = 0
     @MainActor static func main() {
@@ -222,6 +240,62 @@ import Foundation
         expect(!strict.complete(permissionGranted:false) && strict.step == 1, "without the explicit choice, missing access still returns to the access step")
         strict.advanceWithoutAccess(); strict.step = 1; strict.advance(permissionGranted:true)
         expect(!strict.skippedAccess, "a real grant clears the skipped-access state")
+
+        // Firmware step: read-only USB identification through a fake exchange.
+        let build = FirmwareBuildInfo(buildTimestamp:"2026-01-02 03:04", capabilities:["rgb-ble-v3-direct","rgb-ble-persistent"])
+        let keyglowExchange = FakeFirmwareExchange(version:"v1.1.1 2026-01-02 03:04")
+        let readVersion = try? SetupFirmwareProbe.version(exchange:keyglowExchange,productID:0x0861)
+        expect(readVersion == "v1.1.1 2026-01-02 03:04", "the probe returns the firmware version string")
+        expect(keyglowExchange.requests.map { $0[0] } == [0x01,0xA1], "the probe sends only the protocol and firmware-version reads, no writes")
+        expect(keyglowExchange.requests.allSatisfy { $0.count == 32 && $0.dropFirst().allSatisfy { $0 == 0 } }, "probe requests carry no payload")
+        expect((try? SetupFirmwareProbe.version(exchange:FakeFirmwareExchange(version:"x"),productID:0x1234)) == nil, "an unexpected product is never queried")
+        expect(SetupFirmwareProbe.recognition(version:"v1.1.1 2026-01-02 03:04",build:build) == .recognized("v1.1.1 2026-01-02 03:04"), "bundled Keyglow build is recognized")
+        expect(SetupFirmwareProbe.recognition(version:"v1.1.1 2025-05-05 10:00",build:build) == .unrecognized("v1.1.1 2025-05-05 10:00"), "stock firmware is reported with its version")
+        expect(SetupFirmwareProbe.recognition(version:"v1.1.1 2026-01-02 03:04",build:nil) == .unrecognized("v1.1.1 2026-01-02 03:04"), "without a bundled manifest nothing is claimed")
+        expect(SetupFirmwareProbe.recognition(version:"v1.1.1 2026-01-02 03:04",build:FirmwareBuildInfo(buildTimestamp:"2026-01-02 03:04",capabilities:[])) == .unrecognized("v1.1.1 2026-01-02 03:04"), "a build without direct RGB is not presented as Keyglow RGB firmware")
+
+        let firmwareSuite = suite + ".firmware"
+        let firmwareDefaults = UserDefaults(suiteName: firmwareSuite)!
+        defer { firmwareDefaults.removePersistentDomain(forName: firmwareSuite) }
+        var firmwareInventory = [iso]
+        let firmwareFlow = KeyboardSetupModel(defaults:firmwareDefaults,inventory:{firmwareInventory},
+                                              firmwareVersion:{ _ in fatalError("tests never run the system probe") },firmwareBuild:{build})
+        expect(firmwareFlow.firmwareRecognition == .idle && firmwareFlow.firmwareChoice == .install, "nothing is read or assumed before the firmware step")
+        firmwareFlow.recognizeFirmware()
+        expect(firmwareFlow.firmwareRecognition == .idle, "the read is not started before the firmware step")
+        let ticket = firmwareFlow.beginFirmwareRecognition()!
+        expect(firmwareFlow.firmwareRecognition == .reading && ticket.productID == 0x0861, "USB selection starts a read for that product")
+        firmwareFlow.finishFirmwareRecognition(ticket,result:.success("v1.1.1 2026-01-02 03:04"))
+        expect(firmwareFlow.firmwareRecognition == .recognized("v1.1.1 2026-01-02 03:04") && firmwareFlow.firmwareChoice == .installed,
+               "recognized Keyglow firmware preselects the installed choice")
+        let stock = firmwareFlow.beginFirmwareRecognition()!
+        firmwareFlow.firmwareChoice = .install
+        firmwareFlow.finishFirmwareRecognition(ticket,result:.success("v1.1.1 2026-01-02 03:04"))
+        expect(firmwareFlow.firmwareRecognition == .reading, "a superseded read cannot change the result")
+        firmwareFlow.finishFirmwareRecognition(stock,result:.success("v1.1.1 2025-05-05 10:00"))
+        expect(firmwareFlow.firmwareRecognition == .unrecognized("v1.1.1 2025-05-05 10:00") && firmwareFlow.firmwareChoice == .install,
+               "unrecognized firmware shows the version and leaves the choice alone")
+        let touched = firmwareFlow.beginFirmwareRecognition()!
+        firmwareFlow.firmwareChoice = .usb
+        firmwareFlow.finishFirmwareRecognition(touched,result:.success("v1.1.1 2026-01-02 03:04"))
+        expect(firmwareFlow.firmwareChoice == .usb && firmwareFlow.firmwareRecognition == .recognized("v1.1.1 2026-01-02 03:04"),
+               "a choice made during the read is not overridden")
+        let failing = firmwareFlow.beginFirmwareRecognition()!
+        firmwareFlow.finishFirmwareRecognition(failing,result:.failure(ProbeFailure()))
+        expect(firmwareFlow.firmwareRecognition == .failed("Lettura simulata non riuscita") && firmwareFlow.firmwareChoice == .usb, "a failed read claims nothing")
+        let unplug = firmwareFlow.beginFirmwareRecognition()!
+        firmwareInventory = []; firmwareFlow.scan()
+        firmwareFlow.finishFirmwareRecognition(unplug,result:.success("v1.1.1 2026-01-02 03:04"))
+        expect(firmwareFlow.firmwareRecognition == .idle, "a result for a disconnected keyboard is discarded")
+        firmwareInventory = [SetupKeyboard(id:30,name:"Keychron Q6 Max",vendor:0x3434,product:0x0861,transport:"Bluetooth Low Energy")]
+        firmwareFlow.scan()
+        expect(firmwareFlow.beginFirmwareRecognition() == nil && firmwareFlow.firmwareRecognition == .bluetooth, "Bluetooth never starts a read and says recognition is not possible")
+        let skipFlow = KeyboardSetupModel(defaults:firmwareDefaults,inventory:{[iso]},firmwareVersion:{ _ in fatalError() },firmwareBuild:{build})
+        skipFlow.advance(permissionGranted:false); skipFlow.advanceWithoutAccess()
+        let skipTicket = skipFlow.beginFirmwareRecognition()!
+        skipFlow.finishFirmwareRecognition(skipTicket,result:.success("v1.1.1 2026-01-02 03:04"))
+        expect(skipFlow.firmwareChoice == .usb && skipFlow.firmwareRecognition == .recognized("v1.1.1 2026-01-02 03:04"),
+               "without Input Monitoring the USB choice stays selected even when Keyglow firmware is recognized")
 
         var verification = OnboardingAccessVerification()
         expect(verification.begin(permission: .granted, deviceID: nil, busy: false) == nil, "consent without a unique device cannot start a read")

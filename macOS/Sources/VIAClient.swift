@@ -43,6 +43,20 @@ final class VIAClient {
         catch VIAError.failedCommand { warnings.append("\(name) rifiutato dal firmware; funzione non abilitata."); return nil }
     }
 
+    private func readFirmwareVersion() throws -> String {
+        let bytes = try request([0xA1]).dropFirst().prefix(while: { $0 != 0 })
+        guard bytes.allSatisfy({ $0 >= 32 && $0 < 127 }) else { throw VIAError.malformedResponse }
+        return String(decoding: bytes, as: UTF8.self)
+    }
+
+    /// Lightweight identity read: VIA protocol and Keychron firmware version only.
+    /// Two read commands, no writes, and no snapshot is established for applyChanges.
+    func readFirmwareIdentity() throws -> (protocolVersion: UInt16, firmwareVersion: String) {
+        guard [0x0860, 0x0861].contains(productID) else { throw VIAError.incompatibleDevice }
+        let version = VIAProtocol.uint16(try request([1]), 1)
+        return (version, try readFirmwareVersion())
+    }
+
     func readSnapshot() throws -> VIASnapshot {
         guard [0x0860, 0x0861].contains(productID) else { throw VIAError.incompatibleDevice }
         let version = VIAProtocol.uint16(try request([1]), 1)
@@ -65,11 +79,7 @@ final class VIAClient {
         let buffer = try readBuffer(command: 0x0E, length: macroCapacity)
         let lighting = try readLighting()
         var warnings = [String]()
-        let firmware = try optional("Versione firmware", warnings: &warnings) {
-            let bytes = try request([0xA1]).dropFirst().prefix(while: { $0 != 0 })
-            guard bytes.allSatisfy({ $0 >= 32 && $0 < 127 }) else { throw VIAError.malformedResponse }
-            return String(decoding: bytes, as: UTF8.self)
-        } ?? "Non disponibile"
+        let firmware = try optional("Versione firmware", warnings: &warnings) { try readFirmwareVersion() } ?? "Non disponibile"
         let features: UInt16 = try optional("Funzioni Keychron", warnings: &warnings) {
             let response = try request([0xA2])
             guard response[1] == 0 else { throw VIAError.malformedResponse }
