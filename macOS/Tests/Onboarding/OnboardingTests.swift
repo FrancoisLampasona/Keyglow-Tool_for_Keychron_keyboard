@@ -157,6 +157,72 @@ import Foundation
         alreadyGranted.updateDeviceState(.unavailable("Lettura non riuscita"))
         expect(alreadyGranted.permission == .granted && alreadyGranted.canContinue, "read failure remains separate from system permission")
 
+        // Input Monitoring reaches only a relaunched process: the guide must resume.
+        let relaunchSuite = suite + ".relaunch"
+        let relaunchDefaults = UserDefaults(suiteName: relaunchSuite)!
+        defer { relaunchDefaults.removePersistentDomain(forName: relaunchSuite) }
+        let iso = SetupKeyboard(id:20,name:"Keychron Q6 Max",vendor:0x3434,product:0x0861,transport:"USB")
+        var relaunchInventory = [iso]
+        let before = KeyboardSetupModel(defaults:relaunchDefaults,inventory:{relaunchInventory})
+        expect(!before.hasResumePoint && !before.restoreResumePoint() && before.step == 0, "a normal launch starts the guide at the keyboard step")
+        before.advance(permissionGranted:false); before.firmwareChoice = .usb
+        before.saveResumePoint()
+        let after = KeyboardSetupModel(defaults:relaunchDefaults,inventory:{relaunchInventory})
+        expect(after.hasResumePoint && after.step == 0, "the saved point is only applied when the guide is presented")
+        expect(after.restoreResumePoint() && after.step == 1 && after.firmwareChoice == .usb, "relaunch resumes at the access step with the firmware choice")
+        expect(!after.hasResumePoint && !after.restoreResumePoint(), "the resume point is consumed once")
+        after.advance(permissionGranted:false); expect(after.step == 1, "a resumed guide still needs the current system permission")
+        after.advance(permissionGranted:true); expect(after.step == 2 && !after.skippedAccess, "granted access after relaunch continues normally")
+        before.step = 1; before.saveResumePoint(); relaunchInventory = []
+        let unplugged = KeyboardSetupModel(defaults:relaunchDefaults,inventory:{relaunchInventory})
+        expect(!unplugged.restoreResumePoint() && unplugged.step == 0 && !unplugged.hasResumePoint, "resume never skips model validation when the keyboard is gone")
+        relaunchInventory = [iso, SetupKeyboard(id:21,name:"Keychron Q6 Max",vendor:0x3434,product:0x0861,transport:"USB")]
+        before.scan(); before.selectedID = 21; before.step = 1; before.saveResumePoint()
+        let chosen = KeyboardSetupModel(defaults:relaunchDefaults,inventory:{relaunchInventory})
+        expect(chosen.restoreResumePoint() && chosen.selectedID == 21, "the selected keyboard survives the relaunch when still connected")
+
+        let relaunchService = FakePermissions()
+        relaunchService.state = .denied
+        let waiting = OnboardingModel(permissions: relaunchService, defaults: relaunchDefaults)
+        expect(!waiting.needsRelaunch, "relaunch is not suggested before the user has visited Settings")
+        waiting.refresh(); expect(!waiting.needsRelaunch, "a plain recheck does not suggest relaunch")
+        waiting.openPrivacySettings(); expect(waiting.needsRelaunch, "after opening Settings the main action is quit and reopen")
+        relaunchService.state = .granted; waiting.refresh()
+        expect(!waiting.needsRelaunch && waiting.canContinue, "a visible grant clears the relaunch suggestion")
+        relaunchService.state = .denied
+        let returned = OnboardingModel(permissions: relaunchService, defaults: relaunchDefaults)
+        returned.noteReturnedToApp(); expect(returned.needsRelaunch && !returned.canContinue, "returning to the app without a visible grant suggests relaunch")
+        let prompted = OnboardingModel(permissions: relaunchService, defaults: relaunchDefaults)
+        prompted.requestInputMonitoring(); expect(prompted.needsRelaunch, "an unanswered or denied request also leads to relaunch")
+
+        // USB-only: continue without Input Monitoring, never recorded as granted.
+        let usbSuite = suite + ".usbonly"
+        let usbDefaults = UserDefaults(suiteName: usbSuite)!
+        defer { usbDefaults.removePersistentDomain(forName: usbSuite) }
+        let usbFlow = KeyboardSetupModel(defaults:usbDefaults,inventory:{[iso]})
+        usbFlow.advanceWithoutAccess(); expect(usbFlow.step == 0 && !usbFlow.skippedAccess, "skipping access is only offered at the access step")
+        usbFlow.advance(permissionGranted:false); usbFlow.advanceWithoutAccess()
+        expect(usbFlow.step == 2 && usbFlow.skippedAccess && usbFlow.firmwareChoice == .usb, "continue without access reaches firmware with the USB choice")
+        usbFlow.advance(permissionGranted:false); expect(usbFlow.step == 3, "the summary is reachable without access")
+        let usbService = FakePermissions(); usbService.state = .denied
+        let usbModel = OnboardingModel(permissions: usbService, defaults: usbDefaults)
+        expect(!usbModel.completeSetup(), "missing access still blocks a normal completion")
+        expect(usbModel.completeSetup(withoutAccess:true) && usbFlow.complete(permissionGranted:usbModel.canContinue), "USB-only setup completes without the permission")
+        expect(usbModel.permission == .denied && !usbModel.canContinue, "completing without access never marks the permission as granted")
+        expect(usbDefaults.integer(forKey: OnboardingModel.completedKey) == 0, "permission setup is not recorded as completed")
+        expect(!usbFlow.needsPresentation && usbFlow.destination == 6, "USB-only setup is remembered and routes to Connection")
+        let usbNextLaunch = OnboardingModel(permissions: usbService, defaults: usbDefaults)
+        expect(!usbNextLaunch.needsAutomaticPresentation && !usbNextLaunch.canContinue, "the USB-only choice stops the automatic guide without granting access")
+        usbService.state = .granted
+        expect(usbNextLaunch.completeSetup() && !usbNextLaunch.continuesWithoutAccess, "a later real grant replaces the USB-only choice")
+        usbService.state = .denied
+        expect(OnboardingModel(permissions: usbService, defaults: usbDefaults).needsAutomaticPresentation, "revocation after a real grant presents the guide again")
+        let strict = KeyboardSetupModel(defaults:usbDefaults,inventory:{[iso]})
+        strict.step = 3
+        expect(!strict.complete(permissionGranted:false) && strict.step == 1, "without the explicit choice, missing access still returns to the access step")
+        strict.advanceWithoutAccess(); strict.step = 1; strict.advance(permissionGranted:true)
+        expect(!strict.skippedAccess, "a real grant clears the skipped-access state")
+
         var verification = OnboardingAccessVerification()
         expect(verification.begin(permission: .granted, deviceID: nil, busy: false) == nil, "consent without a unique device cannot start a read")
         expect(!verification.isVerified, "consent alone never establishes device access")

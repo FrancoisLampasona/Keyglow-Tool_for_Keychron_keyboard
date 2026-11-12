@@ -94,6 +94,8 @@ struct OnboardingAccessVerification {
     static let setupVersion = 1
     static let presentedKey = "onboarding.presentedVersion"
     static let completedKey = "onboarding.completedVersion"
+    /// An explicit USB-only choice. It never records or implies a system grant.
+    static let withoutAccessKey = "onboarding.withoutAccessVersion"
 
     @Published private(set) var permission: OnboardingPermissionState = .unknown
     @Published private(set) var isRequesting = false
@@ -104,6 +106,10 @@ struct OnboardingAccessVerification {
     private let permissions: any OnboardingPermissionServicing
     private let defaults: UserDefaults
     private var attemptedAutomaticSetup = false
+    /// macOS applies Input Monitoring only to processes started after the grant.
+    /// Once the user has visited Settings or the prompt, a recheck in this
+    /// process cannot succeed: the useful action is to quit and reopen.
+    @Published private(set) var awaitingRelaunch = false
 
     init(permissions: (any OnboardingPermissionServicing)? = nil,
          defaults: UserDefaults = .standard,
@@ -117,13 +123,21 @@ struct OnboardingAccessVerification {
     }
 
     var needsAutomaticPresentation: Bool {
-        permission != .granted
+        permission != .granted && !continuesWithoutAccess
     }
     var canContinue: Bool { permission == .granted && !isRequesting }
+    var needsRelaunch: Bool { permission != .granted && awaitingRelaunch }
+    /// Remembered USB-only setup: suppresses the automatic sheet, grants nothing.
+    var continuesWithoutAccess: Bool { defaults.integer(forKey: Self.withoutAccessKey) >= Self.setupVersion }
 
     func refresh() {
         permission = permissions.checkAccess()
-        if permission == .granted { message = "" }
+        if permission == .granted { message = ""; awaitingRelaunch = false }
+    }
+    /// The app regained focus while the access step was shown.
+    func noteReturnedToApp() {
+        refresh()
+        if permission != .granted { awaitingRelaunch = true }
     }
     func updateDeviceState(_ state: OnboardingDeviceState) { deviceState = state }
 
@@ -146,6 +160,7 @@ struct OnboardingAccessVerification {
         _ = permissions.requestAccess()
         isRequesting = false
         refresh()
+        if permission != .granted { awaitingRelaunch = true }
         if permission == .unknown {
             message = "Conferma la richiesta di macOS. Se il messaggio non compare, apri Impostazioni."
         } else if permission != .granted {
@@ -155,6 +170,7 @@ struct OnboardingAccessVerification {
 
     func openPrivacySettings() {
         message = permissions.openSettings() ? "" : "Apri Impostazioni di Sistema → Privacy e sicurezza → Monitoraggio input."
+        if permission != .granted { awaitingRelaunch = true }
     }
 
     func revealApplication() {
@@ -165,12 +181,21 @@ struct OnboardingAccessVerification {
         defaults.set(Self.setupVersion, forKey: Self.presentedKey)
     }
 
-    @discardableResult func completeSetup() -> Bool {
+    /// `withoutAccess` is the user's explicit USB-only choice. It finishes the
+    /// guide without recording a completed permission setup.
+    @discardableResult func completeSetup(withoutAccess: Bool = false) -> Bool {
         // Recheck at the point of use: permission can be revoked while this window is open.
         refresh()
-        guard canContinue else { return false }
+        if canContinue {
+            defaults.set(Self.setupVersion, forKey: Self.presentedKey)
+            defaults.set(Self.setupVersion, forKey: Self.completedKey)
+            // A later revocation must present the guide again.
+            defaults.removeObject(forKey: Self.withoutAccessKey)
+            return true
+        }
+        guard withoutAccess, !isRequesting else { return false }
         defaults.set(Self.setupVersion, forKey: Self.presentedKey)
-        defaults.set(Self.setupVersion, forKey: Self.completedKey)
+        defaults.set(Self.setupVersion, forKey: Self.withoutAccessKey)
         return true
     }
 }
