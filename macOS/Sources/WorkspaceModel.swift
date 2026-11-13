@@ -27,8 +27,26 @@ extension StudioModel {
             workspace.macros.reduce(0) { $0 + 1 + $1.actions.reduce(0) { $0 + ($1.kind == .text ? $1.text.utf8.count : $1.kind == .delay ? String($1.milliseconds).count + 3 : 3) } }
         } ?? 0
     }
+    /// Immediate save; also settles any deferred one.
     func saveWorkspaceLocally() {
+        workspaceSave?.cancel(); workspaceSave = nil
         workspaceTimestamplessSave()
+    }
+    /// Edits such as slider drags change the draft many times per second.
+    /// Encode the whole draft at most once per delay, always with the latest state.
+    func scheduleWorkspaceSave() {
+        guard workspaceSave == nil else { return }
+        workspaceSave = Task { @MainActor [weak self] in
+            do { try await Task.sleep(nanoseconds: StudioModel.workspaceSaveDelay) } catch { return }
+            guard let self, !Task.isCancelled else { return }
+            self.workspaceSave = nil
+            self.workspaceTimestamplessSave()
+        }
+    }
+    /// Quit, window close and section changes must not lose a pending save.
+    func flushWorkspaceSave() {
+        guard workspaceSave != nil else { return }
+        saveWorkspaceLocally()
     }
     private func workspaceTimestamplessSave() {
         if let data = try? JSONEncoder().encode(workspace) { UserDefaults.standard.set(data, forKey:"workspace.v3") }

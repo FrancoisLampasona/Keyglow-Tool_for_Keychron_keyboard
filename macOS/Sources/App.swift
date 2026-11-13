@@ -3,11 +3,11 @@ import SwiftUI
 import Combine
 
 @MainActor final class StudioModel: ObservableObject {
-    @Published var section = 0 { didSet { refreshLiveRGBContext(); batteryMonitor.reconcile() } }
+    @Published var section = 0 { didSet { flushWorkspaceSave(); refreshLiveRGBContext(); batteryMonitor.reconcile() } }
     let batteryMonitor = KeyboardStatusMonitor()
     @Published var workspace = KeyboardWorkspace() { didSet {
         if !loadingWorkspace {
-            saveWorkspaceLocally()
+            scheduleWorkspaceSave()
             if oldValue.lighting != workspace.lighting { queueLiveRGBChange() }
         }
     } }
@@ -42,6 +42,9 @@ import Combine
     @Published var lightingTab = 0 { didSet { refreshLiveRGBContext() } }
     @Published var previewAnimation = false
     var loadingWorkspace = false
+    /// Pending deferred draft save; nil when the stored draft is current.
+    var workspaceSave: Task<Void, Never>?
+    static let workspaceSaveDelay: UInt64 = 500_000_000
     var localEventMonitor: Any?
     var lastRecordedAt: TimeInterval?
     var recordingPressed: Set<UInt8> = []
@@ -433,7 +436,8 @@ import Combine
         model.refreshBluetoothAccess()
     }
     func applicationDidResignActive(_ notification: Notification) { model.stopCapture(); onboarding.noteResignedActive() }
-    func applicationWillTerminate(_ notification: Notification) { model.batteryMonitor.stop() }
+    func applicationWillTerminate(_ notification: Notification) { model.flushWorkspaceSave(); model.batteryMonitor.stop() }
+    func windowWillClose(_ notification: Notification) { model.flushWorkspaceSave() }
     func windowDidResize(_ notification: Notification) { if let window { onboarding.fitToParent(window) } }
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
     func windowShouldClose(_ sender: NSWindow) -> Bool { mayClose() }
