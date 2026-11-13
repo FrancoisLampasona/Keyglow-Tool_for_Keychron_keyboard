@@ -116,7 +116,7 @@ struct OnboardingView: View {
                 VStack(alignment:.leading,spacing:8) {
                     LText("Usi solo il cavo? Mappa, macro e RGB via USB non richiedono questo permesso. Gli RGB via Bluetooth restano non disponibili finché non lo abiliti.")
                         .font(.system(size:12)).foregroundColor(Studio.muted).fixedSize(horizontal:false,vertical:true)
-                    LButton("Continua senza accesso") {setup.advanceWithoutAccess()}.buttonStyle(StudioButton())
+                    LButton("Continua senza accesso") {setup.advanceWithoutAccess(); setup.recognizeFirmware()}.buttonStyle(StudioButton())
                 }
             } else {
                 LLabel("Non serve autorizzare di nuovo questo accesso.",systemImage:"checkmark.circle").foregroundColor(Studio.success)
@@ -139,6 +139,7 @@ struct OnboardingView: View {
         VStack(alignment:.leading,spacing:16) {
             LText("Con il firmware originale, il collegamento Bluetooth serve a digitare. I controlli RGB di Keyglow richiedono il firmware personalizzato. Mappa, macro e RGB via USB restano disponibili con firmware compatibile VIA.")
                 .foregroundColor(Studio.muted).fixedSize(horizontal:false,vertical:true)
+            firmwareRecognitionNote
             ForEach(SetupFirmwareChoice.allCases,id:\.self) { choice in
                 Button {setup.firmwareChoice=choice} label:{
                     HStack(alignment:.top,spacing:12) {
@@ -152,10 +153,36 @@ struct OnboardingView: View {
                     .accessibilityAddTraits(setup.firmwareChoice == choice ? .isSelected:[])
             }
             LText(setup.firmwareChoice == .installed
-                 ? "È una tua dichiarazione, non una lettura del firmware. Per gli aggiornamenti Bluetooth serve anche il loader Keyglow con la chiave proprietario; la pagina Firmware esegue la verifica autenticata."
+                 ? (firmwareRecognized
+                    ? "Riconosciuto dalla lettura USB. Gli aggiornamenti firmware via Bluetooth richiedono la chiave proprietario creata sul Mac usato per la prima installazione; la pagina Firmware esegue la verifica autenticata."
+                    : "È una tua dichiarazione, non una lettura del firmware. Gli aggiornamenti firmware via Bluetooth richiedono il loader Keyglow e la chiave proprietario creata sul Mac usato per la prima installazione; la pagina Firmware esegue la verifica autenticata.")
                  : setup.firmwareChoice == .usb ? "Puoi usare l’editor USB e preparare profili. RGB e aggiornamenti via Bluetooth restano da configurare."
                  : "La prima installazione richiede USB e DFU. L’app ti accompagna nel backup, prepara la chiave privata, chiede conferma dei file e installa il firmware; poi ripristina il profilo. Gli aggiornamenti successivi possono passare via Bluetooth.")
                 .font(.system(size:12)).foregroundColor(Studio.muted).lineSpacing(3).fixedSize(horizontal:false,vertical:true)
+        }
+    }
+    private var firmwareRecognized:Bool { if case .recognized = setup.firmwareRecognition { return true }; return false }
+    @ViewBuilder private var firmwareRecognitionNote:some View {
+        switch setup.firmwareRecognition {
+        case .idle: EmptyView()
+        case .reading:
+            LLabel("Lettura della versione firmware via USB…",systemImage:"cable.connector").foregroundColor(Studio.muted)
+        case .recognized(let version):
+            VStack(alignment:.leading,spacing:4) {
+                LLabel("Firmware Keyglow riconosciuto via USB",systemImage:"checkmark.seal").foregroundColor(Studio.success)
+                Text(verbatim:version).font(.system(size:12,design:.monospaced)).foregroundColor(Studio.muted).textSelection(.enabled)
+            }
+        case .unrecognized(let version):
+            LText("Versione firmware letta via USB: \(version). Non corrisponde al firmware Keyglow incluso in questa app.")
+                .fixedSize(horizontal:false,vertical:true)
+        case .failed(let reason):
+            VStack(alignment:.leading,spacing:4) {
+                LText("Lettura del firmware via USB non riuscita. Puoi verificarlo dalla pagina Firmware.").fixedSize(horizontal:false,vertical:true)
+                LText(reason).font(.system(size:12)).foregroundColor(Studio.muted).fixedSize(horizontal:false,vertical:true)
+            }
+        case .bluetooth:
+            LText("In Bluetooth non è possibile riconoscere con certezza il firmware senza la chiave proprietario. Per verificarlo collega la tastiera via USB oppure usa la pagina Firmware.")
+                .foregroundColor(Studio.muted).fixedSize(horizontal:false,vertical:true)
         }
     }
     private var summaryStep:some View {

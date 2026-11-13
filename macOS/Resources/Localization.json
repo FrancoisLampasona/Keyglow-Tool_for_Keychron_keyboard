@@ -1891,10 +1891,6 @@
     "en": "With original firmware, Bluetooth is used for typing. Keyglow RGB controls require custom firmware. Keymap, macros and RGB over USB remain available with VIA-compatible firmware.",
     "fr": "Avec le firmware d’origine, le Bluetooth sert à saisir du texte. Les contrôles RGB de Keyglow nécessitent le firmware personnalisé. La disposition, les macros et le RGB par USB restent disponibles avec un firmware compatible VIA."
   },
-  "È una tua dichiarazione, non una lettura del firmware. Per gli aggiornamenti Bluetooth serve anche il loader Keyglow con la chiave proprietario; la pagina Firmware esegue la verifica autenticata.": {
-    "en": "This is your confirmation, not a firmware reading. Bluetooth updates also require the Keyglow loader with the owner key; the Firmware page performs authenticated verification.",
-    "fr": "Il s’agit de votre déclaration, et non d’une lecture du firmware. Les mises à jour Bluetooth exigent aussi le chargeur Keyglow avec la clé propriétaire ; la page Firmware effectue la vérification authentifiée."
-  },
   "Puoi usare l’editor USB e preparare profili. RGB e aggiornamenti via Bluetooth restano da configurare.": {
     "en": "You can use the USB editor and prepare profiles. Bluetooth RGB and updates still need setup.",
     "fr": "Vous pouvez utiliser l’éditeur USB et préparer des profils. Le RGB et les mises à jour Bluetooth restent à configurer."
@@ -4834,5 +4830,33 @@
   "Esci da Keyglow e riaprilo manualmente.": {
     "en": "Quit Keyglow and reopen it manually.",
     "fr": "Quittez Keyglow et rouvrez-le manuellement."
+  },
+  "È una tua dichiarazione, non una lettura del firmware. Gli aggiornamenti firmware via Bluetooth richiedono il loader Keyglow e la chiave proprietario creata sul Mac usato per la prima installazione; la pagina Firmware esegue la verifica autenticata.": {
+    "en": "This is your declaration, not a firmware read. Firmware updates over Bluetooth require the Keyglow loader and the owner key created on the Mac used for the first installation; the Firmware page performs the authenticated check.",
+    "fr": "Il s’agit de votre déclaration, pas d’une lecture du firmware. Les mises à jour du firmware en Bluetooth nécessitent le loader Keyglow et la clé propriétaire créée sur le Mac utilisé pour la première installation ; la page Firmware effectue la vérification authentifiée."
+  },
+  "Riconosciuto dalla lettura USB. Gli aggiornamenti firmware via Bluetooth richiedono la chiave proprietario creata sul Mac usato per la prima installazione; la pagina Firmware esegue la verifica autenticata.": {
+    "en": "Recognized from the USB read. Firmware updates over Bluetooth require the owner key created on the Mac used for the first installation; the Firmware page performs the authenticated check.",
+    "fr": "Reconnu par la lecture USB. Les mises à jour du firmware en Bluetooth nécessitent la clé propriétaire créée sur le Mac utilisé pour la première installation ; la page Firmware effectue la vérification authentifiée."
+  },
+  "Lettura della versione firmware via USB…": {
+    "en": "Reading the firmware version over USB…",
+    "fr": "Lecture de la version du firmware en USB…"
+  },
+  "Firmware Keyglow riconosciuto via USB": {
+    "en": "Keyglow firmware recognized over USB",
+    "fr": "Firmware Keyglow reconnu en USB"
+  },
+  "Versione firmware letta via USB: {0}. Non corrisponde al firmware Keyglow incluso in questa app.": {
+    "en": "Firmware version read over USB: {0}. It does not match the Keyglow firmware included in this app.",
+    "fr": "Version du firmware lue en USB : {0}. Elle ne correspond pas au firmware Keyglow inclus dans cette app."
+  },
+  "Lettura del firmware via USB non riuscita. Puoi verificarlo dalla pagina Firmware.": {
+    "en": "The firmware could not be read over USB. You can check it from the Firmware page.",
+    "fr": "La lecture du firmware en USB a échoué. Vous pouvez le vérifier depuis la page Firmware."
+  },
+  "In Bluetooth non è possibile riconoscere con certezza il firmware senza la chiave proprietario. Per verificarlo collega la tastiera via USB oppure usa la pagina Firmware.": {
+    "en": "Over Bluetooth the firmware cannot be identified with certainty without the owner key. To check it, connect the keyboard over USB or use the Firmware page.",
+    "fr": "En Bluetooth, il n’est pas possible d’identifier le firmware avec certitude sans la clé propriétaire. Pour le vérifier, connectez le clavier en USB ou utilisez la page Firmware."
   }
 }

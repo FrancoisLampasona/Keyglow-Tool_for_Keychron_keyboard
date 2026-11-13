@@ -50,6 +50,8 @@ import Combine
             if self.setup.step < 3 {
                 self.setup.advance(permissionGranted:self.model.canContinue)
                 if self.setup.step == 1 { self.model.beginAutomaticSetup() }
+                // Read-only USB identification, only on reaching the firmware step.
+                if self.setup.step == 2 { self.setup.recognizeFirmware() }
                 return
             }
             guard self.model.completeSetup(withoutAccess:self.setup.skippedAccess), self.setup.complete(permissionGranted:self.model.canContinue) else { return }
