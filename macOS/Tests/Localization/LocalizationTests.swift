@@ -48,6 +48,32 @@ import Foundation
         }
         UserDefaults.standard.set("unknown", forKey: preference)
         precondition(AppLanguage.current == .italian)
-        print("Localization: \(entries.count) entries, EN/FR parity, templates, Unicode parameters, multiline fallback and persistent language passed")
+        // The template cache must be invisible: same answers on repeated calls,
+        // per language, at every depth, and after it has been emptied by overflow.
+        let samples = ["Sposta nel cestino Colore", "Passaggio 1, Backup, attuale", "Batteria tastiera, Batteria —", "94%",
+                       "Illuminazione\nProfili", "Testo senza traduzione", "Modifica Colore", "Nessun risultato per “{0}”."]
+        let cached = AppLocalizer(entries: entries)
+        for round in 0..<3 {
+            for sample in samples {
+                for language in AppLanguage.allCases {
+                    let reference = AppLocalizer(entries: entries).text(sample, language: language)
+                    precondition(cached.text(sample, language: language) == reference, "round \(round): \(sample)")
+                    precondition(cached.text(sample, language: language, depth: 1) == AppLocalizer(entries: entries).text(sample, language: language, depth: 1), sample)
+                }
+            }
+        }
+        precondition(cached.cache.count(.italian) == 0, "Italian is the source and is never cached")
+        precondition(cached.cache.count(.english) > 0 && cached.cache.count(.english) <= samples.count, "Exact catalog entries and nested fragments are not stored")
+        precondition(cached.text("Modifica Colore", language: .english) == "Edit Colore" && cached.text("Modifica Colore", language: .french) != "Edit Colore", "Languages do not share results")
+        for index in 0..<(AppLocalizer.Cache.limit * 2 + 10) {
+            precondition(cached.text("Modifica Profilo \(index)", language: .english) == "Edit Profilo \(index)")
+            precondition(cached.cache.count(.english) <= AppLocalizer.Cache.limit, "The cache is bounded")
+        }
+        precondition(cached.text("Sposta nel cestino Colore", language: .french) == "Placer Colore dans la corbeille")
+        precondition(cached.text("Modifica Colore", language: .english) == "Edit Colore", "Results are correct after the cache was emptied")
+        DispatchQueue.concurrentPerform(iterations: 8) { worker in
+            for index in 0..<200 { precondition(cached.text("Modifica Colore \(index % 5)", language: worker % 2 == 0 ? .english : .french).hasSuffix("Colore \(index % 5)")) }
+        }
+        print("Localization: \(entries.count) entries, EN/FR parity, templates, Unicode parameters, multiline fallback, bounded template cache and persistent language passed")
     }
 }

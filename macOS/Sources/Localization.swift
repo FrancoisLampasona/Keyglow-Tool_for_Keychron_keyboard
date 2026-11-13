@@ -26,11 +26,35 @@ struct AppLocalizer: Sendable {
         "Batteria tastiera, {0}": [0],
         "Passaggio {0}, {1}, attuale": [1], "Passaggio {0}, {1}": [1]
     ]
+    /// Results of the template search, per language. Views resolve the same
+    /// strings at every redraw; without this each miss tried every template.
+    final class Cache: @unchecked Sendable {
+        static let limit = 2048
+        private let lock = NSLock()
+        private var values: [AppLanguage: [String: String]] = [:]
+        func value(_ source: String, _ language: AppLanguage) -> String? {
+            lock.lock(); defer { lock.unlock() }
+            return values[language]?[source]
+        }
+        func store(_ result: String, for source: String, _ language: AppLanguage) {
+            lock.lock(); defer { lock.unlock() }
+            // Dynamic text (percentages, times, names) is unbounded: start over when full.
+            if (values[language]?.count ?? 0) >= Self.limit { values[language] = [:] }
+            values[language, default: [:]][source] = result
+        }
+        func count(_ language: AppLanguage) -> Int {
+            lock.lock(); defer { lock.unlock() }
+            return values[language]?.count ?? 0
+        }
+    }
+    private struct Expression: @unchecked Sendable { let value: NSRegularExpression }
+    private static let tokens = Expression(value: try! NSRegularExpression(pattern: #"\{(\d+)\}"#))
     let entries: [String: [String: String]]
     let templates: [Template]
+    let cache = Cache()
     init(entries: [String: [String: String]]) {
         self.entries = entries
-        let placeholder = try! NSRegularExpression(pattern: #"\{(\d+)\}"#)
+        let placeholder = Self.tokens.value
         self.templates = entries.keys.compactMap { source in
             let matches = placeholder.matches(in: source, range: NSRange(source.startIndex..., in: source))
             guard !matches.isEmpty else { return nil }
@@ -50,6 +74,14 @@ struct AppLocalizer: Sendable {
     func text(_ source: String, language: AppLanguage, depth: Int = 0) -> String {
         guard language != .italian, depth < 4 else { return source }
         if let exact = entries[source]?[language.rawValue] { return exact }
+        // Only top-level results are cached: nested calls stop at a depth limit.
+        guard depth == 0 else { return resolve(source, language: language, depth: depth) }
+        if let cached = cache.value(source, language) { return cached }
+        let result = resolve(source, language: language, depth: depth)
+        cache.store(result, for: source, language)
+        return result
+    }
+    private func resolve(_ source: String, language: AppLanguage, depth: Int) -> String {
         for template in templates {
             guard let match = template.expression.firstMatch(in: source, range: NSRange(source.startIndex..., in: source)),
                   let translated = entries[template.source]?[language.rawValue] else { continue }
@@ -62,7 +94,7 @@ struct AppLocalizer: Sendable {
                 }
             }
             // One pass: parameter contents must never be treated as template syntax.
-            let tokens = try! NSRegularExpression(pattern: #"\{(\d+)\}"#)
+            let tokens = Self.tokens.value
             var output = "", cursor = translated.startIndex
             for token in tokens.matches(in: translated, range: NSRange(translated.startIndex..., in: translated)) {
                 guard let range = Range(token.range, in: translated), let number = Range(token.range(at: 1), in: translated) else { continue }
@@ -81,7 +113,7 @@ struct AppLocalizer: Sendable {
     /// Arguments are already formatted and are always inserted verbatim, once.
     func format(_ source: String, arguments: [String], language: AppLanguage) -> String {
         let template = language == .italian ? source : entries[source]?[language.rawValue] ?? source
-        let tokens = try! NSRegularExpression(pattern: #"\{(\d+)\}"#)
+        let tokens = Self.tokens.value
         var output = "", cursor = template.startIndex
         for token in tokens.matches(in: template, range: NSRange(template.startIndex..., in: template)) {
             guard let range = Range(token.range, in: template), let number = Range(token.range(at: 1), in: template), let index = Int(template[number]) else { continue }
