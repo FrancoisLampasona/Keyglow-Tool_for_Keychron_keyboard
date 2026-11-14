@@ -99,6 +99,58 @@ struct KeyboardWorkspace: Codable, Equatable, Identifiable, Sendable {
     }
     static func validHex(_ s: String) -> Bool { s.count == 6 && s.allSatisfy(\.isHexDigit) && UInt32(s, radix:16) != nil }
 }
+extension KeyboardWorkspace {
+    /// Same user-visible configuration, ignoring identity, dates, origin and
+    /// collection metadata.
+    func sameConfiguration(as other: KeyboardWorkspace) -> Bool {
+        name == other.name && layers == other.layers && encoders == other.encoders && macros == other.macros &&
+            lighting == other.lighting && advanced == other.advanced
+    }
+}
+
+/// Rules for the saved-profile list. Pure values: no preferences, files or UI.
+enum ProfileLibrary {
+    static let recoveryLimit = 20
+
+    /// A recovery copy is useful only when replacing the draft would lose work:
+    /// not for untouched factory values, nor when a kept profile already holds
+    /// the same configuration (the one just saved or loaded, for instance).
+    static func needsRecoveryCopy(of draft: KeyboardWorkspace, in profiles: [KeyboardWorkspace]) -> Bool {
+        !draft.sameConfiguration(as: KeyboardWorkspace()) &&
+            !profiles.contains { $0.deletedAt == nil && $0.sameConfiguration(as: draft) }
+    }
+
+    /// Keeps the newest recovery copies. Personal profiles and the trash are never touched.
+    static func pruningRecoveryCopies(_ profiles: [KeyboardWorkspace], limit: Int = recoveryLimit) -> [KeyboardWorkspace] {
+        let recovery = profiles.enumerated().filter { $0.element.deletedAt == nil && $0.element.isRecoveryCopy }
+        guard recovery.count > max(0, limit) else { return profiles }
+        let newestFirst = recovery.sorted {
+            $0.element.updatedAt == $1.element.updatedAt ? $0.offset < $1.offset : $0.element.updatedAt > $1.element.updatedAt
+        }
+        let removed = Set(newestFirst.dropFirst(max(0, limit)).map(\.offset))
+        return profiles.enumerated().filter { !removed.contains($0.offset) }.map(\.element)
+    }
+
+    static func emptyingTrash(_ profiles: [KeyboardWorkspace]) -> [KeyboardWorkspace] {
+        profiles.filter { $0.deletedAt == nil }
+    }
+
+    /// Only a kept personal profile can be overwritten by "update".
+    static func updatableIndex(_ id: UUID?, in profiles: [KeyboardWorkspace]) -> Int? {
+        guard let id else { return nil }
+        return profiles.firstIndex { $0.id == id && $0.deletedAt == nil && !$0.isRecoveryCopy }
+    }
+
+    /// Replaces the saved profile's content with the draft, keeping its identity and position.
+    static func updating(_ profiles: [KeyboardWorkspace], id: UUID?, with draft: KeyboardWorkspace, at date: Date) -> [KeyboardWorkspace]? {
+        guard let index = updatableIndex(id, in: profiles) else { return nil }
+        var result = profiles, updated = draft
+        updated.id = profiles[index].id; updated.recoveryReason = ""; updated.deletedAt = nil; updated.updatedAt = date
+        result[index] = updated
+        return result
+    }
+}
+
 enum WorkspaceError: LocalizedError {
     case invalid, tooLarge
     var errorDescription: String? { self == .invalid ? "Il file non è un profilo valido per Keychron Q6 Max ISO. Nessuna impostazione è stata modificata." : "Il file supera il limite di 2 MB." }

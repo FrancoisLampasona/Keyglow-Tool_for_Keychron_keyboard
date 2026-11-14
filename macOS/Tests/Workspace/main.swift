@@ -5,6 +5,12 @@ struct TestFailure: Error, CustomStringConvertible { let description: String }
 func require(_ condition: @autoclosure () -> Bool, _ message: String) throws {
     if !condition() { throw TestFailure(description: message) }
 }
+extension Optional {
+    func unwrap(_ message: String) throws -> Wrapped {
+        guard let self else { throw TestFailure(description: message) }
+        return self
+    }
+}
 func rejects(_ label: String, _ edit: (inout KeyboardWorkspace) -> Void) throws {
     var document = KeyboardWorkspace()
     edit(&document)
@@ -88,7 +94,61 @@ do {
         mix.sequence = Array(repeating:MixEffectDraft(),count:65)
         $0.lighting.mix = [mix]
     }
-    print("Workspace: ISO matrix/LED mapping, lossless JSON roundtrip, opaque macro preservation and malformed profile guards passed. No hardware or preferences access.")
+
+    // Profile library rules. Values only: no preferences, dialogs or files.
+    func profile(_ name: String, at seconds: TimeInterval, recovery: String = "", deleted: Bool = false, edit: (inout KeyboardWorkspace) -> Void = { _ in }) -> KeyboardWorkspace {
+        var item = KeyboardWorkspace(); item.name = name; item.updatedAt = Date(timeIntervalSince1970: seconds)
+        item.recoveryReason = recovery; item.deletedAt = deleted ? Date(timeIntervalSince1970: seconds) : nil
+        edit(&item); return item
+    }
+    var draft = KeyboardWorkspace()
+    try require(!ProfileLibrary.needsRecoveryCopy(of: draft, in: []), "Untouched factory values need no recovery copy")
+    draft.layers[0][5] = 0x0004
+    try require(ProfileLibrary.needsRecoveryCopy(of: draft, in: []), "An edited draft with no saved profile is preserved")
+    var savedCopy = draft; savedCopy.id = UUID(); savedCopy.updatedAt = Date(timeIntervalSince1970: 50); savedCopy.origin = "Altro"
+    try require(savedCopy.sameConfiguration(as: draft) && savedCopy != draft, "Identity, date and origin are not configuration")
+    try require(!ProfileLibrary.needsRecoveryCopy(of: draft, in: [savedCopy]), "A draft equal to the saved or loaded profile is not copied again")
+    var recoveryTwin = savedCopy; recoveryTwin.recoveryReason = " · recupero"
+    try require(!ProfileLibrary.needsRecoveryCopy(of: draft, in: [recoveryTwin]), "An identical recovery copy is not duplicated")
+    var trashedTwin = savedCopy; trashedTwin.deletedAt = Date()
+    try require(ProfileLibrary.needsRecoveryCopy(of: draft, in: [trashedTwin]), "A copy in the trash does not protect the draft")
+    for edit: (inout KeyboardWorkspace) -> Void in [{ $0.name = "Altro nome" }, { $0.encoders[1][0] = 7 }, { $0.macros[2].actions = [.init(kind:.tap,keycode:4)] }, { $0.lighting.speed = 9 }, { $0.advanced.sleepMinutes = 30 }] {
+        var changed = draft; edit(&changed)
+        try require(ProfileLibrary.needsRecoveryCopy(of: changed, in: [savedCopy]), "Any configuration difference from the saved profile is preserved")
+    }
+
+    var library = [KeyboardWorkspace]()
+    for index in 0..<25 { library.append(profile("R\(index)", at: Double(index), recovery: " · recupero")) }
+    let personalOld = profile("Personale vecchio", at: -100), trashedRecovery = profile("Cestinata", at: -200, recovery: " · recupero", deleted: true)
+    let legacyRecovery: KeyboardWorkspace = { var item = profile("Q6 · prima della lettura", at: -50); item.recoveryReason = nil; return item }()
+    library.insert(personalOld, at: 3); library.append(trashedRecovery); library.append(legacyRecovery)
+    let pruned = ProfileLibrary.pruningRecoveryCopies(library)
+    let keptRecovery = pruned.filter { $0.deletedAt == nil && $0.isRecoveryCopy }
+    try require(keptRecovery.count == 20 && Set(keptRecovery.map(\.name)) == Set((5..<25).map { "R\($0)" }), "Only the 20 newest recovery copies remain")
+    try require(pruned.contains(personalOld) && pruned.contains(trashedRecovery), "Older personal profiles and the trash are never pruned")
+    try require(!pruned.contains(legacyRecovery), "Legacy-named recovery copies count as recovery copies")
+    try require(pruned == library.filter { pruned.contains($0) }, "Pruning keeps the list order")
+    try require(ProfileLibrary.pruningRecoveryCopies(pruned) == pruned, "At the limit nothing is removed")
+    var manyPersonal = [KeyboardWorkspace](); for index in 0..<40 { manyPersonal.append(profile("P\(index)", at: Double(index))) }
+    try require(ProfileLibrary.pruningRecoveryCopies(manyPersonal) == manyPersonal, "Personal profiles have no limit")
+
+    let emptied = ProfileLibrary.emptyingTrash(library)
+    try require(emptied.count == library.count - 1 && !emptied.contains(trashedRecovery) && emptied.contains(personalOld), "Emptying the trash removes only trashed profiles")
+
+    let target = profile("Colore", at: 10), other = profile("Altro", at: 11)
+    var edited = draft; edited.name = "Colore v2"; edited.recoveryReason = " · recupero"; edited.deletedAt = Date()
+    let stamp = Date(timeIntervalSince1970: 999)
+    let updated = try ProfileLibrary.updating([other, target], id: target.id, with: edited, at: stamp).unwrap("Update of the source profile")
+    try require(updated.count == 2 && updated[0] == other, "Other profiles and positions are untouched")
+    try require(updated[1].id == target.id && updated[1].name == "Colore v2" && updated[1].layers == edited.layers && updated[1].updatedAt == stamp, "The source profile takes the draft content and keeps its identity")
+    try require(updated[1].deletedAt == nil && !updated[1].isRecoveryCopy, "An updated profile stays a personal profile")
+    try require(ProfileLibrary.updating([other, target], id: nil, with: edited, at: stamp) == nil, "No source profile, no update")
+    try require(ProfileLibrary.updating([other, target], id: UUID(), with: edited, at: stamp) == nil, "An unknown source is not created")
+    var trashedTarget = target; trashedTarget.deletedAt = Date()
+    try require(ProfileLibrary.updating([trashedTarget], id: target.id, with: edited, at: stamp) == nil, "A trashed profile is not overwritten")
+    var recoveryTarget = target; recoveryTarget.recoveryReason = " · recupero"
+    try require(ProfileLibrary.updatableIndex(target.id, in: [recoveryTarget]) == nil, "Recovery copies are not update targets")
+    print("Workspace: ISO matrix/LED mapping, lossless JSON roundtrip, opaque macro preservation and malformed profile guards, recovery-copy, pruning, trash and update rules passed. No hardware or preferences access.")
 } catch {
     fputs("Workspace test failure: \(error)\n", stderr)
     exit(1)
