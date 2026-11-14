@@ -147,7 +147,7 @@ enum SetupFirmwareProbe {
     func recognizeFirmware() {
         guard step == 2, let ticket=beginFirmwareRecognition() else { return }
         let read=firmwareVersion
-        DispatchQueue.global(qos:.userInitiated).async {
+        DispatchQueue.global(qos:.userInitiated).async { [weak self] in
             let result=Result { try read(ticket.productID) }
             DispatchQueue.main.async { [weak self] in self?.finishFirmwareRecognition(ticket,result:result) }
         }
