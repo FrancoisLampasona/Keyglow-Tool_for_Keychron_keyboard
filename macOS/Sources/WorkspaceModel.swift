@@ -57,6 +57,7 @@ extension StudioModel {
         if let data = UserDefaults.standard.data(forKey:"workspace.v3"), let saved = try? JSONDecoder().decode(KeyboardWorkspace.self,from:data), (try? saved.validate()) != nil { workspace = saved }
         else { workspace.lighting.hue = hue; workspace.lighting.saturation = saturation; workspace.lighting.value = value; workspace.lighting.brightness = brightness }
         if let data = UserDefaults.standard.data(forKey:"profiles.v3"), let saved = try? JSONDecoder().decode([KeyboardWorkspace].self,from:data) { savedProfiles = saved.filter { (try? $0.validate()) != nil } }
+        sourceProfileID = UserDefaults.standard.string(forKey:"workspace.sourceProfile").flatMap { UUID(uuidString:$0) }
         loadLightDraft()
     }
     func syncLightDraft() {
@@ -144,11 +145,12 @@ extension StudioModel {
                 switch result {
                 case .success(let snapshot):
                     // Preserve the local draft before replacing it with actual device data.
-                    if hasLocalChanges { archiveCurrentProfile(suffix:" · prima della lettura") }
+                    if hasLocalChanges { archiveRecoveryCopy(suffix:" · prima della lettura") }
+                    sourceProfileID=nil
                     usbSnapshot=snapshot; workspace=document(from:snapshot); baselineWorkspace=workspace; selectedMacro=0;selectedMixLayer=0;selectedKeys=[];loadLightDraft()
                     directBluetooth = FirmwareBuildInfo.bundled?.supportsDirectRGB(snapshot.firmwareVersion) == true
                     usbMessage="Configurazione letta dalla Q6 Max. Le modifiche successive restano locali fino ad Applica."
-                    projectMessage=""
+                    projectMessage=profileStorageError
                     message="Lettura USB completata."
                 case .failure(let error): usbSnapshot=nil; baselineWorkspace=nil; usbMessage=error.localizedDescription; message="Lettura non riuscita. La bozza locale è conservata."
                 }
@@ -285,26 +287,60 @@ extension StudioModel {
         let rgb:[Double]=[[v,t,p],[q,v,p],[p,v,t],[p,q,v],[t,p,v],[v,p,q]][i]
         return rgb.map { String(format:"%02X",Int(($0*255).rounded())) }.joined()
     }
+    /// With an empty suffix this is the user's "save a copy"; the draft then
+    /// follows that copy. A suffix marks an automatic recovery copy.
     func archiveCurrentProfile(suffix:String="") {
         var copy=workspace; copy.id=UUID(); copy.recoveryReason=suffix; copy.deletedAt=nil; copy.updatedAt=Date(); savedProfiles.insert(copy,at:0)
-        saveProfiles(); projectMessage="Profilo salvato sul Mac."
+        if suffix.isEmpty { sourceProfileID=copy.id }
+        else { savedProfiles=ProfileLibrary.pruningRecoveryCopies(savedProfiles) }
+        saveProfiles(); reportProfiles("Profilo salvato sul Mac.")
     }
-    func loadProfile(_ profile:KeyboardWorkspace) {
+    /// Automatic copy before the draft is replaced, skipped when nothing would be lost.
+    func archiveRecoveryCopy(suffix:String) {
+        guard ProfileLibrary.needsRecoveryCopy(of:workspace,in:savedProfiles) else { return }
+        archiveCurrentProfile(suffix:suffix)
+    }
+    var updatableProfile:KeyboardWorkspace? { ProfileLibrary.updatableIndex(sourceProfileID,in:savedProfiles).map { savedProfiles[$0] } }
+    /// Overwrites the saved profile the draft came from. The keyboard is not involved.
+    func updateSourceProfile() {
+        guard let updated=ProfileLibrary.updating(savedProfiles,id:sourceProfileID,with:workspace,at:Date()) else { return }
+        savedProfiles=updated
+        saveProfiles(); reportProfiles("Profilo aggiornato sul Mac.")
+    }
+    /// `saved` is false for a file import: its identifier must not link the draft to a saved profile.
+    func loadProfile(_ profile:KeyboardWorkspace, saved:Bool=true) {
         guard profile.deletedAt == nil else { return }
-        stopCapture(); archiveCurrentProfile(suffix:" · recupero")
+        stopCapture(); archiveRecoveryCopy(suffix:" · recupero")
         replaceLocalDraft(profile)
+        sourceProfileID = saved && ProfileLibrary.updatableIndex(profile.id,in:savedProfiles) != nil ? profile.id : nil
         selectedKeys=[]; selectedMacro=0; selectedMixLayer=0
-        projectMessage="Profilo caricato nella bozza. La tastiera non è stata modificata."
+        reportProfiles("Profilo caricato nella bozza. La tastiera non è stata modificata.")
     }
     func deleteProfile(_ id:UUID) {
         guard let index=savedProfiles.firstIndex(where: { $0.id == id }) else { return }
         savedProfiles[index].deletedAt=Date(); saveProfiles()
-        projectMessage="Profilo spostato nel cestino. Puoi ripristinarlo dalla scheda Cestino."
+        reportProfiles("Profilo spostato nel cestino. Puoi ripristinarlo dalla scheda Cestino.")
     }
     func restoreProfile(_ id:UUID) {
         guard let index=savedProfiles.firstIndex(where: { $0.id == id }) else { return }
-        savedProfiles[index].deletedAt=nil; saveProfiles(); projectMessage="Profilo ripristinato."
+        savedProfiles[index].deletedAt=nil; saveProfiles(); reportProfiles("Profilo ripristinato.")
     }
+    var trashCount:Int { savedProfiles.filter { $0.deletedAt != nil }.count }
+    /// Permanent removal, only after an explicit confirmation whose default is Cancel.
+    func emptyTrash() {
+        let count=trashCount
+        guard count > 0 else { return }
+        let alert=NSAlert(); alert.alertStyle = .warning
+        alert.messageText=L10n.string("Svuotare il cestino?")
+        alert.informativeText=L10n.string("I profili nel cestino (\(count)) verranno eliminati definitivamente da questo Mac. L’operazione non può essere annullata.")
+        alert.addButton(withTitle:L10n.string("Annulla"))
+        alert.addButton(withTitle:L10n.string("Svuota cestino")).hasDestructiveAction=true
+        guard alert.runModal() == .alertSecondButtonReturn else { return }
+        savedProfiles=ProfileLibrary.emptyingTrash(savedProfiles)
+        saveProfiles(); reportProfiles("Cestino svuotato.")
+    }
+    /// A storage failure must stay visible instead of the usual confirmation.
+    private func reportProfiles(_ success:String) { projectMessage = profileStorageError.isEmpty ? success : profileStorageError }
     // Loading a saved draft is navigation/preparation, never a live RGB edit.
     func replaceLocalDraft(_ draft: KeyboardWorkspace) {
         let previous=loadingWorkspace; loadingWorkspace=true
@@ -312,7 +348,15 @@ extension StudioModel {
         loadLightDraft(); loadingWorkspace=previous
         saveWorkspaceLocally()
     }
-    private func saveProfiles() { if let data=try? JSONEncoder().encode(savedProfiles) { UserDefaults.standard.set(data,forKey:"profiles.v3") } }
+    @discardableResult private func saveProfiles() -> Bool {
+        do {
+            UserDefaults.standard.set(try JSONEncoder().encode(savedProfiles),forKey:"profiles.v3")
+            profileStorageError=""; return true
+        } catch {
+            profileStorageError="Salvataggio dei profili non riuscito (\(error.localizedDescription)). L’elenco resta in memoria fino alla chiusura dell’app: esporta i profili importanti."
+            projectMessage=profileStorageError; return false
+        }
+    }
     func exportProfile() {
         syncLightDraft(); let panel=NSSavePanel(); panel.allowedContentTypes=[.json]; panel.nameFieldStringValue="\(workspace.name).json"
         guard panel.runModal() == .OK, let url=panel.url else { return }
@@ -323,10 +367,10 @@ extension StudioModel {
         guard panel.runModal() == .OK, let url=panel.url else { return }
         do {
             let size=try url.resourceValues(forKeys:[.fileSizeKey]).fileSize ?? 0; guard size<=2_000_000 else { throw WorkspaceError.tooLarge }
-            let profile=try JSONDecoder().decode(KeyboardWorkspace.self,from:Data(contentsOf:url)); try profile.validate(); loadProfile(profile)
+            let profile=try JSONDecoder().decode(KeyboardWorkspace.self,from:Data(contentsOf:url)); try profile.validate(); loadProfile(profile,saved:false)
         } catch { projectMessage=error.localizedDescription }
     }
-    func resetDraft() { guard !busy else{return};stopCapture();archiveCurrentProfile(suffix:" · prima del ripristino"); replaceLocalDraft(KeyboardWorkspace());selectedMacro=0;selectedMixLayer=0;selectedKeys=[]; projectMessage="Valori di fabbrica caricati nella bozza. Nessuna modifica alla tastiera." }
+    func resetDraft() { guard !busy else{return};stopCapture();archiveRecoveryCopy(suffix:" · prima del ripristino"); replaceLocalDraft(KeyboardWorkspace());sourceProfileID=nil;selectedMacro=0;selectedMixLayer=0;selectedKeys=[]; reportProfiles("Valori di fabbrica caricati nella bozza. Nessuna modifica alla tastiera.") }
     func inspectFirmwareFile() {
         let panel=NSOpenPanel(); panel.allowsMultipleSelection=false; panel.message=L10n.string("Seleziona un firmware da identificare. Non verrà eseguito alcun flash.")
         guard panel.runModal() == .OK, let url=panel.url else { return }
@@ -348,7 +392,7 @@ extension StudioModel {
     func importLauncher() {
         let panel=NSOpenPanel();panel.allowedContentTypes=[.json];panel.allowsMultipleSelection=false
         guard panel.runModal() == .OK,let url=panel.url else{return}
-        do{guard (try url.resourceValues(forKeys:[.fileSizeKey]).fileSize ?? 0)<2_000_000 else{throw WorkspaceError.tooLarge};let decoded=try LauncherBackup.decode(Data(contentsOf:url));archiveCurrentProfile(suffix:" · prima di importare");workspace.layers=decoded.layers;if let encoders=decoded.encoders{workspace.encoders=encoders};projectMessage="Mappa Launcher importata nella bozza. Nessuna modifica inviata."}catch{projectMessage=error.localizedDescription}
+        do{guard (try url.resourceValues(forKeys:[.fileSizeKey]).fileSize ?? 0)<2_000_000 else{throw WorkspaceError.tooLarge};let decoded=try LauncherBackup.decode(Data(contentsOf:url));archiveRecoveryCopy(suffix:" · prima di importare");workspace.layers=decoded.layers;if let encoders=decoded.encoders{workspace.encoders=encoders};reportProfiles("Mappa Launcher importata nella bozza. Nessuna modifica inviata.")}catch{projectMessage=error.localizedDescription}
     }
     func exportMacro() {
         guard workspace.macros.indices.contains(selectedMacro) else{return}
@@ -375,8 +419,8 @@ extension StudioModel {
             guard macros.count <= workspace.macros.count else{throw VIAError.invalid("Il file contiene \(macros.count) slot; la bozza dispone di \(workspace.macros.count).")}
             var proposed=workspace
             for macro in macros { proposed.macros[macro.id]=macro }
-            try proposed.validate();archiveCurrentProfile(suffix:" · prima delle macro Launcher");workspace=proposed;selectedMacro=0
-            projectMessage="\(macros.count) slot Launcher importati nella bozza. Nessuna modifica inviata."
+            try proposed.validate();archiveRecoveryCopy(suffix:" · prima delle macro Launcher");workspace=proposed;selectedMacro=0
+            reportProfiles("\(macros.count) slot Launcher importati nella bozza. Nessuna modifica inviata.")
         } catch { projectMessage=error.localizedDescription }
     }
     func importMacro() {

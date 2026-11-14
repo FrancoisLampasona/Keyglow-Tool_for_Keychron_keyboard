@@ -28,6 +28,8 @@ struct ProfilesWorkspaceView: View {
                     }
                     StudioAdaptiveStack(breakpoint: 600, spacing: 12) {
                         LTextField("Nome del profilo", text: $model.workspace.name).textFieldStyle(.plain).padding(12).background(Studio.rail).clipShape(RoundedRectangle(cornerRadius: 7)).frame(maxWidth: .infinity).localizedAccessibilityLabel("Nome del profilo")
+                        LButton("Aggiorna profilo") { model.updateSourceProfile() }.buttonStyle(StudioButton()).disabled(model.updatableProfile == nil)
+                            .localizedHelp(model.updatableProfile.map { "Sovrascrive “\($0.name)” con la bozza attuale" } ?? "Disponibile dopo aver caricato o salvato un profilo")
                         LButton("Salva una copia") { model.archiveCurrentProfile() }.buttonStyle(StudioButton(primary: true))
                     }
                 }
@@ -50,8 +52,11 @@ struct ProfilesWorkspaceView: View {
                     LText("Recupero (\(model.savedProfiles.filter { $0.deletedAt == nil && $0.isRecoveryCopy }.count))").tag(1)
                     LText("Cestino").tag(2)
                 }.pickerStyle(.segmented).labelsHidden().frame(maxWidth:460)
-                LText(collection == 0 ? "Carica un profilo nella bozza, poi applica le modifiche alla tastiera." : collection == 1 ? "Copie create prima di una lettura o sostituzione della bozza. Non occupano l’elenco dei tuoi profili." : "I profili rimossi restano qui e possono essere ripristinati.")
+                LText(collection == 0 ? "Carica un profilo nella bozza, poi applica le modifiche alla tastiera." : collection == 1 ? "Copie create prima di una lettura o sostituzione della bozza, solo se contiene modifiche non salvate. Restano le 20 più recenti; non occupano l’elenco dei tuoi profili." : "I profili rimossi restano qui e possono essere ripristinati.")
                     .font(.system(size:12)).foregroundColor(Studio.muted).fixedSize(horizontal:false,vertical:true)
+                if collection == 2 && model.trashCount > 0 {
+                    LButton("Svuota cestino") { model.emptyTrash() }.buttonStyle(StudioButton())
+                }
                 if visibleProfiles.isEmpty {
                     VStack(alignment:.leading,spacing:8) {
                         LText(search.isEmpty ? (collection == 0 ? "La tua prima configurazione, pronta da salvare." : collection == 1 ? "Nessuna copia di recupero." : "Il cestino è vuoto.") : "Nessun risultato per “\(search)”.")
@@ -81,7 +86,7 @@ struct ProfilesWorkspaceView: View {
                 }
                 LDisclosureGroup("Recupero e compatibilità") {
                     VStack(alignment: .leading, spacing: 14) {
-                        LText("Caricare un profilo aggiorna solo la bozza. Prima di sostituirla, Keyglow conserva una copia di recupero. I file Launcher comprendono mappa e manopola; il formato Keyglow conserva anche RGB, macro e impostazioni.").font(.system(size: 12)).foregroundColor(Studio.muted).lineSpacing(3)
+                        LText("Caricare un profilo aggiorna solo la bozza. Prima di sostituirla, Keyglow conserva una copia di recupero se contiene modifiche non salvate in un profilo. I file Launcher comprendono mappa e manopola; il formato Keyglow conserva anche RGB, macro e impostazioni.").font(.system(size: 12)).foregroundColor(Studio.muted).lineSpacing(3)
                         LButton("Carica valori di fabbrica nella bozza") { model.resetDraft() }.buttonStyle(StudioButton())
                     }.padding(.top, 14)
                 }
@@ -374,9 +379,9 @@ struct FirmwareWorkspaceView: View {
             updater.onBusyChanged = { model.busy = $0 }
             installer.onBusyChanged = { model.busy = $0; if $0 {model.stopCapture()} }
             installer.onRestored = { snapshot in
-                if model.hasLocalChanges {model.archiveCurrentProfile(suffix:" · prima del ripristino")}
+                if model.hasLocalChanges {model.archiveRecoveryCopy(suffix:" · prima del ripristino")}
                 let restored=model.document(from:snapshot)
-                model.replaceLocalDraft(restored);model.usbSnapshot=snapshot;model.baselineWorkspace=restored
+                model.replaceLocalDraft(restored);model.sourceProfileID=nil;model.usbSnapshot=snapshot;model.baselineWorkspace=restored
                 model.directBluetooth=true
                 model.projectMessage="Profilo ripristinato e verificato via USB."
             }

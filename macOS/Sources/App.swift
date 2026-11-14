@@ -12,6 +12,13 @@ import Combine
         }
     } }
     @Published var savedProfiles: [KeyboardWorkspace] = []
+    /// The saved profile this draft was loaded from or last saved as.
+    @Published var sourceProfileID: UUID? { didSet {
+        guard !loadingWorkspace else { return }
+        if let sourceProfileID { UserDefaults.standard.set(sourceProfileID.uuidString, forKey: "workspace.sourceProfile") }
+        else { UserDefaults.standard.removeObject(forKey: "workspace.sourceProfile") }
+    } }
+    var profileStorageError = ""
     @Published var selectedKeys: Set<String> = []
     @Published var selectedLayer = 0
     @Published var keySearch = ""

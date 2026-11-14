@@ -159,10 +159,6 @@
     "en": "Load a profile into the draft, then apply the changes to the keyboard.",
     "fr": "Chargez un profil dans le brouillon, puis appliquez les modifications au clavier."
   },
-  "Copie create prima di una lettura o sostituzione della bozza. Non occupano l’elenco dei tuoi profili.": {
-    "en": "Copies made before reading or replacing the draft. They are kept separate from your profiles.",
-    "fr": "Copies créées avant de lire ou de remplacer le brouillon. Elles sont séparées de vos profils."
-  },
   "I profili rimossi restano qui e possono essere ripristinati.": {
     "en": "Removed profiles stay here and can be restored.",
     "fr": "Les profils supprimés restent ici et peuvent être restaurés."
@@ -214,10 +210,6 @@
   "Recupero e compatibilità": {
     "en": "Recovery and compatibility",
     "fr": "Récupération et compatibilité"
-  },
-  "Caricare un profilo aggiorna solo la bozza. Prima di sostituirla, Keyglow conserva una copia di recupero. I file Launcher comprendono mappa e manopola; il formato Keyglow conserva anche RGB, macro e impostazioni.": {
-    "en": "Loading a profile only updates the draft. Keyglow keeps a recovery copy before replacing it. Launcher files contain the keymap and knob; Keyglow format also preserves RGB, macros and settings.",
-    "fr": "Charger un profil ne modifie que le brouillon. Keyglow conserve une copie de récupération avant de le remplacer. Les fichiers Launcher contiennent la disposition et la molette ; le format Keyglow conserve aussi les RGB, macros et réglages."
   },
   "Carica valori di fabbrica nella bozza": {
     "en": "Load factory values into the draft",
@@ -4858,5 +4850,53 @@
   "In Bluetooth non è possibile riconoscere con certezza il firmware senza la chiave proprietario. Per verificarlo collega la tastiera via USB oppure usa la pagina Firmware.": {
     "en": "Over Bluetooth the firmware cannot be identified with certainty without the owner key. To check it, connect the keyboard over USB or use the Firmware page.",
     "fr": "En Bluetooth, il n’est pas possible d’identifier le firmware avec certitude sans la clé propriétaire. Pour le vérifier, connectez le clavier en USB ou utilisez la page Firmware."
+  },
+  "Copie create prima di una lettura o sostituzione della bozza, solo se contiene modifiche non salvate. Restano le 20 più recenti; non occupano l’elenco dei tuoi profili.": {
+    "en": "Copies made before reading or replacing the draft, only when it holds unsaved changes. The 20 most recent are kept, separate from your profiles.",
+    "fr": "Copies créées avant de lire ou de remplacer le brouillon, uniquement s’il contient des modifications non enregistrées. Les 20 plus récentes sont conservées, séparément de vos profils."
+  },
+  "Caricare un profilo aggiorna solo la bozza. Prima di sostituirla, Keyglow conserva una copia di recupero se contiene modifiche non salvate in un profilo. I file Launcher comprendono mappa e manopola; il formato Keyglow conserva anche RGB, macro e impostazioni.": {
+    "en": "Loading a profile only updates the draft. Before replacing it, Keyglow keeps a recovery copy if it holds changes not saved in a profile. Launcher files contain the keymap and knob; Keyglow format also preserves RGB, macros and settings.",
+    "fr": "Charger un profil ne modifie que le brouillon. Avant de le remplacer, Keyglow conserve une copie de récupération s’il contient des modifications non enregistrées dans un profil. Les fichiers Launcher contiennent la disposition et la molette ; le format Keyglow conserve aussi les RGB, macros et réglages."
+  },
+  "Aggiorna profilo": {
+    "en": "Update Profile",
+    "fr": "Mettre à jour le profil"
+  },
+  "Sovrascrive “{0}” con la bozza attuale": {
+    "en": "Overwrites “{0}” with the current draft",
+    "fr": "Remplace « {0} » par le brouillon actuel"
+  },
+  "Disponibile dopo aver caricato o salvato un profilo": {
+    "en": "Available after loading or saving a profile",
+    "fr": "Disponible après avoir chargé ou enregistré un profil"
+  },
+  "Profilo aggiornato sul Mac.": {
+    "en": "Profile updated on Mac.",
+    "fr": "Profil mis à jour sur le Mac."
+  },
+  "Svuota cestino": {
+    "en": "Empty Trash",
+    "fr": "Vider la corbeille"
+  },
+  "Svuotare il cestino?": {
+    "en": "Empty the Trash?",
+    "fr": "Vider la corbeille ?"
+  },
+  "I profili nel cestino ({0}) verranno eliminati definitivamente da questo Mac. L’operazione non può essere annullata.": {
+    "en": "The profiles in the Trash ({0}) will be permanently deleted from this Mac. This cannot be undone.",
+    "fr": "Les profils de la corbeille ({0}) seront définitivement supprimés de ce Mac. Cette opération est irréversible."
+  },
+  "Annulla": {
+    "en": "Cancel",
+    "fr": "Annuler"
+  },
+  "Cestino svuotato.": {
+    "en": "Trash emptied.",
+    "fr": "Corbeille vidée."
+  },
+  "Salvataggio dei profili non riuscito ({0}). L’elenco resta in memoria fino alla chiusura dell’app: esporta i profili importanti.": {
+    "en": "Profiles could not be saved ({0}). The list stays in memory until the app closes: export the profiles you need.",
+    "fr": "L’enregistrement des profils a échoué ({0}). La liste reste en mémoire jusqu’à la fermeture de l’app : exportez les profils importants."
   }
 }
