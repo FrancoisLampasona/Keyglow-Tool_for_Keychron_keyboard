@@ -7,6 +7,7 @@ import Combine
     let batteryMonitor = KeyboardStatusMonitor()
     @Published var workspace = KeyboardWorkspace() { didSet {
         if !loadingWorkspace {
+            if !restoringHistory { draftHistory.record(previous: oldValue, current: workspace, now: ProcessInfo.processInfo.systemUptime) }
             scheduleWorkspaceSave()
             if oldValue.lighting != workspace.lighting { queueLiveRGBChange() }
         }
@@ -19,6 +20,9 @@ import Combine
         else { UserDefaults.standard.removeObject(forKey: "workspace.sourceProfile") }
     } }
     var profileStorageError = ""
+    /// Undo/redo of draft edits only. Loading, reading or applying clears it.
+    var draftHistory = DraftHistory<KeyboardWorkspace>()
+    var restoringHistory = false
     @Published var selectedKeys: Set<String> = []
     @Published var selectedLayer = 0
     @Published var keySearch = ""
@@ -379,7 +383,7 @@ import Combine
     }
 }
 
-@MainActor final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
+@MainActor final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMenuItemValidation {
     private var window: NSWindow!
     private let model = StudioModel()
     private let onboarding = OnboardingCoordinator()
@@ -491,6 +495,9 @@ import Combine
         app.addItem(.separator())
         app.addItem(withTitle: L10n.string("Esci da Keyglow"), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         let editItem = NSMenuItem(); let edit = NSMenu(title: L10n.string("Modifica")); editItem.submenu = edit; menu.addItem(editItem)
+        let undo = edit.addItem(withTitle: L10n.string("Annulla modifica"), action: #selector(undoEdit(_:)), keyEquivalent: "z"); undo.target = self
+        let redo = edit.addItem(withTitle: L10n.string("Ripeti modifica"), action: #selector(redoEdit(_:)), keyEquivalent: "Z"); redo.target = self
+        edit.addItem(.separator())
         edit.addItem(withTitle: L10n.string("Taglia"), action: #selector(NSText.cut(_:)), keyEquivalent: "x")
         edit.addItem(withTitle: L10n.string("Copia"), action: #selector(NSText.copy(_:)), keyEquivalent: "c")
         edit.addItem(withTitle: L10n.string("Incolla"), action: #selector(NSText.paste(_:)), keyEquivalent: "v")
@@ -502,6 +509,21 @@ import Combine
         let comfortable=windowMenu.addItem(withTitle:L10n.string("Dimensione comoda"),action:#selector(comfortableWindow(_:)),keyEquivalent:""); comfortable.target=self
         NSApp.windowsMenu=windowMenu
         NSApp.mainMenu = menu
+    }
+    /// A text field being edited keeps its native undo; otherwise the draft history applies.
+    private var editingText: NSTextView? { (NSApp.keyWindow ?? window)?.firstResponder as? NSTextView }
+    @objc private func undoEdit(_ sender: Any?) {
+        if let text = editingText { text.undoManager?.undo() } else if window.attachedSheet == nil { model.undoDraft() }
+    }
+    @objc private func redoEdit(_ sender: Any?) {
+        if let text = editingText { text.undoManager?.redo() } else if window.attachedSheet == nil { model.redoDraft() }
+    }
+    func validateMenuItem(_ item: NSMenuItem) -> Bool {
+        switch item.action {
+        case #selector(undoEdit(_:)): return editingText.map { $0.undoManager?.canUndo == true } ?? (window.attachedSheet == nil && model.canUndoDraft)
+        case #selector(redoEdit(_:)): return editingText.map { $0.undoManager?.canRedo == true } ?? (window.attachedSheet == nil && model.canRedoDraft)
+        default: return true
+        }
     }
     @objc private func compactWindow(_ sender:Any?) { resizeWindow(to:NSSize(width:900,height:640)) }
     @objc private func comfortableWindow(_ sender:Any?) { resizeWindow(to:NSSize(width:1400,height:900)) }

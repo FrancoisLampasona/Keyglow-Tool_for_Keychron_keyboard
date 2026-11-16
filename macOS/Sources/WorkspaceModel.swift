@@ -51,6 +51,30 @@ extension StudioModel {
     private func workspaceTimestamplessSave() {
         if let data = try? JSONEncoder().encode(workspace) { UserDefaults.standard.set(data, forKey:"workspace.v3") }
     }
+    /// Draft edits can be undone while no operation, capture or sheet-less test is running.
+    private var historyAvailable: Bool { !busy && !recording && !captureMapping && !testing }
+    var canUndoDraft: Bool { historyAvailable && draftHistory.canUndo }
+    var canRedoDraft: Bool { historyAvailable && draftHistory.canRedo }
+    func undoDraft() {
+        guard canUndoDraft, let state = draftHistory.undo(current: workspace) else { return }
+        restoreFromHistory(state); projectMessage = "Modifica annullata nella bozza."
+    }
+    func redoDraft() {
+        guard canRedoDraft, let state = draftHistory.redo(current: workspace) else { return }
+        restoreFromHistory(state); projectMessage = "Modifica ripristinata nella bozza."
+    }
+    /// Restoring is an ordinary draft change: it is saved and, only if the user
+    /// already enabled the automatic preview, follows that same path. It never
+    /// sends anything by itself and never changes the lighting tab.
+    private func restoreFromHistory(_ state: KeyboardWorkspace) {
+        restoringHistory = true; workspace = state; restoringHistory = false
+        let wasLoading = loadingWorkspace; loadingWorkspace = true
+        hue = workspace.lighting.hue; saturation = workspace.lighting.saturation; value = workspace.lighting.value; brightness = workspace.lighting.brightness
+        hexInput = hex; hexError = false
+        loadingWorkspace = wasLoading
+        selectedMacro = min(selectedMacro, max(0, workspace.macros.count - 1))
+        selectedMixLayer = min(selectedMixLayer, max(0, workspace.lighting.mix.count - 1))
+    }
     func restoreWorkspaceLocally() {
         loadingWorkspace = true
         defer { loadingWorkspace = false }
@@ -147,7 +171,7 @@ extension StudioModel {
                     // Preserve the local draft before replacing it with actual device data.
                     if hasLocalChanges { archiveRecoveryCopy(suffix:" · prima della lettura") }
                     sourceProfileID=nil
-                    usbSnapshot=snapshot; workspace=document(from:snapshot); baselineWorkspace=workspace; selectedMacro=0;selectedMixLayer=0;selectedKeys=[];loadLightDraft()
+                    usbSnapshot=snapshot; workspace=document(from:snapshot); baselineWorkspace=workspace; draftHistory.reset(); selectedMacro=0;selectedMixLayer=0;selectedKeys=[];loadLightDraft()
                     directBluetooth = FirmwareBuildInfo.bundled?.supportsDirectRGB(snapshot.firmwareVersion) == true
                     usbMessage="Configurazione letta dalla Q6 Max. Le modifiche successive restano locali fino ad Applica."
                     projectMessage=profileStorageError
@@ -263,6 +287,7 @@ extension StudioModel {
                         var confirmed=document(from:verified,metadata:submittedWorkspace);confirmed.origin="Applicato e riletto dalla Q6 Max"
                         baselineWorkspace=confirmed
                         if workspace == submittedWorkspace { workspace=confirmed;loadLightDraft() }
+                        draftHistory.reset()
                         usbMessage="Modifiche applicate e confermate dalla rilettura USB."; message=usbMessage; projectMessage=""; cableModeConfirmed=false
                     case .failure(let error): usbSnapshot=nil; usbMessage=error.localizedDescription; message="Rileggi la tastiera prima di riprovare."
                     }
@@ -346,6 +371,7 @@ extension StudioModel {
         let previous=loadingWorkspace; loadingWorkspace=true
         workspace=draft; workspace.recoveryReason=""; workspace.deletedAt=nil
         loadLightDraft(); loadingWorkspace=previous
+        draftHistory.reset()
         saveWorkspaceLocally()
     }
     @discardableResult private func saveProfiles() -> Bool {

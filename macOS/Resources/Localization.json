@@ -4898,5 +4898,21 @@
   "Conferma la richiesta Monitoraggio input di macOS. Se dopo la conferma l’accesso resta da verificare, esci e riapri Keyglow.": {
     "en": "Confirm the macOS Input Monitoring request. If access still needs checking after you confirm, quit and reopen Keyglow.",
     "fr": "Confirmez la demande Surveillance de l’entrée de macOS. Si l’accès reste à vérifier après la confirmation, quittez Keyglow et rouvrez-le."
+  },
+  "Annulla modifica": {
+    "en": "Undo",
+    "fr": "Annuler"
+  },
+  "Ripeti modifica": {
+    "en": "Redo",
+    "fr": "Rétablir"
+  },
+  "Modifica annullata nella bozza.": {
+    "en": "Change undone in the draft.",
+    "fr": "Modification annulée dans le brouillon."
+  },
+  "Modifica ripristinata nella bozza.": {
+    "en": "Change restored in the draft.",
+    "fr": "Modification rétablie dans le brouillon."
   }
 }
