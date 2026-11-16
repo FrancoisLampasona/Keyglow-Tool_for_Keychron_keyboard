@@ -219,8 +219,15 @@ struct ConnectionWorkspaceView: View {
                     } else if !model.accessVerified {
                         LText(model.accessMessage).font(.system(size:12)).foregroundColor(Studio.muted).fixedSize(horizontal:false,vertical:true)
                         HStack(spacing:10) {
-                            LButton("Verifica accesso") {model.checkAccess()}.buttonStyle(StudioButton(primary:true)).disabled(model.busy)
-                            LButton("Apri Impostazioni") {model.openURL("x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent")}.buttonStyle(StudioButton())
+                            if model.systemPermission == .granted {
+                                LButton("Verifica accesso") {model.checkAccess()}.buttonStyle(StudioButton(primary:true)).disabled(model.busy)
+                                LButton("Apri Impostazioni") {model.openURL("x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent")}.buttonStyle(StudioButton())
+                            } else {
+                                // A recheck in this process cannot see a grant made after launch.
+                                LButton("Esci e riapri Keyglow") {model.onRelaunchRequested?()}.buttonStyle(StudioButton(primary:true)).disabled(model.busy)
+                                LButton("Apri Impostazioni") {model.openURL("x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent")}.buttonStyle(StudioButton())
+                                LButton("Verifica accesso") {model.checkAccess()}.buttonStyle(StudioButton()).disabled(model.busy)
+                            }
                         }
                     }
                     LDisclosureGroup("Firmware e compatibilità",isExpanded:$showSetup) {

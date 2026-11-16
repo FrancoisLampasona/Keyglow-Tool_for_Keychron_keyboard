@@ -92,6 +92,10 @@ import Combine
     private var accessRefreshScheduled = false
     private var deferredAccessForceRead = false
     var onBluetoothAccessStateChanged: ((OnboardingDeviceState) -> Void)?
+    /// Last Input Monitoring state read from macOS for this process; never stored.
+    @Published private(set) var systemPermission: OnboardingPermissionState = .unknown
+    /// Quit and reopen through the app delegate's busy check.
+    var onRelaunchRequested: (() -> Void)?
 
     init() {
         loadingWorkspace = true
@@ -240,6 +244,7 @@ import Combine
     /// No IOHID input callback, LED output write or consent request is registered.
     func refreshBluetoothAccess(forceRead: Bool = false) {
         let permission = SystemOnboardingPermissions().checkAccess()
+        systemPermission = permission
         if busy {
             accessVerification.observe(permission: permission, deviceID: deviceID)
             if forceRead { accessVerification.invalidateEvidence(); deferredAccessForceRead = true }
@@ -283,6 +288,7 @@ import Combine
                 // consent before accepting its result; never trust cached grants.
                 identifyBluetoothDevice()
                 let currentPermission = SystemOnboardingPermissions().checkAccess()
+                systemPermission = currentPermission
                 let succeeded: Bool
                 if case .success = result { succeeded = true } else { succeeded = false }
                 accessVerified = accessVerification.complete(attempt, succeeded: succeeded, permission: currentPermission, deviceID: deviceID)
@@ -308,8 +314,8 @@ import Combine
     private func permissionMessage(_ permission: OnboardingPermissionState) -> String {
         switch permission {
         case .granted: return "Permesso concesso da macOS."
-        case .denied: return "Monitoraggio input non consentito. Abilita Keyglow in Impostazioni di Sistema → Privacy e sicurezza; al ritorno l’accesso verrà ricontrollato."
-        case .unknown: return "Conferma la richiesta Monitoraggio input di macOS. Keyglow ricontrolla il permesso al ritorno nell’app."
+        case .denied: return "Monitoraggio input non consentito. Abilita Keyglow in Impostazioni di Sistema → Privacy e sicurezza → Monitoraggio input. macOS applica il permesso solo alle app avviate dopo averlo concesso: poi esci e riapri Keyglow."
+        case .unknown: return "Conferma la richiesta Monitoraggio input di macOS. Se dopo la conferma l’accesso resta da verificare, esci e riapri Keyglow."
         case .unavailable: return "macOS non rende disponibile lo stato del permesso. Apri Configura accessi dal menu Keyglow."
         }
     }
@@ -414,7 +420,8 @@ import Combine
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
         model.onBluetoothAccessStateChanged = { [weak self] state in self?.onboarding.model.updateDeviceState(state) }
-        onboarding.onRelaunchRequested = { [weak self] in self?.relaunchForPermission() }
+        onboarding.onRelaunchRequested = { [weak self] in self?.relaunchForPermission(resumeGuide: true) }
+        model.onRelaunchRequested = { [weak self] in self?.relaunchForPermission(resumeGuide: false) }
         onboarding.onCompletion = { [weak self] choice,destination in
             guard let self else { return }
             self.model.directBluetooth = choice == .installed
@@ -456,11 +463,12 @@ import Combine
         alert.runModal(); return false
     }
     /// Input Monitoring reaches only a process started after the grant. Start a
-    /// new instance of this bundle, then quit this one; the guide resumes at the
-    /// access step. The busy check is the same as for Quit.
-    private func relaunchForPermission() {
+    /// new instance of this bundle, then quit this one; from the guide, it resumes
+    /// at the access step. The busy check is the same as for Quit.
+    private func relaunchForPermission(resumeGuide: Bool) {
         guard mayClose() else { return }
-        onboarding.setup.saveResumePoint()
+        if resumeGuide { onboarding.setup.saveResumePoint() }
+        model.flushWorkspaceSave()
         UserDefaults.standard.synchronize()
         let configuration = NSWorkspace.OpenConfiguration()
         configuration.createsNewApplicationInstance = true

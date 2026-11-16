@@ -2399,14 +2399,6 @@
     "en": "macOS permission granted.",
     "fr": "Autorisation macOS accordée."
   },
-  "Monitoraggio input non consentito. Abilita Keyglow in Impostazioni di Sistema → Privacy e sicurezza; al ritorno l’accesso verrà ricontrollato.": {
-    "en": "Input Monitoring is not allowed. Enable Keyglow in System Settings → Privacy & Security; access will be checked when you return.",
-    "fr": "La surveillance de l’entrée n’est pas autorisée. Activez Keyglow dans Réglages Système → Confidentialité et sécurité ; l’accès sera vérifié à votre retour."
-  },
-  "Conferma la richiesta Monitoraggio input di macOS. Keyglow ricontrolla il permesso al ritorno nell’app.": {
-    "en": "Confirm the macOS Input Monitoring request. Keyglow checks permission when you return to the app.",
-    "fr": "Confirmez la demande macOS de surveillance de l’entrée. Keyglow vérifie l’autorisation à votre retour dans l’app."
-  },
   "macOS non rende disponibile lo stato del permesso. Apri Configura accessi dal menu Keyglow.": {
     "en": "macOS does not expose permission status. Open permission setup from the Keyglow menu.",
     "fr": "macOS ne fournit pas l’état de l’autorisation. Ouvrez la configuration des accès depuis le menu Keyglow."
@@ -4898,5 +4890,13 @@
   "Salvataggio dei profili non riuscito ({0}). L’elenco resta in memoria fino alla chiusura dell’app: esporta i profili importanti.": {
     "en": "Profiles could not be saved ({0}). The list stays in memory until the app closes: export the profiles you need.",
     "fr": "L’enregistrement des profils a échoué ({0}). La liste reste en mémoire jusqu’à la fermeture de l’app : exportez les profils importants."
+  },
+  "Monitoraggio input non consentito. Abilita Keyglow in Impostazioni di Sistema → Privacy e sicurezza → Monitoraggio input. macOS applica il permesso solo alle app avviate dopo averlo concesso: poi esci e riapri Keyglow.": {
+    "en": "Input Monitoring is not allowed. Enable Keyglow in System Settings → Privacy & Security → Input Monitoring. macOS applies the permission only to apps started after it is granted: then quit and reopen Keyglow.",
+    "fr": "La Surveillance de l’entrée n’est pas autorisée. Activez Keyglow dans Réglages Système → Confidentialité et sécurité → Surveillance de l’entrée. macOS n’applique l’autorisation qu’aux apps lancées après son octroi : quittez ensuite Keyglow et rouvrez-le."
+  },
+  "Conferma la richiesta Monitoraggio input di macOS. Se dopo la conferma l’accesso resta da verificare, esci e riapri Keyglow.": {
+    "en": "Confirm the macOS Input Monitoring request. If access still needs checking after you confirm, quit and reopen Keyglow.",
+    "fr": "Confirmez la demande Surveillance de l’entrée de macOS. Si l’accès reste à vérifier après la confirmation, quittez Keyglow et rouvrez-le."
   }
 }
