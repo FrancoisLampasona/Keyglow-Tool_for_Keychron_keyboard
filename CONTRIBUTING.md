@@ -24,6 +24,7 @@ sh macOS/Tests/FirmwareAuthorization/run.sh
 sh macOS/Tests/FirmwareDelta/run.sh
 sh macOS/Tests/FirmwareUpdate/run.sh
 sh macOS/Tests/LiveRGB/run.sh
+sh macOS/Tests/DraftHistory/run.sh
 zsh scripts/build-app.sh
 ```
 
