@@ -4918,5 +4918,29 @@
   "Durata: 0–3600000 ms": {
     "en": "Duration: 0–3600000 ms",
     "fr": "Durée : 0–3600000 ms"
+  },
+  "Riga funzione": {
+    "en": "Function row",
+    "fr": "Rangée de fonctions"
+  },
+  "Navigazione": {
+    "en": "Navigation",
+    "fr": "Navigation"
+  },
+  "Tastierino numerico": {
+    "en": "Numeric keypad",
+    "fr": "Pavé numérique"
+  },
+  "Riga {0}": {
+    "en": "Row {0}",
+    "fr": "Rangée {0}"
+  },
+  "Seleziona gruppo": {
+    "en": "Select Group",
+    "fr": "Sélectionner un groupe"
+  },
+  "Seleziona un gruppo di tasti · ⇧ o ⌘ per aggiungerlo alla selezione": {
+    "en": "Select a group of keys · ⇧ or ⌘ to add it to the selection",
+    "fr": "Sélectionner un groupe de touches · ⇧ ou ⌘ pour l’ajouter à la sélection"
   }
 }

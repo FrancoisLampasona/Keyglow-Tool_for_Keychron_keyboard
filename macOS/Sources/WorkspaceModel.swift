@@ -100,6 +100,11 @@ extension StudioModel {
         if NSEvent.modifierFlags.intersection([.shift,.command]).isEmpty { selectedKeys = [key.id] }
         else if selectedKeys.contains(key.id) { selectedKeys.remove(key.id) } else { selectedKeys.insert(key.id) }
     }
+    /// Group selection for lighting; like a click, ⇧ or ⌘ extends the selection.
+    func selectGroup(_ group: KeyGroup) {
+        let ids = Set(definition.keyIDs(in: group))
+        if NSEvent.modifierFlags.intersection([.shift,.command]).isEmpty { selectedKeys = ids } else { selectedKeys.formUnion(ids) }
+    }
     func assignKeycode(_ code: UInt16) {
         guard !busy, !selectedKeys.isEmpty else { return }
         for id in selectedKeys { if let key = definition.key(id:id) { workspace.layers[selectedLayer][key.matrixIndex] = code } }

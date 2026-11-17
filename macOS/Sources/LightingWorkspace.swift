@@ -114,6 +114,7 @@ struct LightingWorkspaceView:View {
             }
             HStack {
                 LButton("Colora selezione") { model.paintSelectedKeys() }.buttonStyle(StudioButton(primary:true)).disabled(model.selectedKeys.isEmpty).accessibilityRepresentation { LButton("Colora selezione") { model.paintSelectedKeys() }.disabled(model.selectedKeys.isEmpty) }
+                KeyGroupMenu(model:model)
                 LButton("Seleziona tutti") { model.selectedKeys=Set(model.definition.keys.filter { $0.ledIndex != nil }.map(\.id)) }.buttonStyle(StudioButton()).accessibilityRepresentation { LButton("Seleziona tutti") { model.selectedKeys=Set(model.definition.keys.filter { $0.ledIndex != nil }.map(\.id)) } }
                 LButton("Spegni tutti") { model.workspace.lighting.perKey=Dictionary(uniqueKeysWithValues:model.definition.keys.filter { $0.ledIndex != nil }.map { ($0.id,"000000") }) }.buttonStyle(StudioButton()).accessibilityRepresentation { LButton("Spegni tutti") { model.workspace.lighting.perKey=Dictionary(uniqueKeysWithValues:model.definition.keys.filter { $0.ledIndex != nil }.map { ($0.id,"000000") }) } }
             }
@@ -140,6 +141,7 @@ struct LightingWorkspaceView:View {
                         HStack {
                             LText("\(model.workspace.lighting.mix[model.selectedMixLayer].keys.count) tasti nella zona").font(.system(size:12)).monospacedDigit().foregroundColor(Studio.muted)
                             Spacer()
+                            KeyGroupMenu(model:model)
                             LButton("Assegna selezione") { model.assignSelectedToMix() }.buttonStyle(StudioButton()).disabled(model.selectedKeys.isEmpty)
                         }
                     }
@@ -356,5 +358,19 @@ struct BoundedIntField: View {
                 if kept != value { value=kept }
                 text=String(kept)
             }
+    }
+}
+
+/// Selects a whole group of lit keys. Holding ⇧ or ⌘ adds to the current selection.
+struct KeyGroupMenu: View {
+    @ObservedObject var model: StudioModel
+    var body: some View {
+        LMenu("Seleziona gruppo") {
+            ForEach(model.definition.keyGroups,id:\.self) { group in
+                if group == .row(0) { Divider() }
+                LButton(group.title) { model.selectGroup(group) }
+            }
+        }.controlSize(.large).fixedSize().disabled(model.busy)
+            .localizedHelp("Seleziona un gruppo di tasti · ⇧ o ⌘ per aggiungerlo alla selezione")
     }
 }
