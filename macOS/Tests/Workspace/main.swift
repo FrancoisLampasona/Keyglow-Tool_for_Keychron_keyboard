@@ -169,7 +169,32 @@ do {
     try require(BoundedInput.hex("#57d9c1") == "57D9C1" && BoundedInput.hex(" ff b6 5b ") == "FFB65B" && BoundedInput.hex("57D9C1FF") == "57D9C1", "HEX entry drops #, spaces and extra digits")
     try require(BoundedInput.hex("red") == "ED" && !KeyboardWorkspace.validHex(BoundedInput.hex("red")) && BoundedInput.hex("１２３") == "", "Incomplete HEX stays visibly invalid; non-ASCII digits are dropped")
     try require(KeyboardWorkspace.validHex(BoundedInput.hex("#000000")), "A complete HEX entry is valid")
-    print("Workspace: ISO matrix/LED mapping, lossless JSON roundtrip, opaque macro preservation and malformed profile guards, recovery-copy, pruning, trash, update and bounded-entry rules passed. No hardware or preferences access.")
+
+    // Selection groups are derived from the layout and must cover every lit key.
+    let lit = Set(definition.keys.filter { $0.ledIndex != nil }.map(\.id))
+    func legends(_ group: KeyGroup) -> [String] { definition.keyIDs(in: group).compactMap { definition.key(id: $0)?.legend } }
+    let roles: [KeyGroup] = [.lettersAndSymbols, .modifiers, .functionRow, .navigation, .numpad]
+    var seen = [String: Int]()
+    for group in roles { for id in definition.keyIDs(in: group) { seen[id, default: 0] += 1 } }
+    try require(Set(seen.keys) == lit, "Every lit key belongs to at least one role group: missing \(lit.subtracting(seen.keys).sorted())")
+    try require(seen.values.allSatisfy { $0 == 1 }, "Role groups do not overlap")
+    let rows = definition.keyGroups.filter { if case .row = $0 { return true }; return false }
+    try require(rows.count == 6 && Set(rows.flatMap { definition.keyIDs(in: $0) }) == lit, "Six visual rows cover every lit key")
+    try require(rows.map { definition.keyIDs(in: $0).count }.reduce(0, +) == 109, "Each lit key is in exactly one row")
+    for group in definition.keyGroups {
+        let ids = definition.keyIDs(in: group)
+        try require(!ids.isEmpty && Set(ids).count == ids.count && Set(ids).isSubset(of: lit), "Group \(group.title) lists lit keys once")
+    }
+    try require(!definition.keyGroups.flatMap { definition.keyIDs(in: $0) }.contains("0,13"), "The knob has no LED and is in no group")
+    try require(legends(.functionRow) == ["esc"] + (1...12).map { "F\($0)" }, "Function row is esc and F1–F12")
+    try require(definition.keyIDs(in: .numpad).count == 21 && Set(["num clear", "×", "−", "enter", "○"]).isSubset(of: Set(legends(.numpad))), "Numpad block with its top row")
+    try require(Set(legends(.navigation)) == Set(["", "ins", "home", "pgup", "del", "end", "pgdn", "↑", "←", "↓", "→"]) && definition.keyIDs(in: .navigation).count == 13, "Navigation block")
+    try require(Set(legends(.modifiers)) == Set(["← backspace", "tab ⇥", "caps lock", "↵ enter", "⇧ shift", "control", "option", "⌘", "fn"]) && definition.keyIDs(in: .modifiers).count == 13, "Modifiers of the main block")
+    let letters = legends(.lettersAndSymbols)
+    try require(letters.count == 49 && Set(["Q", "M", "ò", "<", "1", "ì", ""]).isSubset(of: Set(letters)) && !letters.contains("F1"), "Letters, digits, symbols and space")
+    try require(legends(.row(0)).contains("×") && legends(.row(2)).contains("↵ enter") && !legends(.row(3)).contains("↵ enter"), "Rows follow visual position; tall keys belong to their first row")
+    try require(KeyGroup.row(0).title == "Riga 1" && definition.keyIDs(in: .row(9)).isEmpty, "Row titles are one-based; unknown rows are empty")
+    print("Workspace: ISO matrix/LED mapping, lossless JSON roundtrip, opaque macro preservation and malformed profile guards, recovery-copy, pruning, trash, update, bounded-entry and key-group rules passed. No hardware or preferences access.")
 } catch {
     fputs("Workspace test failure: \(error)\n", stderr)
     exit(1)
