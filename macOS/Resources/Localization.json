@@ -1503,10 +1503,6 @@
     "en": "Select keys, choose a color and apply it to the selection.",
     "fr": "Sélectionnez des touches, choisissez une couleur et appliquez-la à la sélection."
   },
-  "Azioni RGB": {
-    "en": "RGB actions",
-    "fr": "Actions RGB"
-  },
   "Colora selezione": {
     "en": "Color selection",
     "fr": "Colorer la sélection"
@@ -1650,10 +1646,6 @@
   "Durata": {
     "en": "Duration",
     "fr": "Durée"
-  },
-  "Durata in millisecondi": {
-    "en": "Duration in milliseconds",
-    "fr": "Durée en millisecondes"
   },
   "Indicatori di blocco": {
     "en": "Lock indicators",
@@ -4914,5 +4906,17 @@
   "Modifica ripristinata nella bozza.": {
     "en": "Change restored in the draft.",
     "fr": "Modification rétablie dans le brouillon."
+  },
+  "Colore HEX degli indicatori": {
+    "en": "Indicator HEX color",
+    "fr": "Couleur HEX des indicateurs"
+  },
+  "Durata in millisecondi, da 0 a 3600000": {
+    "en": "Duration in milliseconds, from 0 to 3600000",
+    "fr": "Durée en millisecondes, de 0 à 3600000"
+  },
+  "Durata: 0–3600000 ms": {
+    "en": "Duration: 0–3600000 ms",
+    "fr": "Durée : 0–3600000 ms"
   }
 }

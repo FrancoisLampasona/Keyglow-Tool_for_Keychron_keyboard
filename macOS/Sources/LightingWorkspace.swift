@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 struct LightingWorkspaceView:View {
     @ObservedObject var model:StudioModel
@@ -110,12 +111,6 @@ struct LightingWorkspaceView:View {
             modeActivation(effect:23, title:"Usa RGB per tasto")
             HStack {
                 PanelTitle(title:"Colore per tasto",subtitle:"Seleziona i tasti, scegli un colore e applicalo alla selezione.")
-                Spacer()
-                LMenu("Azioni RGB") {
-                    LButton("Colora selezione") { model.paintSelectedKeys() }.disabled(model.selectedKeys.isEmpty)
-                    LButton("Seleziona tutti") { model.selectedKeys=Set(model.definition.keys.filter { $0.ledIndex != nil }.map(\.id)) }
-                    LButton("Spegni tutti") { model.workspace.lighting.perKey=Dictionary(uniqueKeysWithValues:model.definition.keys.filter { $0.ledIndex != nil }.map { ($0.id,"000000") }) }
-                }.controlSize(.large).frame(width:120)
             }
             HStack {
                 LButton("Colora selezione") { model.paintSelectedKeys() }.buttonStyle(StudioButton(primary:true)).disabled(model.selectedKeys.isEmpty).accessibilityRepresentation { LButton("Colora selezione") { model.paintSelectedKeys() }.disabled(model.selectedKeys.isEmpty) }
@@ -191,18 +186,17 @@ struct LightingWorkspaceView:View {
                 }.frame(maxWidth:.infinity,alignment:.leading)
                 VStack(alignment:.leading,spacing:6) {
                     LText("Colore HEX").font(.system(size:11)).foregroundColor(Studio.muted)
-                    LTextField("HEX",text:$model.workspace.lighting.mix[model.selectedMixLayer].sequence[index].hex)
-                        .textFieldStyle(.roundedBorder).font(.system(size:12,design:.monospaced)).localizedAccessibilityLabel("Colore HEX del passaggio")
-                }.frame(width:90)
+                    HexColorField(hex:$model.workspace.lighting.mix[model.selectedMixLayer].sequence[index].hex,accessibilityLabel:"Colore HEX del passaggio")
+                }.frame(width:128)
                 VStack(alignment:.leading,spacing:6) {
                     LText("Velocità").font(.system(size:11)).foregroundColor(Studio.muted)
-                    LTextField("Velocità",value:$model.workspace.lighting.mix[model.selectedMixLayer].sequence[index].speed,format:.number)
+                    BoundedIntField(title:"Velocità",value:$model.workspace.lighting.mix[model.selectedMixLayer].sequence[index].speed,range:0...255)
                         .textFieldStyle(.roundedBorder).localizedAccessibilityLabel("Velocità del passaggio, da 0 a 255").localizedHelp("Velocità: 0–255")
                 }.frame(width:72)
                 VStack(alignment:.leading,spacing:6) {
                     LText("Durata · ms").font(.system(size:11)).foregroundColor(Studio.muted)
-                    LTextField("Durata",value:$model.workspace.lighting.mix[model.selectedMixLayer].sequence[index].durationMilliseconds,format:.number)
-                        .textFieldStyle(.roundedBorder).localizedAccessibilityLabel("Durata in millisecondi")
+                    BoundedIntField(title:"Durata",value:$model.workspace.lighting.mix[model.selectedMixLayer].sequence[index].durationMilliseconds,range:0...3_600_000)
+                        .textFieldStyle(.roundedBorder).localizedAccessibilityLabel("Durata in millisecondi, da 0 a 3600000").localizedHelp("Durata: 0–3600000 ms")
                 }.frame(width:94)
             }.controlSize(.large)
         }.padding(14).background(Color.white.opacity(0.035)).clipShape(RoundedRectangle(cornerRadius:10))
@@ -218,7 +212,7 @@ struct LightingWorkspaceView:View {
             }
             }
             Divider()
-            HStack { LText("Colore HEX");LTextField("57D9C1",text:$model.workspace.lighting.indicatorHex).textFieldStyle(.roundedBorder).controlSize(.large).font(.system(size:13,design:.monospaced)).frame(width:120); LButton("Usa colore attuale") { model.workspace.lighting.indicatorHex=model.hex }.buttonStyle(StudioButton()) }
+            HStack(alignment:.top) { LText("Colore HEX").frame(height:28);HexColorField(hex:$model.workspace.lighting.indicatorHex,accessibilityLabel:"Colore HEX degli indicatori").controlSize(.large).frame(width:150); LButton("Usa colore attuale") { model.workspace.lighting.indicatorHex=model.hex }.buttonStyle(StudioButton()) }
             LText("Sono disponibili solo gli indicatori supportati dal firmware letto.").font(.system(size:12)).foregroundColor(Studio.muted).lineSpacing(3)
         }
     }
@@ -307,5 +301,60 @@ struct ColorInspectorView:View {
                 model.saturation=max(0,min(1,event.location.x/g.size.width));model.value=max(0,min(1,1-event.location.y/g.size.height));model.colorChanged()
             })
         }.accessibilityHidden(true)
+    }
+}
+
+/// HEX text and a system color picker (no opacity) bound to the same value.
+/// Invalid text is marked immediately; the stored draft keeps what was typed.
+struct HexColorField: View {
+    @Binding var hex: String
+    let accessibilityLabel: String
+    private var valid: Bool { KeyboardWorkspace.validHex(hex) }
+    private static let invalid = Color(hex:0xFF8A7A)
+    var body: some View {
+        VStack(alignment:.leading,spacing:4) {
+            HStack(spacing:6) {
+                LTextField("HEX",text:Binding(get:{ hex },set:{ hex=BoundedInput.hex($0) }))
+                    .textFieldStyle(.roundedBorder).font(.system(size:12,design:.monospaced))
+                    .overlay(RoundedRectangle(cornerRadius:6).strokeBorder(valid ? Color.clear : Self.invalid,lineWidth:1.5))
+                    .localizedAccessibilityLabel(accessibilityLabel)
+                ColorPicker(selection:Binding(get:{ Color(hex:UInt32(hex,radix:16).flatMap { valid ? $0 : nil } ?? 0x57D9C1) },set:{ color in
+                    guard let c=NSColor(color).usingColorSpace(.sRGB) else { return }
+                    hex=String(format:"%02X%02X%02X",Int((c.redComponent*255).rounded()),Int((c.greenComponent*255).rounded()),Int((c.blueComponent*255).rounded()))
+                }),supportsOpacity:false) { LText("Selettore colore") }.labelsHidden()
+            }
+            if !valid {
+                LText("Usa 6 caratteri: 0–9 e A–F.").font(.system(size:11)).foregroundColor(Self.invalid).fixedSize(horizontal:false,vertical:true)
+            }
+        }
+    }
+}
+
+/// Whole-number entry with limits applied while typing: digits only, never above
+/// the maximum; the minimum is applied when editing ends so partial input is possible.
+struct BoundedIntField: View {
+    let title: String
+    @Binding var value: Int
+    let range: ClosedRange<Int>
+    @State private var text = ""
+    @FocusState private var focused: Bool
+    var body: some View {
+        LTextField(title,text:$text).focused($focused)
+            .onAppear { text=String(value) }
+            .onChange(of:text) { typed in
+                let result=BoundedInput.typing(typed,range:range)
+                if result.text != typed { text=result.text }
+                if let number=result.value, number != value { value=number }
+            }
+            .onChange(of:value) { current in
+                // Undo, a preset or another control changed the draft.
+                if BoundedInput.typing(text,range:range).value != current { text=String(current) }
+            }
+            .onChange(of:focused) { editing in
+                guard !editing else { return }
+                let kept=BoundedInput.committed(text,range:range,previous:value)
+                if kept != value { value=kept }
+                text=String(kept)
+            }
     }
 }

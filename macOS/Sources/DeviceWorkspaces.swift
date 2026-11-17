@@ -132,13 +132,13 @@ struct AdvancedWorkspaceView: View {
                     PanelTitle(title: "Personalizza i tempi", subtitle: "Le modifiche restano nella bozza finché non le applichi via USB.")
                     StudioAdaptiveStack(breakpoint:600,spacing:10) {
                         LLabel("Sospensione radio", systemImage: "moon.zzz").frame(maxWidth:.infinity, alignment: .leading)
-                        LTextField("Minuti di sospensione", value: $model.workspace.advanced.sleepMinutes, format: .number).textFieldStyle(.plain).padding(9).background(Studio.rail).clipShape(RoundedRectangle(cornerRadius: 6)).frame(width: 90)
+                        BoundedIntField(title: "Minuti di sospensione", value: $model.workspace.advanced.sleepMinutes, range: 1...1092).textFieldStyle(.plain).padding(9).background(Studio.rail).clipShape(RoundedRectangle(cornerRadius: 6)).frame(width: 90)
                         LText("minuti · da 1 a 1092").font(.system(size: 12)).foregroundColor(Studio.muted)
                         Spacer()
                     }
                     StudioAdaptiveStack(breakpoint:600,spacing:10) {
                         LLabel("Spegnimento delle luci", systemImage: "sun.max").frame(maxWidth:.infinity, alignment: .leading)
-                        LTextField("Secondi retroilluminazione", value: $model.workspace.advanced.backlightSeconds, format: .number).textFieldStyle(.plain).padding(9).background(Studio.rail).clipShape(RoundedRectangle(cornerRadius: 6)).frame(width: 90)
+                        BoundedIntField(title: "Secondi retroilluminazione", value: $model.workspace.advanced.backlightSeconds, range: 5...65535).textFieldStyle(.plain).padding(9).background(Studio.rail).clipShape(RoundedRectangle(cornerRadius: 6)).frame(width: 90)
                         LText("secondi · da 5 a 65535").font(.system(size: 12)).foregroundColor(Studio.muted)
                         Spacer()
                     }
