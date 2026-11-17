@@ -4942,5 +4942,69 @@
   "Seleziona un gruppo di tasti · ⇧ o ⌘ per aggiungerlo alla selezione": {
     "en": "Select a group of keys · ⇧ or ⌘ to add it to the selection",
     "fr": "Sélectionner un groupe de touches · ⇧ ou ⌘ pour l’ajouter à la sélection"
+  },
+  "Controlla aggiornamenti…": {
+    "en": "Check for Updates…",
+    "fr": "Rechercher les mises à jour…"
+  },
+  "È disponibile Keyglow {0}": {
+    "en": "Keyglow {0} is available",
+    "fr": "Keyglow {0} est disponible"
+  },
+  "Stai usando la versione {0}. La release è contrassegnata come anteprima. Keyglow non scarica né installa nulla: apri la pagina per leggere le note e scegliere.": {
+    "en": "You are using version {0}. The release is marked as a pre-release. Keyglow does not download or install anything: open the page to read the notes and decide.",
+    "fr": "Vous utilisez la version {0}. Cette version est marquée comme préversion. Keyglow ne télécharge ni n’installe rien : ouvrez la page pour lire les notes et décider."
+  },
+  "Stai usando la versione {0}. Keyglow non scarica né installa nulla: apri la pagina per leggere le note e scegliere.": {
+    "en": "You are using version {0}. Keyglow does not download or install anything: open the page to read the notes and decide.",
+    "fr": "Vous utilisez la version {0}. Keyglow ne télécharge ni n’installe rien : ouvrez la page pour lire les notes et décider."
+  },
+  "Keyglow è aggiornato": {
+    "en": "Keyglow is up to date",
+    "fr": "Keyglow est à jour"
+  },
+  "La versione {0} è la più recente fra le release pubblicate.": {
+    "en": "Version {0} is the most recent published release.",
+    "fr": "La version {0} est la plus récente des versions publiées."
+  },
+  "Nessuna release pubblicata": {
+    "en": "No published release",
+    "fr": "Aucune version publiée"
+  },
+  "Puoi controllare la pagina delle release del progetto.": {
+    "en": "You can check the project’s releases page.",
+    "fr": "Vous pouvez consulter la page des versions du projet."
+  },
+  "Controllo aggiornamenti non riuscito": {
+    "en": "Update check failed",
+    "fr": "Échec de la recherche de mises à jour"
+  },
+  "Verifica la connessione a Internet e riprova.": {
+    "en": "Check your Internet connection and try again.",
+    "fr": "Vérifiez votre connexion Internet et réessayez."
+  },
+  "GitHub ha risposto con il codice {0}. Riprova più tardi.": {
+    "en": "GitHub answered with code {0}. Try again later.",
+    "fr": "GitHub a répondu avec le code {0}. Réessayez plus tard."
+  },
+  "La risposta di GitHub non è nel formato previsto.": {
+    "en": "GitHub’s response is not in the expected format.",
+    "fr": "La réponse de GitHub n’est pas au format attendu."
+  },
+  "La versione di questa copia di Keyglow non è leggibile.": {
+    "en": "The version of this copy of Keyglow cannot be read.",
+    "fr": "La version de cette copie de Keyglow est illisible."
+  },
+  "Apri la pagina delle release": {
+    "en": "Open the Releases Page",
+    "fr": "Ouvrir la page des versions"
+  },
+  "Non ora": {
+    "en": "Not Now",
+    "fr": "Plus tard"
+  },
+  "OK": {
+    "en": "OK",
+    "fr": "OK"
   }
 }

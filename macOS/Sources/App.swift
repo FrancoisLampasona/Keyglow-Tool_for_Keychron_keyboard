@@ -391,6 +391,7 @@ import Combine
     private var sleepSubscription: AnyCancellable?
     private var languageSubscription: AnyCancellable?
     private var setupReady = false
+    private var checkingUpdates = false
     func applicationDidFinishLaunching(_ notification: Notification) {
         buildMenu()
         languageSubscription = NotificationCenter.default.publisher(for: AppLanguageStore.didChange).sink { [weak self] _ in
@@ -490,6 +491,8 @@ import Combine
         let menu = NSMenu(); let item = NSMenuItem(); menu.addItem(item)
         let app = NSMenu(); item.submenu = app
         app.addItem(withTitle: L10n.string("Informazioni su Keyglow"), action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
+        let updates = app.addItem(withTitle: L10n.string("Controlla aggiornamenti…"), action: #selector(checkForUpdates(_:)), keyEquivalent: "")
+        updates.target = self
         let setup = app.addItem(withTitle: L10n.string("Configura tastiera e accessi…"), action: #selector(showSetup(_:)), keyEquivalent: ",")
         setup.target = self
         app.addItem(.separator())
@@ -522,8 +525,57 @@ import Combine
         switch item.action {
         case #selector(undoEdit(_:)): return editingText.map { $0.undoManager?.canUndo == true } ?? (window.attachedSheet == nil && model.canUndoDraft)
         case #selector(redoEdit(_:)): return editingText.map { $0.undoManager?.canRedo == true } ?? (window.attachedSheet == nil && model.canRedoDraft)
+        case #selector(checkForUpdates(_:)): return !checkingUpdates
         default: return true
         }
+    }
+    /// Runs only from this menu command: one request to the public release list.
+    /// It never downloads or installs anything; the user opens the page if they wish.
+    @objc private func checkForUpdates(_ sender: Any?) {
+        guard !checkingUpdates else { return }
+        guard let current = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String else {
+            showUpdateResult(.failure(.currentVersion), current: ""); return
+        }
+        checkingUpdates = true
+        Task { @MainActor [weak self] in
+            let result = await UpdateCheck.check(current: current)
+            guard let self else { return }
+            self.checkingUpdates = false
+            self.showUpdateResult(result, current: current)
+        }
+    }
+    private func showUpdateResult(_ result: Result<UpdateCheck.Outcome, UpdateCheck.Failure>, current: String) {
+        let alert = NSAlert()
+        var page: URL?
+        switch result {
+        case .success(.available(let release)):
+            alert.messageText = L10n.format("È disponibile Keyglow {0}", [release.tag])
+            alert.informativeText = L10n.format(release.prerelease
+                ? "Stai usando la versione {0}. La release è contrassegnata come anteprima. Keyglow non scarica né installa nulla: apri la pagina per leggere le note e scegliere."
+                : "Stai usando la versione {0}. Keyglow non scarica né installa nulla: apri la pagina per leggere le note e scegliere.", [current])
+            page = release.page
+        case .success(.upToDate):
+            alert.messageText = L10n.string("Keyglow è aggiornato")
+            alert.informativeText = L10n.format("La versione {0} è la più recente fra le release pubblicate.", [current])
+        case .success(.noRelease):
+            alert.messageText = L10n.string("Nessuna release pubblicata")
+            alert.informativeText = L10n.string("Puoi controllare la pagina delle release del progetto.")
+            page = UpdateCheck.releasesPage
+        case .failure(let failure):
+            alert.messageText = L10n.string("Controllo aggiornamenti non riuscito")
+            switch failure {
+            case .network(let reason): alert.informativeText = L10n.string("Verifica la connessione a Internet e riprova.") + "\n" + reason
+            case .status(let code): alert.informativeText = L10n.format("GitHub ha risposto con il codice {0}. Riprova più tardi.", [String(code)])
+            case .malformed: alert.informativeText = L10n.string("La risposta di GitHub non è nel formato previsto.")
+            case .currentVersion: alert.informativeText = L10n.string("La versione di questa copia di Keyglow non è leggibile.")
+            }
+            page = UpdateCheck.releasesPage
+        }
+        if page != nil {
+            alert.addButton(withTitle: L10n.string("Apri la pagina delle release"))
+            alert.addButton(withTitle: L10n.string("Non ora"))
+        } else { alert.addButton(withTitle: L10n.string("OK")) }
+        if alert.runModal() == .alertFirstButtonReturn, let page { NSWorkspace.shared.open(page) }
     }
     @objc private func compactWindow(_ sender:Any?) { resizeWindow(to:NSSize(width:900,height:640)) }
     @objc private func comfortableWindow(_ sender:Any?) { resizeWindow(to:NSSize(width:1400,height:900)) }
