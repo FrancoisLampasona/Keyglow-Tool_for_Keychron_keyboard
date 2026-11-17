@@ -89,7 +89,7 @@ RGB sends do not have a device acknowledgement: macOS accepting the reports is d
 
 The editor keeps a local draft until you apply it. Profiles separate personal configurations, automatic recovery copies and a restorable trash. Loading a profile does not silently send RGB commands. The sidebar supports full-row clicks and ⌘1–9 shortcuts; the window adapts down to 900 × 640.
 
-The app does not run a background keystroke recorder. Macro recording and the key test are explicit foreground actions. Quick Launch registers only shortcuts you choose. There is no analytics service, account or cloud profile sync. Owner keys, macros, profiles and device backups must not be attached to public issues.
+The app does not run a background keystroke recorder. Macro recording and the key test are explicit foreground actions. Quick Launch registers only shortcuts you choose. There is no analytics service, account or cloud profile sync. The only network request is the optional **Check for Updates…** menu command, which reads this repository's public release list from GitHub when you choose it and never downloads or installs anything. Owner keys, macros, profiles and device backups must not be attached to public issues.
 
 ## Build and contribute
 

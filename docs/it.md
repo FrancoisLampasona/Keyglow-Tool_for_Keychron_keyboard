@@ -20,7 +20,7 @@ Sposta l'intera **Keyglow.app** in Applicazioni o nella cartella che preferisci.
 Al primo avvio una procedura in quattro passi verifica **Tastiera → Accessi → Firmware → Riepilogo**:
 
 1. Collega la tastiera. Keyglow legge il modello e la variante; questa versione supporta **Q6 Max ISO con manopola**, rappresentata con legende italiane. Non propone il firmware ISO per ANSI o altri modelli. Con più tastiere devi scegliere; senza tastiera puoi esplorare la bozza.
-2. Per comunicare tramite HID serve **Monitoraggio input**. La richiesta parte nella pagina Accessi soltanto se manca il permesso. Abilita Keyglow in Impostazioni di Sistema → Privacy e sicurezza; al ritorno lo stato viene ricontrollato. Se è già consentito non occorre autorizzarlo di nuovo.
+2. Per comunicare tramite HID serve **Monitoraggio input**. La richiesta parte nella pagina Accessi soltanto se manca il permesso. Abilita Keyglow in Impostazioni di Sistema → Privacy e sicurezza. macOS applica il permesso solo alle app avviate dopo averlo concesso: usa **Esci e riapri Keyglow** e la guida riprende dal passo Accessi. Se usi solo il cavo puoi scegliere **Continua senza accesso**: gli RGB via Bluetooth restano non disponibili. Se è già consentito non occorre autorizzarlo di nuovo.
 3. Il firmware originale non riceve RGB da Keyglow via Bluetooth. Scegli se preparare il firmware personalizzato, dichiarare quello già installato o usare per ora USB. La dichiarazione non equivale a una lettura del firmware.
 4. Il riepilogo apre la destinazione corretta. **La prima installazione avviene nella pagina Firmware dell’app**, con backup, autorizzazione della chiave prima che la tastiera smetta di scrivere, istruzioni DFU, riepilogo da confermare, scrittura e verifica, riavvio e ripristino del profilo. Serve USB per questa prima volta. L’apertura di una pagina non installa nulla.
 
@@ -64,7 +64,7 @@ Verde con effetto Respiro è stato verificato su una Q6 Max ISO reale, senza USB
 
 Collega USB e seleziona Cable. Usa **Leggi tastiera**, modifica la bozza, salva un profilo e applica. L'app controlla eventuali conflitti e rilegge il risultato. Mappa, macro, RGB per tasto, Mix e impostazioni avanzate usano ancora USB.
 
-Keyglow non richiede un account e non invia telemetria. La registrazione delle macro e il test tasti sono azioni esplicite in primo piano. Avvio rapido registra solo le scorciatoie selezionate e richiede l'app aperta. I profili possono contenere dati personali: non pubblicarli nelle segnalazioni GitHub.
+Keyglow non richiede un account e non invia telemetria. L'unica richiesta di rete è il comando **Keyglow → Controlla aggiornamenti…**: solo quando lo scegli, l'app legge l'elenco pubblico delle release del progetto su GitHub, senza inviare dati personali e senza scaricare o installare nulla. La registrazione delle macro e il test tasti sono azioni esplicite in primo piano. Avvio rapido registra solo le scorciatoie selezionate e richiede l'app aperta. I profili possono contenere dati personali: non pubblicarli nelle segnalazioni GitHub.
 
 Il preset **Reattiva** riduce la sospensione lato tastiera con salvaguardie per la batteria. Latenza e consumi non sono ancora misurati; non garantisce la connessione immediata mentre il Mac si avvia o si risveglia.
 

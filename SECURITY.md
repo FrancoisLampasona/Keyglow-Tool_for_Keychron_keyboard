@@ -1,6 +1,6 @@
 # Security and privacy
 
-Keyglow is a local macOS keyboard utility. It has no account service, telemetry, or cloud profile storage. Profiles and backups can contain personal macros; treat them as private files even when exported as JSON.
+Keyglow is a local macOS keyboard utility. It has no account service, telemetry, or cloud profile storage. Its only network request is **Keyglow → Check for Updates…**: when you choose that command, the app reads the public release list of this repository from `api.github.com`. The request carries no account, device, profile or usage data, nothing runs in the background, and nothing is downloaded or installed. Profiles and backups can contain personal macros; treat them as private files even when exported as JSON.
 
 The Bluetooth RGB protocol is experimental. It uses normal HID output indicators, a frame checksum, and device-side validation. A checksum detects corruption; it does not authenticate a sender or turn the channel into a secure firmware update transport. The current firmware has no supported Bluetooth update path.
 
