@@ -148,7 +148,28 @@ do {
     try require(ProfileLibrary.updating([trashedTarget], id: target.id, with: edited, at: stamp) == nil, "A trashed profile is not overwritten")
     var recoveryTarget = target; recoveryTarget.recoveryReason = " · recupero"
     try require(ProfileLibrary.updatableIndex(target.id, in: [recoveryTarget]) == nil, "Recovery copies are not update targets")
-    print("Workspace: ISO matrix/LED mapping, lossless JSON roundtrip, opaque macro preservation and malformed profile guards, recovery-copy, pruning, trash and update rules passed. No hardware or preferences access.")
+
+    // Bounded entry: limits while typing and when editing ends.
+    func typed(_ raw: String, _ range: ClosedRange<Int>) -> String { let r = BoundedInput.typing(raw, range: range); return "\(r.text)|\(r.value.map(String.init) ?? "nil")" }
+    try require(typed("128", 0...255) == "128|128" && typed("0", 0...255) == "0|0", "Values inside the range pass unchanged")
+    try require(typed("256", 0...255) == "255|255" && typed("99999999999999999999999", 0...255) == "255|255", "Typing above the maximum stops at the maximum, even past Int range")
+    try require(typed("3600001", 0...3_600_000) == "3600000|3600000" && typed("3600000", 0...3_600_000) == "3600000|3600000", "Mix duration is capped at one hour")
+    try require(typed("", 5...65535) == "|nil" && typed("1", 5...65535) == "1|nil" && typed("12", 5...65535) == "12|12", "Partial input below the minimum is allowed but not stored")
+    try require(typed("1a2-3 ", 0...255) == "123|123" && typed("-5", 1...1092) == "5|5" && typed("1,5", 1...1092) == "15|15" && typed("007", 0...255) == "7|7", "Only digits are kept")
+    try require(typed("1093", 1...1092) == "1092|1092" && typed("0", 1...1092) == "0|nil", "Sleep minutes stay within 1…1092")
+    try require(BoundedInput.committed("0", range: 1...1092, previous: 10) == 1 && BoundedInput.committed("3", range: 5...65535, previous: 300) == 5, "Ending the edit applies the minimum")
+    try require(BoundedInput.committed("", range: 5...65535, previous: 300) == 300 && BoundedInput.committed("abc", range: 0...255, previous: 999) == 255, "Empty text keeps the previous value, itself within the limits")
+    try require(BoundedInput.committed("70000", range: 5...65535, previous: 300) == 65535 && BoundedInput.committed("999999999999999999999", range: 0...255, previous: 1) == 255, "Ending the edit applies the maximum")
+    for value in [0, 1, 5, 255, 1092, 65535, 3_600_000] {
+        for range in [0...255, 1...1092, 5...65535, 0...3_600_000] {
+            let live = BoundedInput.typing(String(value), range: range).value, final = BoundedInput.committed(String(value), range: range, previous: range.lowerBound)
+            try require(range.contains(final) && (live == nil || range.contains(live!)), "No path stores a value outside its range")
+        }
+    }
+    try require(BoundedInput.hex("#57d9c1") == "57D9C1" && BoundedInput.hex(" ff b6 5b ") == "FFB65B" && BoundedInput.hex("57D9C1FF") == "57D9C1", "HEX entry drops #, spaces and extra digits")
+    try require(BoundedInput.hex("red") == "ED" && !KeyboardWorkspace.validHex(BoundedInput.hex("red")) && BoundedInput.hex("１２３") == "", "Incomplete HEX stays visibly invalid; non-ASCII digits are dropped")
+    try require(KeyboardWorkspace.validHex(BoundedInput.hex("#000000")), "A complete HEX entry is valid")
+    print("Workspace: ISO matrix/LED mapping, lossless JSON roundtrip, opaque macro preservation and malformed profile guards, recovery-copy, pruning, trash, update and bounded-entry rules passed. No hardware or preferences access.")
 } catch {
     fputs("Workspace test failure: \(error)\n", stderr)
     exit(1)

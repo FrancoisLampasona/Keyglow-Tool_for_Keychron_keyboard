@@ -108,6 +108,33 @@ extension KeyboardWorkspace {
     }
 }
 
+/// Text entry rules for bounded whole numbers and HEX colors. Pure functions:
+/// the fields apply them while typing and when editing ends.
+enum BoundedInput {
+    /// Digits only, never above the upper bound. `value` is nil while the text is
+    /// empty or still below the lower bound, so "1" can become "12" in 5…65535.
+    static func typing(_ raw: String, range: ClosedRange<Int>) -> (text: String, value: Int?) {
+        let digits = String(raw.filter { $0.isASCII && $0.isNumber })
+        guard !digits.isEmpty else { return ("", nil) }
+        // More digits than any bound can have also guards against Int overflow.
+        guard digits.count <= 18, let number = Int(digits), number <= range.upperBound else {
+            return (String(range.upperBound), range.upperBound)
+        }
+        return (String(number), number >= range.lowerBound ? number : nil)
+    }
+    /// The value kept when editing ends: clamped, or the previous one for empty text.
+    static func committed(_ raw: String, range: ClosedRange<Int>, previous: Int) -> Int {
+        let digits = raw.filter { $0.isASCII && $0.isNumber }
+        guard !digits.isEmpty else { return min(max(previous, range.lowerBound), range.upperBound) }
+        guard digits.count <= 18, let number = Int(String(digits)) else { return range.upperBound }
+        return min(max(number, range.lowerBound), range.upperBound)
+    }
+    /// Uppercase hexadecimal digits, without "#" or spaces, at most six.
+    static func hex(_ raw: String) -> String {
+        String(raw.uppercased().filter { $0.isASCII && $0.isHexDigit }.prefix(6))
+    }
+}
+
 /// Rules for the saved-profile list. Pure values: no preferences, files or UI.
 enum ProfileLibrary {
     static let recoveryLimit = 20
