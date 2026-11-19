@@ -17,7 +17,7 @@ bundle="$stage/Keyglow.app"
 mkdir -p "$bundle/Contents/MacOS" "$bundle/Contents/Resources"
 xcrun swiftc -swift-version 6 -O -module-cache-path "$project/build/swift-cache" \
   -target "${TARGET_ARCH:-arm64}-apple-macos13.0" \
-  -framework AppKit -framework SwiftUI -framework IOKit -framework Carbon -framework CryptoKit -framework CoreBluetooth -framework Security -framework LocalAuthentication \
+  -framework AppKit -framework SwiftUI -framework IOKit -framework Carbon -framework CryptoKit -framework CoreBluetooth -framework Security -framework LocalAuthentication -framework ServiceManagement -framework UserNotifications \
   macOS/Sources/*.swift -o "$bundle/Contents/MacOS/Keyglow"
 cp macOS/Assets/Keyglow.icns "$bundle/Contents/Resources/"
 cp macOS/Assets/TastieraIcon.png "$bundle/Contents/Resources/"

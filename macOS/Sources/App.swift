@@ -5,6 +5,7 @@ import Combine
 @MainActor final class StudioModel: ObservableObject {
     @Published var section = 0 { didSet { flushWorkspaceSave(); refreshLiveRGBContext(); batteryMonitor.reconcile() } }
     let batteryMonitor = KeyboardStatusMonitor()
+    let settings = AppSettingsModel()
     @Published var workspace = KeyboardWorkspace() { didSet {
         if !loadingWorkspace {
             if !restoringHistory { draftHistory.record(previous: oldValue, current: workspace, now: ProcessInfo.processInfo.systemUptime) }
@@ -114,6 +115,7 @@ import Combine
             return BatteryRefreshContext(connected:self.available && self.selectedUSBID == nil,
                 paused:self.busy || self.section == 7, deviceID:self.deviceID, usbConnected:self.selectedUSBID != nil)
         }, refreshConnection: { [weak self] in self?.refreshConnectionMetadata() })
+        settings.attach(to: batteryMonitor)
     }
     var nsColor: NSColor {
         let sector = (hue * 6).truncatingRemainder(dividingBy: 6)

@@ -5006,5 +5006,65 @@
   "OK": {
     "en": "OK",
     "fr": "OK"
+  },
+  "Impostazioni dell’app": {
+    "en": "App Settings",
+    "fr": "Réglages de l’app"
+  },
+  "Avvisa quando la batteria è scarica": {
+    "en": "Notify when the battery is low",
+    "fr": "M’avertir quand la batterie est faible"
+  },
+  "Una notifica sotto il 20% e una sotto il 10%, solo con una lettura Bluetooth recente e con Keyglow aperta. macOS chiede il consenso alle notifiche quando attivi l’opzione.": {
+    "en": "One notification below 20% and one below 10%, only with a recent Bluetooth reading and while Keyglow is open. macOS asks for notification permission when you turn the option on.",
+    "fr": "Une notification sous 20 % et une sous 10 %, uniquement avec une lecture Bluetooth récente et lorsque Keyglow est ouvert. macOS demande l’autorisation des notifications lorsque vous activez l’option."
+  },
+  "Apri Keyglow al login": {
+    "en": "Open Keyglow at Login",
+    "fr": "Ouvrir Keyglow à l’ouverture de session"
+  },
+  "Lo stato è quello registrato in macOS. Puoi cambiarlo anche da Impostazioni di Sistema → Generali → Elementi login.": {
+    "en": "The state shown is the one registered in macOS. You can also change it in System Settings → General → Login Items.",
+    "fr": "L’état affiché est celui enregistré dans macOS. Vous pouvez aussi le modifier dans Réglages Système → Général → Ouverture."
+  },
+  "Approva Keyglow in Impostazioni di Sistema → Generali → Elementi login.": {
+    "en": "Approve Keyglow in System Settings → General → Login Items.",
+    "fr": "Approuvez Keyglow dans Réglages Système → Général → Ouverture."
+  },
+  "Le notifiche di Keyglow sono disattivate in Impostazioni di Sistema → Notifiche.": {
+    "en": "Keyglow notifications are turned off in System Settings → Notifications.",
+    "fr": "Les notifications de Keyglow sont désactivées dans Réglages Système → Notifications."
+  },
+  "Le notifiche richiedono l’app Keyglow installata come applicazione.": {
+    "en": "Notifications require Keyglow installed as an application.",
+    "fr": "Les notifications nécessitent Keyglow installé comme application."
+  },
+  "Consenti le notifiche a Keyglow in Impostazioni di Sistema → Notifiche, poi riattiva l’avviso.": {
+    "en": "Allow notifications for Keyglow in System Settings → Notifications, then turn the notice on again.",
+    "fr": "Autorisez les notifications pour Keyglow dans Réglages Système → Notifications, puis réactivez l’alerte."
+  },
+  "Batteria della Q6 Max al {0}%": {
+    "en": "Q6 Max battery at {0}%",
+    "fr": "Batterie de la Q6 Max à {0} %"
+  },
+  "Sotto il 10%: collega il cavo per ricaricarla.": {
+    "en": "Below 10%: connect the cable to charge it.",
+    "fr": "Sous 10 % : branchez le câble pour la recharger."
+  },
+  "Sotto il 20%: collega il cavo quando puoi.": {
+    "en": "Below 20%: connect the cable when you can.",
+    "fr": "Sous 20 % : branchez le câble dès que possible."
+  },
+  "macOS non ha registrato Keyglow per l’avvio al login ({0}). Sposta Keyglow nella cartella Applicazioni, verifica che la firma sia valida e riprova.": {
+    "en": "macOS did not register Keyglow to open at login ({0}). Move Keyglow to the Applications folder, check that its signature is valid and try again.",
+    "fr": "macOS n’a pas enregistré Keyglow pour l’ouverture de session ({0}). Déplacez Keyglow dans le dossier Applications, vérifiez que sa signature est valide et réessayez."
+  },
+  "macOS non ha rimosso Keyglow dall’avvio al login ({0}). Puoi farlo da Impostazioni di Sistema → Generali → Elementi login.": {
+    "en": "macOS did not remove Keyglow from the login items ({0}). You can do it in System Settings → General → Login Items.",
+    "fr": "macOS n’a pas retiré Keyglow des éléments d’ouverture ({0}). Vous pouvez le faire dans Réglages Système → Général → Ouverture."
+  },
+  "Avvisi e avvio. Ogni opzione resta spenta finché non la attivi.": {
+    "en": "Notices and launch. Every option stays off until you turn it on.",
+    "fr": "Alertes et ouverture. Chaque option reste désactivée tant que vous ne l’activez pas."
   }
 }

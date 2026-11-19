@@ -265,6 +265,7 @@ struct ConnectionWorkspaceView: View {
                     }
                     LText("Il ricevitore 2,4 GHz non è ancora gestito da Keyglow.").font(.system(size:12)).foregroundColor(Studio.muted)
                 }
+                AppSettingsPanel(settings:model.settings)
             }.studioPage()
         }.onAppear {showSetup = !model.directBluetooth}
             .onChange(of:model.selectedUSBID) {_ in model.usbSnapshot=nil;model.baselineWorkspace=nil;model.cableModeConfirmed=false}
