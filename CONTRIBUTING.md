@@ -26,6 +26,7 @@ sh macOS/Tests/FirmwareUpdate/run.sh
 sh macOS/Tests/LiveRGB/run.sh
 sh macOS/Tests/DraftHistory/run.sh
 sh macOS/Tests/UpdateCheck/run.sh
+sh macOS/Tests/BatteryAlert/run.sh
 zsh scripts/build-app.sh
 ```
 
