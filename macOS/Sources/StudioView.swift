@@ -27,8 +27,6 @@ struct StudioView:View {
     @ObservedObject var model:StudioModel
     @StateObject private var firmwareUpdater = FirmwareUpdateModel()
     @StateObject private var firstInstaller = FirstInstallModel()
-    private let names=["Illuminazione","Mappa dei tasti","Macro","Test tastiera","Profili","Energia","Connessione","Firmware","Avvio rapido"]
-    private let symbols=["sun.max","keyboard","command","checkmark.circle","square.stack","battery.75percent","antenna.radiowaves.left.and.right","cpu","bolt"]
     var body:some View {
         GeometryReader { geometry in
         let railWidth: CGFloat = geometry.size.width < 1100 ? 180 : 208
@@ -39,21 +37,21 @@ struct StudioView:View {
                 Divider()
                 Group {
                     switch model.section {
-                    case 0: LightingWorkspaceView(model:model)
-                    case 1: KeymapWorkspaceView(model:model)
-                    case 2: MacroWorkspaceView(model:model)
-                    case 3: TestWorkspaceView(model:model)
-                    case 4: ProfilesWorkspaceView(model:model)
-                    case 5: AdvancedWorkspaceView(model:model)
-                    case 6: ConnectionWorkspaceView(model:model)
-                    case 7: FirmwareWorkspaceView(model:model, updater:firmwareUpdater,installer:firstInstaller)
-                    default: QuickLaunchView()
+                    case .lighting: LightingWorkspaceView(model:model)
+                    case .keymap: KeymapWorkspaceView(model:model)
+                    case .macros: MacroWorkspaceView(model:model)
+                    case .keyTest: TestWorkspaceView(model:model)
+                    case .profiles: ProfilesWorkspaceView(model:model)
+                    case .energy: AdvancedWorkspaceView(model:model)
+                    case .connection: ConnectionWorkspaceView(model:model)
+                    case .firmware: FirmwareWorkspaceView(model:model, updater:firmwareUpdater,installer:firstInstaller)
+                    case .quickLaunch: QuickLaunchView()
                     }
                 // Firmware keeps Interrompi available; lighting may queue the
                 // latest preview while an earlier RGB command finishes.
                 }.frame(maxWidth:.infinity,maxHeight:.infinity,alignment:.topLeading)
-                    .disabled(model.busy && model.section != 7 && !(model.section == 0 && model.transmitting))
-                if [0,1,2,5].contains(model.section) { footer }
+                    .disabled(model.busy && model.section != .firmware && !(model.section == .lighting && model.transmitting))
+                if model.section == .lighting || model.section.editsDraft { footer }
             }
         }.environment(\.studioContentWidth, max(0, geometry.size.width - railWidth))
         }.background(Studio.background).foregroundColor(Studio.text).font(.system(size:13)).tint(Studio.accent).environment(\.locale, language.language.locale).ignoresSafeArea()
@@ -67,18 +65,19 @@ struct StudioView:View {
             }.padding(.bottom,compact ? 16:24)
             ScrollView(.vertical) {
                 VStack(spacing:4) {
-                    ForEach(names.indices,id:\.self) { index in
-                        if index == 3 || index == 6 { Divider().padding(.vertical,8) }
-                        Button { model.section=index } label: {
-                            LLabel(names[index], systemImage:symbols[index])
+                    ForEach(StudioSection.allCases) { section in
+                        let index=section.rawValue
+                        if section == .keyTest || section == .connection { Divider().padding(.vertical,8) }
+                        Button { model.section=section } label: {
+                            LLabel(section.title, systemImage:section.symbol)
                                 .labelStyle(StudioNavigationLabel())
                                 .frame(maxWidth:.infinity, minHeight:40, alignment:.leading)
                                 .padding(.horizontal,10).contentShape(Rectangle())
-                        }.buttonStyle(StudioNavigationButton(selected:model.section == index))
+                        }.buttonStyle(StudioNavigationButton(selected:model.section == section))
                             .keyboardShortcut(KeyEquivalent(Character(String(index + 1))), modifiers:.command)
-                            .localizedHelp("\(names[index]) · ⌘\(index + 1)")
-                            .localizedAccessibilityLabel(names[index])
-                            .accessibilityAddTraits(model.section == index ? .isSelected:[])
+                            .localizedHelp("\(section.title) · ⌘\(index + 1)")
+                            .localizedAccessibilityLabel(section.title)
+                            .accessibilityAddTraits(model.section == section ? .isSelected:[])
                     }
                 }
             }.scrollIndicators(.hidden)
@@ -101,14 +100,14 @@ struct StudioView:View {
                 pageStatus
             }
             VStack(alignment: .leading, spacing: 12) { pageHeading; pageStatus }
-        }.frame(maxWidth: model.section >= 4 ? 1120 : .infinity, alignment: .leading)
+        }.frame(maxWidth: model.section.usesReadingWidth ? 1120 : .infinity, alignment: .leading)
             .padding(.horizontal,28).padding(.top,36).padding(.bottom,18)
             .frame(maxWidth:.infinity,alignment:.center)
     }
     private var pageHeading: some View {
         VStack(alignment:.leading,spacing:6) {
-            LText(names[model.section]).font(.system(size:28,weight:.semibold)).tracking(-0.4)
-            LText(model.section==0 ? "La tua Q6 Max, nella sua luce." : model.section==1 ? "Ogni tasto, ogni livello. Il layout della tua ISO italiana." : model.section==2 ? "Sequenze precise, pronte da assegnare a un tasto." : model.section==3 ? "Verifica i tasti ricevuti in questa finestra." : model.section==4 ? "Le tue configurazioni, conservate sul Mac." : model.section==5 ? "Prontezza, autonomia e spegnimento delle luci." : model.section==6 ? "Dispositivo, accesso e collegamenti." : model.section==7 ? "Firmware, verifiche e aggiornamenti." : "Apri app e siti con una scorciatoia dedicata.")
+            LText(model.section.title).font(.system(size:28,weight:.semibold)).tracking(-0.4)
+            LText(model.section.subtitle)
                 .font(.system(size:13)).foregroundColor(Studio.muted).fixedSize(horizontal:false,vertical:true)
         }
     }
@@ -116,22 +115,22 @@ struct StudioView:View {
         VStack(alignment:.trailing,spacing:5) {
             LLabel(statusTitle, systemImage: statusSymbol)
                 .font(.system(size:12,weight:.medium)).foregroundColor(Studio.muted)
-            if model.section == 0, let sent=model.lastBluetoothSend {
+            if model.section == .lighting, let sent=model.lastBluetoothSend {
                 LText("Ultimo invio · \(L10n.date(sent))")
                     .font(.system(size:11)).foregroundColor(Studio.muted)
             }
         }.fixedSize(horizontal:true,vertical:false)
     }
     private var statusTitle: String {
-        if [3,4,8].contains(model.section) { return "Sul tuo Mac" }
+        if model.section.isLocal { return "Sul tuo Mac" }
         if model.selectedUSBID != nil { return model.usbSnapshot == nil ? "USB rilevata" : "USB · configurazione letta" }
-        if [1,2,5].contains(model.section) { return "Bozza · applicazione via USB" }
+        if model.section.editsDraft { return "Bozza · applicazione via USB" }
         return model.available ? (model.accessVerified ? "Bluetooth · accesso pronto" : "Bluetooth · verifica accesso") : "Nessuna tastiera collegata"
     }
     private var statusSymbol: String {
-        if [3,4,8].contains(model.section) { return "desktopcomputer" }
+        if model.section.isLocal { return "desktopcomputer" }
         if model.selectedUSBID != nil { return "cable.connector" }
-        return [1,2,5].contains(model.section) ? "pencil" : "antenna.radiowaves.left.and.right"
+        return model.section.editsDraft ? "pencil" : "antenna.radiowaves.left.and.right"
     }
     private var footer: some View {
         VStack(spacing:0) {
@@ -146,33 +145,33 @@ struct StudioView:View {
     }
     private var footerStatus: some View {
         VStack(alignment:.leading,spacing:5) {
-            LText(model.busy ? "Operazione in corso…" : model.usbReady ? (model.hasLocalChanges ? "Bozza pronta da applicare via USB" : "Configurazione USB aggiornata") : (model.available && model.section == 0 && model.lightingTab == 0) ? "RGB via Bluetooth" : model.section == 8 ? "Scorciatoie sul Mac" : "Il progetto è salvato sul Mac")
+            LText(model.busy ? "Operazione in corso…" : model.usbReady ? (model.hasLocalChanges ? "Bozza pronta da applicare via USB" : "Configurazione USB aggiornata") : (model.available && model.section == .lighting && model.lightingTab == 0) ? "RGB via Bluetooth" : model.section == .quickLaunch ? "Scorciatoie sul Mac" : "Il progetto è salvato sul Mac")
                 .font(.system(size:12,weight:.medium))
             LText(footerDetail).font(.system(size:11)).foregroundColor(Studio.muted).lineLimit(2).localizedHelp(footerDetail)
         }
     }
     private var footerActions: some View {
         HStack(spacing:10) {
-            Button { model.section=4 } label: { LLabel("Salva profilo…",systemImage:"square.and.arrow.down") }.buttonStyle(StudioButton()).disabled(model.busy || model.recording)
+            Button { model.section = .profiles } label: { LLabel("Salva profilo…",systemImage:"square.and.arrow.down") }.buttonStyle(StudioButton()).disabled(model.busy || model.recording)
             if model.selectedUSBID != nil {
                 LButton("Leggi tastiera") { model.readUSB() }.buttonStyle(StudioButton()).disabled(model.busy)
                 Button { model.applyUSB() } label: { LLabel("Applica via USB",systemImage:"arrow.up.right") }.buttonStyle(StudioButton(primary:true)).disabled(!model.usbReady || !model.hasLocalChanges)
-            } else if model.available && model.section == 0 && model.lightingTab == 0 && model.ready {
+            } else if model.available && model.section == .lighting && model.lightingTab == 0 && model.ready {
                 Button { model.send(off:false) } label: { LLabel(model.liveRGBEnabled ? "Invia ora" : model.bluetoothApplyTitle,systemImage:"arrow.up.right") }.buttonStyle(StudioButton(primary:true)).disabled(!model.bluetoothEffectSupported)
-            } else if model.section != 6 && model.section != 8 {
-                LButton(model.available && model.section == 0 && model.lightingTab == 0 ? "Controlli Bluetooth" : "Collega via USB") { model.section=6 }.buttonStyle(StudioButton(primary:true)).disabled(model.busy)
+            } else if model.section != .connection && model.section != .quickLaunch {
+                LButton(model.available && model.section == .lighting && model.lightingTab == 0 ? "Controlli Bluetooth" : "Collega via USB") { model.section = .connection }.buttonStyle(StudioButton(primary:true)).disabled(model.busy)
             }
         }.fixedSize(horizontal:true,vertical:false)
     }
     private var footerDetail:String {
         if model.transmitting { return "Invio in corso: lascia terminare il ripristino degli indicatori." }
-        if model.section == 0 && model.lightingTab != 0 { return "Queste modifiche si preparano nella bozza e si applicano via USB." }
-        if model.section == 0 && model.liveRGBEnabled { return model.liveRGBStatus }
-        if model.available && model.section == 0, model.lastBluetoothSend != nil { return model.message }
+        if model.section == .lighting && model.lightingTab != 0 { return "Queste modifiche si preparano nella bozza e si applicano via USB." }
+        if model.section == .lighting && model.liveRGBEnabled { return model.liveRGBStatus }
+        if model.available && model.section == .lighting, model.lastBluetoothSend != nil { return model.message }
         if !model.projectMessage.isEmpty { return model.projectMessage }
         if model.usbSnapshot != nil { return model.usbMessage }
-        if model.section == 8 { return "Le scorciatoie funzionano mentre Keyglow resta aperta." }
-        if model.available && [0,6].contains(model.section) { return "Scegli gli RGB e inviali, oppure attiva l’anteprima automatica." }
+        if model.section == .quickLaunch { return "Le scorciatoie funzionano mentre Keyglow resta aperta." }
+        if model.available && [.lighting,.connection].contains(model.section) { return "Scegli gli RGB e inviali, oppure attiva l’anteprima automatica." }
         if model.available { return "Le modifiche a questa configurazione si applicano via USB." }
         return "Puoi preparare colori e profili anche senza collegare la Q6 Max."
     }

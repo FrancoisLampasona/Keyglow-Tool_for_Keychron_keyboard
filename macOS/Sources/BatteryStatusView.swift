@@ -24,7 +24,7 @@ struct BatteryStatusView: View {
     private var detail: String {
         if !monitor.context.connected { return "La percentuale si legge quando la Q6 Max è collegata in Bluetooth. In modalità Cable non è disponibile." }
         if model.busy { return "Lettura in pausa durante l’operazione. Riprende automaticamente al termine." }
-        if model.section == 7 { return "Lettura in pausa nella pagina Firmware. Riprende quando torni alle altre pagine." }
+        if model.section == .firmware { return "Lettura in pausa nella pagina Firmware. Riprende quando torni alle altre pagine." }
         if monitor.authorization == .denied || monitor.authorization == .restricted { return "Consenti Bluetooth a Keyglow nelle impostazioni macOS per leggere la batteria." }
         if monitor.authorization == .notDetermined { return "Leggi la batteria per autorizzare l’accesso Bluetooth. È distinto da Monitoraggio input." }
         if monitor.isReading { return "Lettura della batteria dalla Q6 Max…" }

@@ -287,7 +287,7 @@ struct ColorInspectorView:View {
                 }
                 if model.lightingTab == 0 && model.directBluetooth { BluetoothSaveChoice(model:model) }
                 if !model.accessVerified && model.selectedUSBID == nil {
-                    LButton("Configura collegamento") {model.section=6}.buttonStyle(StudioButton())
+                    LButton("Configura collegamento") {model.section = .connection}.buttonStyle(StudioButton())
                 }
         }
     }

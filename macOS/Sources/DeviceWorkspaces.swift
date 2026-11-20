@@ -212,7 +212,7 @@ struct ConnectionWorkspaceView: View {
                     connectionRow("Collegamento", value:model.available ? "Q6 Max rilevata" : "In attesa della Q6 Max", ready:model.available)
                     connectionRow("Accesso macOS", value:model.accessVerified ? "Accesso pronto" : "Da verificare", ready:model.accessVerified)
                     if model.available && model.accessVerified && model.directBluetooth {
-                        LButton("Vai all’illuminazione") {model.section=0}.buttonStyle(StudioButton(primary:true))
+                        LButton("Vai all’illuminazione") {model.section = .lighting}.buttonStyle(StudioButton(primary:true))
                     } else if !model.available {
                         LText("Seleziona BT sulla tastiera e collegala nelle impostazioni Bluetooth del Mac, poi scegli Rileva dispositivi.")
                             .foregroundColor(Studio.muted).fixedSize(horizontal:false,vertical:true)
@@ -240,13 +240,13 @@ struct ConnectionWorkspaceView: View {
                                     .font(.system(size:12)).foregroundColor(Studio.muted).fixedSize(horizontal:false,vertical:true)
                                 HStack(spacing:8) {KeycapLabel(text:"fn");LText("+");KeycapLabel(text:"○");LText("Tieni premuto per 2 secondi").font(.system(size:12))}
                                 LToggle("Ricezione attivata · invia entro 30 s",isOn:$model.firmwareArmed).toggleStyle(.checkbox).disabled(model.busy)
-                                LButton("Apri controlli RGB") {model.section=0}.buttonStyle(StudioButton())
+                                LButton("Apri controlli RGB") {model.section = .lighting}.buttonStyle(StudioButton())
                             }
                             if model.accessVerified {
                                 LText(model.accessMessage).font(.system(size:12)).foregroundColor(Studio.muted).fixedSize(horizontal:false,vertical:true)
                                 LButton("Ricontrolla accesso") {model.checkAccess()}.buttonStyle(StudioButton()).disabled(model.busy)
                             }
-                            LButton("Apri aggiornamento firmware") {model.section=7}.buttonStyle(StudioButton())
+                            LButton("Apri aggiornamento firmware") {model.section = .firmware}.buttonStyle(StudioButton())
                         }.padding(.top,14)
                     }.font(.system(size:13))
                 }

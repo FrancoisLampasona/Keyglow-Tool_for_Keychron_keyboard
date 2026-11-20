@@ -96,7 +96,7 @@ extension StudioModel {
         loadingWorkspace = wasLoading
     }
     func selectKey(_ key: PhysicalKey) {
-        if section == 3 { return }
+        if section == .keyTest { return }
         if NSEvent.modifierFlags.intersection([.shift,.command]).isEmpty { selectedKeys = [key.id] }
         else if selectedKeys.contains(key.id) { selectedKeys.remove(key.id) } else { selectedKeys.insert(key.id) }
     }

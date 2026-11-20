@@ -3,7 +3,7 @@ import SwiftUI
 import Combine
 
 @MainActor final class StudioModel: ObservableObject {
-    @Published var section = 0 { didSet { flushWorkspaceSave(); refreshLiveRGBContext(); batteryMonitor.reconcile() } }
+    @Published var section: StudioSection = .lighting { didSet { flushWorkspaceSave(); refreshLiveRGBContext(); batteryMonitor.reconcile() } }
     let batteryMonitor = KeyboardStatusMonitor()
     let settings = AppSettingsModel()
     @Published var workspace = KeyboardWorkspace() { didSet {
@@ -113,7 +113,7 @@ import Combine
         batteryMonitor.configure(snapshot: { [weak self] in
             guard let self else { return BatteryRefreshContext(connected:false,paused:true) }
             return BatteryRefreshContext(connected:self.available && self.selectedUSBID == nil,
-                paused:self.busy || self.section == 7, deviceID:self.deviceID, usbConnected:self.selectedUSBID != nil)
+                paused:self.busy || self.section == .firmware, deviceID:self.deviceID, usbConnected:self.selectedUSBID != nil)
         }, refreshConnection: { [weak self] in self?.refreshConnectionMetadata() })
         settings.attach(to: batteryMonitor)
     }
@@ -139,7 +139,7 @@ import Combine
     var bluetoothEffectSupported: Bool { (0...22).contains(workspace.lighting.effect) }
     var lightingControlsDisabled: Bool { busy && !transmitting }
     var liveRGBEligible: Bool { available && accessVerified && directBluetooth && selectedUSBID == nil && lightingTab == 0 && bluetoothEffectSupported && !recording && !testing }
-    var canEnableLiveRGB: Bool { liveRGBEligible && !busy && section == 0 }
+    var canEnableLiveRGB: Bool { liveRGBEligible && !busy && section == .lighting }
     var liveRGBUnavailableReason: String {
         if selectedUSBID != nil { return "L’anteprima automatica usa Bluetooth. Scollega USB e seleziona BT sulla tastiera." }
         if !available { return "Collega la Q6 Max via Bluetooth per attivare l’anteprima." }
@@ -156,7 +156,7 @@ import Combine
         if enabled { queueLiveRGBChange() }
     }
     private func refreshLiveRGBContext() {
-        liveRGB.configure(enabled: liveRGBEnabled, allowed: liveRGBEligible && section == 0 && (!busy || transmitting),
+        liveRGB.configure(enabled: liveRGBEnabled, allowed: liveRGBEligible && section == .lighting && (!busy || transmitting),
                           save: saveBluetoothOnKeyboard, now: ProcessInfo.processInfo.systemUptime)
         scheduleLiveRGB()
     }
@@ -189,7 +189,7 @@ import Combine
         }
     }
     private func flushLiveRGB() {
-        guard ready, liveRGBEligible, section == 0 else { refreshLiveRGBContext(); return }
+        guard ready, liveRGBEligible, section == .lighting else { refreshLiveRGBContext(); return }
         guard let job = liveRGB.takeReady(now: ProcessInfo.processInfo.systemUptime) else { scheduleLiveRGB(); return }
         do {
             try performRGBSend(packet: job.color.packet(save: job.save), requestedSave: job.save,
@@ -434,7 +434,7 @@ import Combine
             guard let self else { return }
             self.model.directBluetooth = choice == .installed
             self.model.showFirmwareSetup = choice == .install
-            self.model.section = destination
+            self.model.section = StudioSection(rawValue: destination) ?? .lighting
             self.model.refreshBluetoothAccess()
         }
         menuBar = MenuBarController(model: model) { [weak self] in self?.showMainWindow() }

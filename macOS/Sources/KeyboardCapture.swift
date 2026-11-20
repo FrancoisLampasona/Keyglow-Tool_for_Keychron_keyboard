@@ -18,7 +18,7 @@ import AppKit
     private func installLocalCapture() {
         localEventMonitor=NSEvent.addLocalMonitorForEvents(matching:[.keyDown,.keyUp,.flagsChanged]) { [weak self] event in
             let consumed = MainActor.assumeIsolated {
-                guard let self, NSApp.isActive, (self.recording && self.section == 2) || (self.testing && self.section == 3) || (self.captureMapping && self.section == 1) else { return false }
+                guard let self, NSApp.isActive, (self.recording && self.section == .macros) || (self.testing && self.section == .keyTest) || (self.captureMapping && self.section == .keymap) else { return false }
                 if event.keyCode == 53, event.type == .keyDown { self.stopCapture(); return true }
                 guard let usage=MacPhysicalCodes.hid[event.keyCode] else { return false }
                 if self.captureMapping {
