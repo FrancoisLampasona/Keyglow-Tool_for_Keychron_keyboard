@@ -1739,10 +1739,6 @@
     "en": "Back",
     "fr": "Retour"
   },
-  "Esplora la bozza": {
-    "en": "Explore draft",
-    "fr": "Explorer le brouillon"
-  },
   "Continua": {
     "en": "Continue",
     "fr": "Continuer"
@@ -4775,10 +4771,6 @@
     "en": "Play/Pause",
     "fr": "Lecture/Pause"
   },
-  "In Impostazioni di Sistema → Privacy e sicurezza → Monitoraggio input, abilita Keyglow. macOS applica il permesso solo alle app avviate dopo averlo concesso: dopo averlo abilitato, esci e riapri Keyglow. La guida riprende da questo passo.": {
-    "en": "In System Settings → Privacy & Security → Input Monitoring, enable Keyglow. macOS applies the permission only to apps started after it is granted: after enabling it, quit and reopen Keyglow. The guide resumes at this step.",
-    "fr": "Dans Réglages Système → Confidentialité et sécurité → Surveillance de l’entrée, activez Keyglow. macOS n’applique l’autorisation qu’aux apps lancées après son octroi : après l’avoir activée, quittez puis rouvrez Keyglow. Le guide reprend à cette étape."
-  },
   "Esci e riapri Keyglow": {
     "en": "Quit and Reopen Keyglow",
     "fr": "Quitter et rouvrir Keyglow"
@@ -5146,5 +5138,105 @@
   "Impossibile scrivere i file dei profili ({0}). I profili sono stati salvati nelle preferenze di macOS.": {
     "en": "The profile files could not be written ({0}). The profiles were saved in macOS preferences.",
     "fr": "Impossible d’écrire les fichiers de profils ({0}). Les profils ont été enregistrés dans les préférences de macOS."
+  },
+  "Passo {0} di {1}": {
+    "en": "Step {0} of {1}",
+    "fr": "Étape {0} sur {1}"
+  },
+  "Passo {0} di {1}: {2}": {
+    "en": "Step {0} of {1}: {2}",
+    "fr": "Étape {0} sur {1} : {2}"
+  },
+  "Configura più tardi": {
+    "en": "Set Up Later",
+    "fr": "Configurer plus tard"
+  },
+  "Chiude la guida: puoi riaprirla dal menu Keyglow": {
+    "en": "Closes the guide: you can reopen it from the Keyglow menu",
+    "fr": "Ferme le guide : vous pouvez le rouvrir depuis le menu Keyglow"
+  },
+  "Tastiera rilevata": {
+    "en": "Keyboard detected",
+    "fr": "Clavier détecté"
+  },
+  "Scegli la tastiera da configurare": {
+    "en": "Choose the keyboard to set up",
+    "fr": "Choisissez le clavier à configurer"
+  },
+  "Modelli supportati e riconoscimento": {
+    "en": "Supported models and detection",
+    "fr": "Modèles pris en charge et détection"
+  },
+  "Supportata": {
+    "en": "Supported",
+    "fr": "Pris en charge"
+  },
+  "Non supportata": {
+    "en": "Not supported",
+    "fr": "Non pris en charge"
+  },
+  "Abilita Keyglow nell’elenco.": {
+    "en": "Turn on Keyglow in the list.",
+    "fr": "Activez Keyglow dans la liste."
+  },
+  "Esci e riapri Keyglow: macOS applica il permesso solo alle app avviate dopo averlo concesso. La guida riprende da qui.": {
+    "en": "Quit and reopen Keyglow: macOS applies the permission only to apps started after it is granted. The guide resumes here.",
+    "fr": "Quittez puis rouvrez Keyglow : macOS n’applique l’autorisation qu’aux apps lancées après son octroi. Le guide reprend ici."
+  },
+  "Cosa fa Keyglow con questo accesso": {
+    "en": "What Keyglow does with this access",
+    "fr": "Ce que Keyglow fait de cet accès"
+  },
+  "Firmware originale e firmware Keyglow": {
+    "en": "Original firmware and Keyglow firmware",
+    "fr": "Firmware d’origine et firmware Keyglow"
+  },
+  "Prima installazione guidata, con cavo USB.": {
+    "en": "Guided first installation, with a USB cable.",
+    "fr": "Première installation guidée, avec un câble USB."
+  },
+  "Colori ed effetti via Bluetooth, senza cavo.": {
+    "en": "Colors and effects over Bluetooth, no cable.",
+    "fr": "Couleurs et effets en Bluetooth, sans câble."
+  },
+  "Mappa, macro e RGB con il cavo. Il Bluetooth resta per digitare.": {
+    "en": "Keymap, macros and RGB with the cable. Bluetooth stays for typing.",
+    "fr": "Disposition, macros et RGB avec le câble. Le Bluetooth reste pour la saisie."
+  },
+  "Firmware Keyglow da installare via USB": {
+    "en": "Keyglow firmware to install over USB",
+    "fr": "Firmware Keyglow à installer en USB"
+  },
+  "Configurazione via USB, senza firmware Keyglow": {
+    "en": "USB configuration, without Keyglow firmware",
+    "fr": "Configuration en USB, sans firmware Keyglow"
+  },
+  "Firmware Keyglow dichiarato, da verificare nella pagina Firmware": {
+    "en": "Keyglow firmware declared, to be checked in the Firmware page",
+    "fr": "Firmware Keyglow déclaré, à vérifier dans la page Firmware"
+  },
+  "Il pulsante apre la pagina Firmware.": {
+    "en": "The button opens the Firmware page.",
+    "fr": "Le bouton ouvre la page Firmware."
+  },
+  "Il pulsante apre la pagina Illuminazione.": {
+    "en": "The button opens the Lighting page.",
+    "fr": "Le bouton ouvre la page Éclairage."
+  },
+  "Il pulsante apre la pagina Connessione.": {
+    "en": "The button opens the Connection page.",
+    "fr": "Le bouton ouvre la page Connexion."
+  },
+  "pronto": {
+    "en": "ready",
+    "fr": "prêt"
+  },
+  "con limiti": {
+    "en": "with limits",
+    "fr": "avec des limites"
+  },
+  "da completare": {
+    "en": "to complete",
+    "fr": "à terminer"
   }
 }

@@ -71,8 +71,8 @@ import Combine
 
     private func availableSheetSize(parent: NSWindow) -> NSSize {
         let visible = parent.screen?.visibleFrame.size ?? NSSize(width: 1400, height: 900)
-        return NSSize(width: min(620, max(360, min(parent.contentLayoutRect.width - 32, visible.width - 48))),
-                      height: min(650, max(320, min(parent.contentLayoutRect.height - 32, visible.height - 80))))
+        return NSSize(width: min(640, max(360, min(parent.contentLayoutRect.width - 32, visible.width - 48))),
+                      height: min(660, max(320, min(parent.contentLayoutRect.height - 32, visible.height - 80))))
     }
     func fitToParent(_ parent: NSWindow) {
         guard let sheet = setupWindow else { return }
