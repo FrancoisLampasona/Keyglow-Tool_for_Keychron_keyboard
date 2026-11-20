@@ -75,7 +75,19 @@ struct ProfileStore {
         // Not migrated, or a migration was interrupted before it was verified:
         // every save so far went to the preference, which is therefore current.
         guard let profiles = readLegacy() else {
-            if legacy.read() == nil { migrate([]) }
+            // No preference at all (a new Mac, or preferences were reset): files
+            // that already hold profiles are adopted, never overwritten with nothing.
+            if legacy.read() == nil {
+                if let existing = readFile(mainFile) {
+                    mainIsReadable = true; legacy.setMigrated(true)
+                    return Loaded(profiles: existing, source: .files, notice: .none)
+                }
+                if let previous = readFile(previousFile) {
+                    legacy.setMigrated(true)
+                    return Loaded(profiles: previous, source: .previousFile, notice: .usedPreviousFile)
+                }
+                migrate([])
+            }
             return Loaded(profiles: [], source: .empty, notice: .none)
         }
         migrate(profiles)

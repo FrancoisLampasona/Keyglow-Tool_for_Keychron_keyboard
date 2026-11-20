@@ -107,6 +107,20 @@ import Foundation
         var lateAgain = ProfileStore(directory: directory("late"), legacy: lateLegacy.access)
         expect(lateAgain.load().profiles == [a, c], "nothing is lost at the next launch")
 
+        // Preferences reset while profile files exist: the files are adopted, not emptied.
+        let resetSource = FakeLegacy()
+        var beforeReset = ProfileStore(directory: directory("reset"), legacy: resetSource.access)
+        _ = beforeReset.load(); _ = try? beforeReset.save([a, b]); _ = try? beforeReset.save([a, b, c])
+        let afterResetLegacy = FakeLegacy()
+        var afterReset = ProfileStore(directory: directory("reset"), legacy: afterResetLegacy.access)
+        expect(afterReset.load() == .init(profiles: [a, b, c], source: .files, notice: .none) && afterResetLegacy.migrated, "with no preference at all, existing profile files are kept and used")
+        expect(afterResetLegacy.data == nil && afterResetLegacy.writes == 0, "adopting the files writes nothing to preferences")
+        try! Data("broken".utf8).write(to: afterReset.mainFile)
+        let secondReset = FakeLegacy()
+        var afterDamage = ProfileStore(directory: directory("reset"), legacy: secondReset.access)
+        expect(afterDamage.load() == .init(profiles: [a, b], source: .previousFile, notice: .usedPreviousFile), "a damaged file after a reset falls back to the previous list instead of an empty one")
+        expect((try? Data(contentsOf: afterDamage.mainFile)) == Data("broken".utf8), "and the damaged file is not overwritten by loading")
+
         // Unreadable preference and no files.
         let garbage = FakeLegacy(); garbage.data = Data("garbage".utf8)
         var empty = ProfileStore(directory: directory("garbage"), legacy: garbage.access)
