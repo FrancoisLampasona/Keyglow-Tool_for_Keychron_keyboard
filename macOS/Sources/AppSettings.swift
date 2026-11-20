@@ -117,13 +117,16 @@ struct AppSettingsPanel: View {
     @ObservedObject var settings: AppSettingsModel
     var body: some View {
         StudioSurface {
-            PanelTitle(title: "Impostazioni dell’app", subtitle: "Avvisi e avvio. Ogni opzione resta spenta finché non la attivi.")
+            PanelTitle(title: "Impostazioni dell’app", subtitle: "Avvisi, avvio e barra dei menu. Ogni opzione resta spenta finché non la attivi.")
             option("Avvisa quando la batteria è scarica", isOn: Binding(get: { settings.batteryAlerts }, set: { settings.setBatteryAlerts($0) }),
                    detail: "Una notifica sotto il 20% e una sotto il 10%, solo con una lettura Bluetooth recente e con Keyglow aperta. macOS chiede il consenso alle notifiche quando attivi l’opzione.",
                    message: settings.batteryAlertMessage)
             option("Apri Keyglow al login", isOn: Binding(get: { settings.opensAtLogin }, set: { settings.setOpensAtLogin($0) }),
                    detail: "Lo stato è quello registrato in macOS. Puoi cambiarlo anche da Impostazioni di Sistema → Generali → Elementi login.",
                    message: settings.loginMessage)
+            option("Mostra Keyglow nella barra dei menu", isOn: Binding(get: { settings.showsMenuBarItem }, set: { settings.setShowsMenuBarItem($0) }),
+                   detail: "Batteria, colori rapidi e profili dalla barra dei menu. Con questa opzione, chiudere la finestra non chiude Keyglow: batteria e Avvio rapido restano attivi. I colori vengono inviati solo quando scegli una voce.",
+                   message: "")
         }.onAppear { settings.refreshSystemState() }
     }
     private func option(_ title: String, isOn: Binding<Bool>, detail: String, message: String) -> some View {

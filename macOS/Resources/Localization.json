@@ -5011,6 +5011,10 @@
     "en": "App Settings",
     "fr": "Réglages de l’app"
   },
+  "Avvisi, avvio e barra dei menu. Ogni opzione resta spenta finché non la attivi.": {
+    "en": "Notices, launch and menu bar. Every option stays off until you turn it on.",
+    "fr": "Alertes, ouverture et barre des menus. Chaque option reste désactivée tant que vous ne l’activez pas."
+  },
   "Avvisa quando la batteria è scarica": {
     "en": "Notify when the battery is low",
     "fr": "M’avertir quand la batterie est faible"
@@ -5026,6 +5030,14 @@
   "Lo stato è quello registrato in macOS. Puoi cambiarlo anche da Impostazioni di Sistema → Generali → Elementi login.": {
     "en": "The state shown is the one registered in macOS. You can also change it in System Settings → General → Login Items.",
     "fr": "L’état affiché est celui enregistré dans macOS. Vous pouvez aussi le modifier dans Réglages Système → Général → Ouverture."
+  },
+  "Mostra Keyglow nella barra dei menu": {
+    "en": "Show Keyglow in the Menu Bar",
+    "fr": "Afficher Keyglow dans la barre des menus"
+  },
+  "Batteria, colori rapidi e profili dalla barra dei menu. Con questa opzione, chiudere la finestra non chiude Keyglow: batteria e Avvio rapido restano attivi. I colori vengono inviati solo quando scegli una voce.": {
+    "en": "Battery, quick colors and profiles from the menu bar. With this option, closing the window does not quit Keyglow: battery and Quick Launch stay active. Colors are sent only when you choose an item.",
+    "fr": "Batterie, couleurs rapides et profils depuis la barre des menus. Avec cette option, fermer la fenêtre ne quitte pas Keyglow : la batterie et le Lancement rapide restent actifs. Les couleurs ne sont envoyées que lorsque vous choisissez un élément."
   },
   "Approva Keyglow in Impostazioni di Sistema → Generali → Elementi login.": {
     "en": "Approve Keyglow in System Settings → General → Login Items.",
@@ -5063,8 +5075,64 @@
     "en": "macOS did not remove Keyglow from the login items ({0}). You can do it in System Settings → General → Login Items.",
     "fr": "macOS n’a pas retiré Keyglow des éléments d’ouverture ({0}). Vous pouvez le faire dans Réglages Système → Général → Ouverture."
   },
-  "Avvisi e avvio. Ogni opzione resta spenta finché non la attivi.": {
-    "en": "Notices and launch. Every option stays off until you turn it on.",
-    "fr": "Alertes et ouverture. Chaque option reste désactivée tant que vous ne l’activez pas."
+  "Keyglow": {
+    "en": "Keyglow",
+    "fr": "Keyglow"
+  },
+  "Keyglow · batteria della Q6 Max": {
+    "en": "Keyglow · Q6 Max battery",
+    "fr": "Keyglow · batterie de la Q6 Max"
+  },
+  "Q6 Max collegata via USB": {
+    "en": "Q6 Max connected over USB",
+    "fr": "Q6 Max connectée en USB"
+  },
+  "Q6 Max rilevata via Bluetooth": {
+    "en": "Q6 Max detected over Bluetooth",
+    "fr": "Q6 Max détectée en Bluetooth"
+  },
+  "Tastiera non rilevata": {
+    "en": "Keyboard not detected",
+    "fr": "Clavier non détecté"
+  },
+  "Batteria {0}% · letta alle {1}": {
+    "en": "Battery {0}% · read at {1}",
+    "fr": "Batterie {0} % · lue à {1}"
+  },
+  "Batteria {0}% · ultima lettura alle {1}": {
+    "en": "Battery {0}% · last read at {1}",
+    "fr": "Batterie {0} % · dernière lecture à {1}"
+  },
+  "Batteria: nessuna lettura": {
+    "en": "Battery: no reading",
+    "fr": "Batterie : aucune lecture"
+  },
+  "Invia un colore via Bluetooth": {
+    "en": "Send a color over Bluetooth",
+    "fr": "Envoyer une couleur en Bluetooth"
+  },
+  "Colori non disponibili: apri Keyglow per verificare il collegamento": {
+    "en": "Colors unavailable: open Keyglow to check the connection",
+    "fr": "Couleurs indisponibles : ouvrez Keyglow pour vérifier la connexion"
+  },
+  "Spegni luci": {
+    "en": "Lights Off",
+    "fr": "Éteindre les lumières"
+  },
+  "Nessun profilo salvato": {
+    "en": "No saved profile",
+    "fr": "Aucun profil enregistré"
+  },
+  "Carica un profilo nella bozza": {
+    "en": "Load a profile into the draft",
+    "fr": "Charger un profil dans le brouillon"
+  },
+  "Altri {0} nella pagina Profili": {
+    "en": "{0} more in the Profiles page",
+    "fr": "{0} autres dans la page Profils"
+  },
+  "Apri Keyglow": {
+    "en": "Open Keyglow",
+    "fr": "Ouvrir Keyglow"
   }
 }

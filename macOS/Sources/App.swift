@@ -394,6 +394,7 @@ import Combine
     private var languageSubscription: AnyCancellable?
     private var setupReady = false
     private var checkingUpdates = false
+    private var menuBar: MenuBarController?
     func applicationDidFinishLaunching(_ notification: Notification) {
         buildMenu()
         languageSubscription = NotificationCenter.default.publisher(for: AppLanguageStore.didChange).sink { [weak self] _ in
@@ -436,6 +437,9 @@ import Combine
             self.model.section = destination
             self.model.refreshBluetoothAccess()
         }
+        menuBar = MenuBarController(model: model) { [weak self] in self?.showMainWindow() }
+        model.settings.onMenuBarChanged = { [weak self] visible in self?.menuBar?.setVisible(visible) }
+        menuBar?.setVisible(model.settings.showsMenuBarItem)
         model.scan()
         model.batteryMonitor.start()
         _ = QuickLaunchService.shared
@@ -458,9 +462,19 @@ import Combine
     }
     func applicationDidResignActive(_ notification: Notification) { model.stopCapture(); onboarding.noteResignedActive() }
     func applicationWillTerminate(_ notification: Notification) { model.flushWorkspaceSave(); model.batteryMonitor.stop() }
-    func windowWillClose(_ notification: Notification) { model.flushWorkspaceSave() }
+    func windowWillClose(_ notification: Notification) { model.stopCapture(); model.flushWorkspaceSave() }
     func windowDidResize(_ notification: Notification) { if let window { onboarding.fitToParent(window) } }
-    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
+    /// With the menu bar item on, Keyglow keeps running without its window so the
+    /// battery monitor and Quick Launch stay active. Otherwise closing still quits.
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { !model.settings.showsMenuBarItem }
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        if !flag { showMainWindow() }
+        return true
+    }
+    private func showMainWindow() {
+        window.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+    }
     func windowShouldClose(_ sender: NSWindow) -> Bool { mayClose() }
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply { mayClose() ? .terminateNow : .terminateCancel }
     private func mayClose() -> Bool {
