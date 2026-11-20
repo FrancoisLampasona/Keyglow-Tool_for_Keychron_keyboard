@@ -499,7 +499,7 @@ private struct OnboardingStepper: View {
 }
 
 /// The guide's icon container: one weight, one shape, a faint tint of its own color.
-private struct OnboardingIconTile: View {
+struct OnboardingIconTile: View {
     let symbol: String
     let color: Color
     var size: CGFloat = 44

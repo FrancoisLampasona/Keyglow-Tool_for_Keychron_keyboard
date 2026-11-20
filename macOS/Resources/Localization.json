@@ -5283,10 +5283,6 @@
     "en": "Installed Firmware",
     "fr": "Firmware installé"
   },
-  "Ultimo controllo via {0}: {1}": {
-    "en": "Last check over {0}: {1}",
-    "fr": "Dernier contrôle via {0} : {1}"
-  },
   "Controllo in corso…": {
     "en": "Checking…",
     "fr": "Contrôle en cours…"
@@ -5294,14 +5290,6 @@
   "Controlla firmware": {
     "en": "Check Firmware",
     "fr": "Vérifier le firmware"
-  },
-  "Con il cavo collegato il controllo legge la versione via USB: è la lettura certa e non modifica nulla.": {
-    "en": "With the cable connected, the check reads the version over USB: it is the conclusive read and changes nothing.",
-    "fr": "Avec le câble branché, le contrôle lit la version en USB : c’est la lecture certaine et elle ne modifie rien."
-  },
-  "Senza cavo il controllo usa per pochi secondi gli indicatori della tastiera via Bluetooth: non digitare finché non termina. Collega USB per la lettura certa.": {
-    "en": "Without a cable, the check uses the keyboard’s indicators over Bluetooth for a few seconds: do not type until it ends. Connect USB for the conclusive read.",
-    "fr": "Sans câble, le contrôle utilise pendant quelques secondes les voyants du clavier en Bluetooth : ne tapez rien avant la fin. Branchez l’USB pour la lecture certaine."
   },
   "Non ancora verificato": {
     "en": "Not checked yet",
@@ -5331,14 +5319,6 @@
     "en": "The keyboard could not be read",
     "fr": "Impossible de lire le clavier"
   },
-  "Premi Controlla firmware per leggere cosa c’è sulla tastiera.": {
-    "en": "Press Check Firmware to read what is on the keyboard.",
-    "fr": "Appuyez sur Vérifier le firmware pour lire ce qui se trouve sur le clavier."
-  },
-  "Se la tastiera è in Bluetooth, non digitare per qualche secondo.": {
-    "en": "If the keyboard is on Bluetooth, do not type for a few seconds.",
-    "fr": "Si le clavier est en Bluetooth, ne tapez rien pendant quelques secondes."
-  },
   "È la build inclusa in questa app. Colori ed effetti via Bluetooth sono disponibili.": {
     "en": "It is the build included in this app. Colors and effects over Bluetooth are available.",
     "fr": "C’est la build incluse dans cette app. Les couleurs et effets en Bluetooth sont disponibles."
@@ -5358,5 +5338,81 @@
   "Può essere il firmware originale, oppure la tastiera non era raggiungibile. La conferma certa è via USB: collega il cavo e ripeti il controllo. Attendi un minuto prima di riprovare in Bluetooth.": {
     "en": "It may be the original firmware, or the keyboard was not reachable. The conclusive answer is over USB: connect the cable and check again. Wait a minute before trying again over Bluetooth.",
     "fr": "Il peut s’agir du firmware d’origine, ou le clavier n’était pas joignable. La confirmation certaine se fait en USB : branchez le câble et relancez le contrôle. Attendez une minute avant de réessayer en Bluetooth."
+  },
+  "Non ancora letta": {
+    "en": "Not read yet",
+    "fr": "Pas encore lue"
+  },
+  "Versione": {
+    "en": "Version",
+    "fr": "Version"
+  },
+  "Ultima lettura via {0}: {1}": {
+    "en": "Last read over {0}: {1}",
+    "fr": "Dernière lecture via {0} : {1}"
+  },
+  "Legge la versione via USB: non modifica nulla": {
+    "en": "Reads the version over USB: changes nothing",
+    "fr": "Lit la version en USB : ne modifie rien"
+  },
+  "Chiede al firmware di rispondere via Bluetooth: non digitare per qualche secondo": {
+    "en": "Asks the firmware to answer over Bluetooth: do not type for a few seconds",
+    "fr": "Demande au firmware de répondre en Bluetooth : ne tapez rien pendant quelques secondes"
+  },
+  "Con il cavo collegato il controllo legge la versione via USB e non modifica nulla.": {
+    "en": "With the cable connected, the check reads the version over USB and changes nothing.",
+    "fr": "Avec le câble branché, le contrôle lit la version en USB et ne modifie rien."
+  },
+  "Senza cavo il controllo chiede al firmware di rispondere via Bluetooth e dura pochi secondi: non digitare finché non termina. La lettura certa è via USB.": {
+    "en": "Without a cable, the check asks the firmware to answer over Bluetooth and takes a few seconds: do not type until it ends. The conclusive read is over USB.",
+    "fr": "Sans câble, le contrôle demande au firmware de répondre en Bluetooth et dure quelques secondes : ne tapez rien avant la fin. La lecture certaine se fait en USB."
+  },
+  "Lettura della versione via USB.": {
+    "en": "Reading the version over USB.",
+    "fr": "Lecture de la version en USB."
+  },
+  "Non digitare per qualche secondo: il controllo usa gli indicatori della tastiera.": {
+    "en": "Do not type for a few seconds: the check uses the keyboard’s indicators.",
+    "fr": "Ne tapez rien pendant quelques secondes : le contrôle utilise les voyants du clavier."
+  },
+  "La tastiera non ha risposto in tempo. Riprova tra un minuto oppure collega il cavo USB.": {
+    "en": "The keyboard did not answer in time. Try again in a minute or connect the USB cable.",
+    "fr": "Le clavier n’a pas répondu à temps. Réessayez dans une minute ou branchez le câble USB."
+  },
+  "Bluetooth · accesso da abilitare": {
+    "en": "Bluetooth · access needed",
+    "fr": "Bluetooth · accès à autoriser"
+  },
+  "Collegata via Bluetooth": {
+    "en": "Connected over Bluetooth",
+    "fr": "Connecté en Bluetooth"
+  },
+  "USB · configurazione da leggere": {
+    "en": "USB · configuration not read yet",
+    "fr": "USB · configuration à lire"
+  },
+  "Collegata via USB": {
+    "en": "Connected over USB",
+    "fr": "Connecté en USB"
+  },
+  "Controllo firmware…": {
+    "en": "Checking firmware…",
+    "fr": "Contrôle du firmware…"
+  },
+  "Firmware non verificato": {
+    "en": "Firmware not checked",
+    "fr": "Firmware non vérifié"
+  },
+  "Apri Connessione": {
+    "en": "Open Connection",
+    "fr": "Ouvrir Connexion"
+  },
+  "App {0}": {
+    "en": "App {0}",
+    "fr": "App {0}"
+  },
+  "Versione dell’app Keyglow, non del firmware della tastiera": {
+    "en": "Version of the Keyglow app, not of the keyboard firmware",
+    "fr": "Version de l’app Keyglow, pas du firmware du clavier"
   }
 }

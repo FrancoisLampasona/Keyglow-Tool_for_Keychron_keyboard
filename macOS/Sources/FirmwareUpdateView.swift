@@ -11,14 +11,15 @@ struct FirmwareUpdateView: View {
         StudioSurface {
             if showsProvisioning { FirstInstallView(model:installer,onBluetooth:{showsProvisioning=false}) } else {
             VStack(alignment: .leading, spacing: 18) {
-                if model.isBusy { transferNotice }
+                // A read-only firmware check is not an update: it is shown in its own card.
+                if model.isBusy && !model.isChecking { transferNotice }
                 Group {
                 StudioAdaptiveStack(breakpoint: 1120, spacing: 16) {
                     VStack(alignment: .leading, spacing: 6) {
-                        LLabel("Aggiornamento del controller", systemImage: "arrow.triangle.2.circlepath")
+                        LLabel("Aggiornamento del controller", systemImage: "square.and.arrow.down")
                             .font(.system(size: 21, weight: .semibold))
                         LText("Via Bluetooth, dopo la prima configurazione USB del loader Keyglow.")
-                            .font(.system(size: 12)).foregroundColor(Studio.muted).lineSpacing(3).fixedSize(horizontal: false, vertical: true)
+                            .font(.system(size: 12)).foregroundColor(Studio.muted).lineSpacing(3).fixedSize(horizontal:false,vertical:true).frame(maxWidth:640,alignment:.leading)
                     }.frame(maxWidth: .infinity, alignment: .leading)
                     HStack(spacing: 10) {
                     if model.hasBundledFirmware {
@@ -32,10 +33,11 @@ struct FirmwareUpdateView: View {
 
                 HStack(spacing:8) {
                     workflowStep("1", "Scegli file", done:model.artifact != nil)
-                    Image(systemName:"chevron.right").foregroundColor(Studio.muted)
+                    Capsule().fill(model.artifact != nil ? Studio.accent.opacity(0.6) : Studio.line).frame(width:28,height:2).accessibilityHidden(true)
                     workflowStep("2", "Verifica", done:model.review != nil)
-                    Image(systemName:"chevron.right").foregroundColor(Studio.muted)
+                    Capsule().fill(model.review != nil ? Studio.accent.opacity(0.6) : Studio.line).frame(width:28,height:2).accessibilityHidden(true)
                     workflowStep("3", "Installa", done:model.phase == .complete)
+                    Spacer(minLength:0)
                 }.padding(.vertical,4)
 
                 if let rawName = model.pendingRawName {
@@ -58,12 +60,12 @@ struct FirmwareUpdateView: View {
                         detail("Dimensione", ByteCountFormatter.string(fromByteCount: Int64(artifact.image.count), countStyle: .file))
                         LDisclosureGroup("SHA-256 dell’immagine") {
                             LText(firmwareHex(artifact.manifest.sha256)).font(.system(size: 11, design: .monospaced))
-                                .textSelection(.enabled).fixedSize(horizontal: false, vertical: true).padding(.top, 6)
+                                .textSelection(.enabled).fixedSize(horizontal:false,vertical:true).frame(maxWidth:640,alignment:.leading).padding(.top, 6)
                         }.font(.system(size: 12)).foregroundColor(Studio.muted)
                     }
                 } else if model.pendingRawName == nil {
                     LText("Scegli un pacchetto .kgfw per Q6 Max ISO. Il file verrà controllato prima di aprire il collegamento.")
-                        .font(.system(size: 13)).foregroundColor(Studio.muted).fixedSize(horizontal: false, vertical: true)
+                        .font(.system(size: 13)).foregroundColor(Studio.muted).fixedSize(horizontal:false,vertical:true).frame(maxWidth:640,alignment:.leading)
                 }
 
                 if model.artifact != nil {
@@ -73,7 +75,7 @@ struct FirmwareUpdateView: View {
                         LText("Sperimentale · 20 ms").tag(0.02)
                     }.frame(maxWidth: 380).disabled(model.isBusy)
                     LText("Si applica anche alla verifica. Dopo un’interruzione puoi rallentare e rileggere la sessione prima di riprendere.")
-                        .font(.system(size: 12)).foregroundColor(Studio.muted).fixedSize(horizontal: false, vertical: true)
+                        .font(.system(size: 12)).foregroundColor(Studio.muted).fixedSize(horizontal:false,vertical:true).frame(maxWidth:640,alignment:.leading)
                 }
 
                 if let review = model.review {
@@ -94,7 +96,7 @@ struct FirmwareUpdateView: View {
                                     detail("Installata", staging.installed ? "Sì" : "No")
                                     LText(firmwareHex(staging.manifest.sha256))
                                         .font(.system(size: 11, design: .monospaced)).textSelection(.enabled)
-                                        .fixedSize(horizontal: false, vertical: true)
+                                        .fixedSize(horizontal:false,vertical:true).frame(maxWidth:640,alignment:.leading)
                                 }.padding(.top, 8)
                             }.font(.system(size: 12)).foregroundColor(Studio.muted)
                         } else {
@@ -102,12 +104,12 @@ struct FirmwareUpdateView: View {
                         }
                         LText("La verifica legge soltanto identità e sessione: non prepara né installa un aggiornamento.")
                             .font(.system(size: 12)).foregroundColor(Studio.muted)
-                            .fixedSize(horizontal: false, vertical: true)
+                            .fixedSize(horizontal:false,vertical:true).frame(maxWidth:640,alignment:.leading)
                         if !review.isAlreadyInstalled {
                             detail("Da trasferire", review.hasReadyTarget && !model.replaceUncommitted ? "Nessun blocco: immagine già completa" : ByteCountFormatter.string(fromByteCount: Int64(review.plan.literalBytes), countStyle: .file))
                             if review.hasReadyTarget && !model.replaceUncommitted {
                                 LText("La ripresa verifica di nuovo identità, autorizzazione salvata e immagine, poi completa l’installazione senza preparare nuovamente il trasferimento.")
-                                    .font(.system(size: 12)).foregroundColor(Studio.muted).fixedSize(horizontal: false, vertical: true)
+                                    .font(.system(size: 12)).foregroundColor(Studio.muted).fixedSize(horizontal:false,vertical:true).frame(maxWidth:640,alignment:.leading)
                             }
                             detail("Riutilizzati sulla tastiera", ByteCountFormatter.string(fromByteCount: Int64(review.plan.copiedBytes), countStyle: .file))
                             if review.plan.baselineUse != .verified {
@@ -118,13 +120,13 @@ struct FirmwareUpdateView: View {
                                 detail("Operazione", "Verifica finale, installazione e lettura dopo il riavvio")
                             } else if let estimate = model.estimate { detail("Durata stimata", estimate) }
                             LText("Stima indicativa: interruzioni e riconnessione possono allungarla. A 20 ms sono state verificate letture e finalizzazione; un trasferimento completo senza interruzioni resta sperimentale.")
-                                .font(.system(size: 12)).foregroundColor(Studio.muted).fixedSize(horizontal: false, vertical: true)
+                                .font(.system(size: 12)).foregroundColor(Studio.muted).fixedSize(horizontal:false,vertical:true).frame(maxWidth:640,alignment:.leading)
                         }
                         if !review.isAlreadyInstalled {
                             LToggle("Ricomincia un trasferimento precedente non ancora installato", isOn: $model.replaceUncommitted)
                                 .toggleStyle(.checkbox).font(.system(size: 12)).disabled(model.isBusy)
                             LText("Lascia disattivato per riprendere i blocchi già salvati. Ricominciare elimina soltanto la sessione di aggiornamento non confermata.")
-                                .font(.system(size: 11)).foregroundColor(Studio.muted).fixedSize(horizontal: false, vertical: true)
+                                .font(.system(size: 11)).foregroundColor(Studio.muted).fixedSize(horizontal:false,vertical:true).frame(maxWidth:640,alignment:.leading)
                         }
                     }
                 }
@@ -142,7 +144,7 @@ struct FirmwareUpdateView: View {
                 HStack(alignment: .top, spacing: 9) {
                     if model.phase == .complete { Image(systemName: "checkmark.circle.fill").foregroundColor(Studio.success) }
                     else if model.phase == .failed || model.phase == .paused { Image(systemName: "exclamationmark.circle").foregroundColor(Studio.accent) }
-                    LText(model.message).font(.system(size: 13)).fixedSize(horizontal: false, vertical: true)
+                    LText(model.message).font(.system(size: 13)).fixedSize(horizontal:false,vertical:true).frame(maxWidth:640,alignment:.leading)
                 }.accessibilityElement(children: .combine)
 
                 if model.canStart {
@@ -172,7 +174,7 @@ struct FirmwareUpdateView: View {
                 }
                 if model.canStart || model.isBusy {
                     LText("Usa solo il mouse durante verifica e aggiornamento. Tasti e manopola interrompono il trasferimento; puoi poi verificare di nuovo e riprendere i blocchi già salvati. La fine sarà confermata dopo il riavvio.")
-                        .font(.system(size: 12)).foregroundColor(Studio.muted).fixedSize(horizontal: false, vertical: true)
+                        .font(.system(size: 12)).foregroundColor(Studio.muted).fixedSize(horizontal:false,vertical:true).frame(maxWidth:640,alignment:.leading)
                 }
 
                 Divider()
@@ -193,7 +195,7 @@ struct FirmwareUpdateView: View {
                     .font(.system(size:12)).monospacedDigit().foregroundColor(Studio.muted)
             } else {ProgressView().controlSize(.small)}
             LText(model.progress?.stage == .keyAccess ? "Puoi usare la tastiera per la password solo nella finestra di macOS. Dopo la conferma torna a usare solo il mouse." : "Non toccare tasti o manopola e non cambiare collegamento. Puoi interrompere: i blocchi già verificati restano salvati per la ripresa.")
-                .font(.system(size:12)).foregroundColor(Studio.muted).fixedSize(horizontal:false,vertical:true)
+                .font(.system(size:12)).foregroundColor(Studio.muted).fixedSize(horizontal:false,vertical:true).frame(maxWidth:640,alignment:.leading)
             if model.canCancel {LButton("Interrompi trasferimento") {model.cancel()}.buttonStyle(StudioButton())}
         }.padding(18).frame(maxWidth:.infinity,alignment:.leading).background(Studio.rail).clipShape(RoundedRectangle(cornerRadius:12))
     }
@@ -204,12 +206,12 @@ struct FirmwareUpdateView: View {
                 .font(.system(size:11,weight:.semibold)).frame(width:24,height:24)
                 .background(done ? Studio.accent.opacity(0.15) : Studio.rail).clipShape(Circle())
             LText(title).font(.system(size:12,weight:.medium))
-        }.foregroundColor(done ? Studio.accent : Studio.muted).frame(maxWidth:.infinity,alignment:.leading)
+        }.foregroundColor(done ? Studio.accent : Studio.muted).fixedSize()
     }
     private func detail(_ name: String, _ value: String) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 18) {
             LText(name).foregroundColor(Studio.muted).frame(maxWidth: 180, alignment: .leading)
             LText(value).frame(maxWidth: .infinity, alignment: .trailing).multilineTextAlignment(.trailing).textSelection(.enabled)
-        }.font(.system(size: 12)).fixedSize(horizontal: false, vertical: true)
+        }.font(.system(size: 12)).fixedSize(horizontal:false,vertical:true).frame(maxWidth:640,alignment:.leading)
     }
 }

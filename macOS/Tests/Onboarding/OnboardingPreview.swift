@@ -82,6 +82,55 @@ import SwiftUI
                 print(file.path)
             }
         }
+        // Firmware card and sidebar keyboard status, with injected readings only.
+        func render<V: View>(_ view: V, width: CGFloat, name: String) {
+            let host = NSHostingView(rootView: view.frame(width: width).fixedSize(horizontal: false, vertical: true).padding(16)
+                .background(Studio.background).foregroundColor(Studio.text).font(.system(size: 13)).tint(Studio.accent).preferredColorScheme(.dark))
+            let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: width + 32, height: 400), styleMask: [.borderless], backing: .buffered, defer: false)
+            window.appearance = NSAppearance(named: .darkAqua); window.contentView = host
+            host.layoutSubtreeIfNeeded()
+            let fitted = host.fittingSize
+            host.frame = NSRect(origin: .zero, size: NSSize(width: width + 32, height: max(40, fitted.height)))
+            host.layoutSubtreeIfNeeded()
+            RunLoop.main.run(until: Date().addingTimeInterval(0.2))
+            guard let bitmap = host.bitmapImageRepForCachingDisplay(in: host.bounds) else { return }
+            host.cacheDisplay(in: host.bounds, to: bitmap)
+            let file = output.appendingPathComponent(name)
+            try! bitmap.representation(using: .png, properties: [:])!.write(to: file)
+            print(file.path)
+        }
+        func wait(_ model: FirmwareUpdateModel) { while model.isBusy { RunLoop.main.run(until: Date().addingTimeInterval(0.02)) } }
+        let stamp = Date(timeIntervalSince1970: 1_795_000_000)
+        let record = FirmwareVersionRecord(isKeyglow: true, version: "v1.1.1 2026-01-02 03:04", via: "USB", date: stamp)
+        var readings = [(String, FirmwareUpdateModel, Bool)]()
+        readings.append(("mai-letto", FirmwareUpdateModel(previewRecord: nil), false))
+        readings.append(("ultima-lettura", FirmwareUpdateModel(previewRecord: record), false))
+        let keyglow = FirmwareUpdateModel(previewRecord: nil); keyglow.recordUSBReading(version: "v1.1.1 2026-01-02 03:04", isKeyglow: true, at: stamp)
+        readings.append(("usb-keyglow", keyglow, true))
+        let other = FirmwareUpdateModel(previewRecord: nil); other.recordUSBReading(version: "v1.1.1 2025-05-05 10:00", isKeyglow: false, at: stamp)
+        readings.append(("usb-altro", other, true))
+        let responding = FirmwareUpdateModel(previewRecord: record); responding.checkInstalledFirmware(usb: nil, isKeyglow: { _ in true }); wait(responding)
+        readings.append(("bluetooth-rilevato", responding, false))
+        let silent = FirmwareUpdateModel(bluetoothIdentify: { _, _ in throw OTAChannelFailure.deadline }); silent.checkInstalledFirmware(usb: nil, isKeyglow: { _ in true }); wait(silent)
+        readings.append(("bluetooth-silenzio", silent, false))
+        let checking = FirmwareUpdateModel(bluetoothIdentify: { _, token in while !token.isCancelled { Thread.sleep(forTimeInterval: 0.05) }; return .responding })
+        checking.checkTimeout = 600; checking.checkInstalledFirmware(usb: nil, isKeyglow: { _ in true })
+        readings.append(("controllo-in-corso", checking, false))
+        for language in languages {
+            AppLanguageStore.shared.language = language
+            for (name, model, usb) in readings {
+                for width in [CGFloat(672), 872] {
+                    render(InstalledFirmwareCard(updater: model, usbConnected: usb, busy: model.isBusy, onCheck: {}), width: width, name: "firmware-\(name)-\(Int(width))-\(language.rawValue).png")
+                }
+            }
+            let links: [(String, SidebarDeviceStatus.Link, FirmwareUpdateModel)] = [("non-collegata", .none, readings[0].1), ("bluetooth-accesso", .bluetoothNeedsAccess, readings[0].1),
+                ("bluetooth-pronta", .bluetoothReady, readings[1].1), ("usb-letta", .usbRead, keyglow), ("usb-da-leggere", .usbDetected, other)]
+            for (name, link, model) in links {
+                for width in [CGFloat(156), 184] {
+                    render(SidebarDeviceStatus(updater: model, link: link, onOpen: {}), width: width, name: "barra-\(name)-\(Int(width))-\(language.rawValue).png")
+                }
+            }
+        }
         AppLanguageStore.shared.language = .italian
         defaults.removePersistentDomain(forName: suite)
         exit(0)

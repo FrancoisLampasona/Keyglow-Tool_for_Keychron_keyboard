@@ -81,14 +81,13 @@ struct StudioView:View {
                 }
             }.scrollIndicators(.hidden)
             Spacer(minLength:compact ? 8:16)
-            VStack(alignment:.leading,spacing:8) {
-                if !compact { Image(systemName:"keyboard").font(.system(size:23,weight:.light)).foregroundColor(Studio.muted) }
-                LText("Q6 Max · ISO IT").fontWeight(.semibold)
-                LLabel(model.selectedUSBID != nil ? (model.usbSnapshot != nil ? "USB · letta" : "USB rilevata") : model.available ? "Bluetooth rilevata":"Non collegata",systemImage:model.selectedUSBID != nil ? "cable.connector":"circle.dotted").font(.system(size:11)).foregroundColor(model.usbSnapshot != nil ? Studio.success:Studio.muted)
+            VStack(alignment:.leading,spacing:6) {
+                SidebarDeviceStatus(updater:model.firmwareUpdater,
+                    link:model.selectedUSBID != nil ? (model.usbSnapshot != nil ? .usbRead : .usbDetected) : model.available ? (model.accessVerified ? .bluetoothReady : .bluetoothNeedsAccess) : .none) { model.section = .connection }
                 BatteryStatusView(model:model)
             }
             Divider().padding(.vertical,compact ? 10:18)
-            HStack { LanguageMenu(); Spacer(minLength:4); LText(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "—") }.font(.system(size:10)).foregroundColor(Studio.muted)
+            HStack { LanguageMenu(); Spacer(minLength:4); LText("App \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "—")").localizedHelp("Versione dell’app Keyglow, non del firmware della tastiera") }.font(.system(size:10)).foregroundColor(Studio.muted)
         }.padding(.horizontal,12).padding(.top,compact ? 36:44).padding(.bottom,compact ? 12:18).background(Studio.rail)
     }
     private var header: some View {
@@ -99,7 +98,7 @@ struct StudioView:View {
                 pageStatus
             }
             VStack(alignment: .leading, spacing: 12) { pageHeading; pageStatus }
-        }.frame(maxWidth: model.section.usesReadingWidth ? 1120 : .infinity, alignment: .leading)
+        }.frame(maxWidth: model.section.usesReadingWidth ? 920 : .infinity, alignment: .leading)
             .padding(.horizontal,28).padding(.top,36).padding(.bottom,18)
             .frame(maxWidth:.infinity,alignment:.center)
     }

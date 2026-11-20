@@ -556,6 +556,39 @@ struct FirmwareUpdateTests {
         if case .unreadable = outcome.0 {} else { preconditionFailure("Typing during the check stops it without a verdict") }
         outcome = try await check(usb: { "v1.1.1 keyglow" }, bluetooth: neverBluetooth) { $0.recordUSBReading(version: "old", isKeyglow: false) }
         precondition(outcome.0 == .usbKeyglow("v1.1.1 keyglow"), "A new reading replaces a recorded one")
+        // A transport that never returns cannot leave the check running for ever.
+        let stuckModel = FirmwareUpdateModel(bluetoothIdentify: { _, token in
+            while !token.isCancelled { Thread.sleep(forTimeInterval: 0.01) }
+            Thread.sleep(forTimeInterval: 0.15); return .responding
+        })
+        var stuckBusy = [Bool]()
+        stuckModel.onBusyChanged = { stuckBusy.append($0) }
+        stuckModel.checkTimeout = 0.1
+        stuckModel.checkInstalledFirmware(usb: nil, isKeyglow: { _ in true })
+        precondition(stuckModel.isChecking && stuckModel.isBusy)
+        for _ in 0..<200 where stuckModel.isBusy { try await Task.sleep(for: .milliseconds(5)) }
+        if case .unreadable = stuckModel.installed {} else { preconditionFailure("A check that does not return ends as unreadable") }
+        precondition(!stuckModel.isBusy && !stuckModel.isChecking && stuckBusy == [true, false] && stuckModel.cooldownUntil != nil)
+        try await Task.sleep(for: .milliseconds(400))
+        if case .unreadable = stuckModel.installed {} else { preconditionFailure("A late answer after the timeout is ignored") }
+        precondition(stuckBusy == [true, false], "and the busy state is released exactly once")
+        // The version last read stays visible; silence or failure never erases it.
+        let remembered = try await check(usb: { "v1.1.1 keyglow" }, bluetooth: neverBluetooth)
+        precondition(remembered.1.lastVersion?.version == "v1.1.1 keyglow" && remembered.1.lastVersion?.isKeyglow == true && remembered.1.lastVersion?.via == "USB")
+        remembered.1.forgetInstalledReading()
+        precondition(remembered.1.installed == .unknown && remembered.1.lastVersion != nil, "The current state resets; the last version read remains, with its date")
+        precondition(FirmwareVersionRecord(.bluetoothVerified(12), via: "Bluetooth", date: Date())?.version == "build 12")
+        for versionless in [InstalledFirmwareCheck.bluetoothResponding, .bluetoothSilent("x"), .unreadable("x"), .unknown, .checking] {
+            precondition(FirmwareVersionRecord(versionless, via: "Bluetooth", date: Date()) == nil, "Only a reading with a version is remembered")
+        }
+        let recordSuite = "keyglow.firmware-record-test.\(UUID().uuidString)", recordDefaults = UserDefaults(suiteName: recordSuite)!
+        defer { recordDefaults.removePersistentDomain(forName: recordSuite) }
+        precondition(FirmwareVersionRecord.load(recordDefaults) == nil)
+        let stamp = Date(timeIntervalSince1970: 1_800_000_000)
+        FirmwareVersionRecord(isKeyglow: true, version: "v1.1.1 keyglow", via: "USB", date: stamp).save(recordDefaults)
+        precondition(FirmwareVersionRecord.load(recordDefaults) == .init(isKeyglow: true, version: "v1.1.1 keyglow", via: "USB", date: stamp), "The record survives a relaunch")
+        recordDefaults.set(["version": "", "via": "USB"], forKey: FirmwareVersionRecord.key)
+        precondition(FirmwareVersionRecord.load(recordDefaults) == nil, "A damaged record is ignored")
         outcome.1.forgetInstalledReading()
         precondition(outcome.1.installed == .unknown && outcome.1.installedCheckedAt == nil, "Another keyboard starts unverified")
         print("Firmware workflow: package, authenticated identity, delta/literal, resume, cancellation, corruption, mutation failures post-reboot verification and the read-only installed-firmware check passed; fake transport and synthetic key only")

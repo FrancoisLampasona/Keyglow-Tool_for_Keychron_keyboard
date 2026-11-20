@@ -144,6 +144,36 @@ enum InstalledFirmwareCheck: Equatable, Sendable {
     var foundOther: Bool { if case .usbOther = self { return true }; return false }
 }
 
+/// A firmware version that was actually read, with how and when.
+struct FirmwareVersionRecord: Equatable, Sendable {
+    static let key = "firmware.lastVersionReading"
+    let isKeyglow: Bool
+    /// The version string from USB, or "build N" from an authenticated Bluetooth reply.
+    let version: String
+    let via: String
+    let date: Date
+    init(isKeyglow: Bool, version: String, via: String, date: Date) {
+        self.isKeyglow = isKeyglow; self.version = version; self.via = via; self.date = date
+    }
+    /// Only readings that carry a version are remembered.
+    init?(_ check: InstalledFirmwareCheck, via: String, date: Date) {
+        switch check {
+        case .usbKeyglow(let version): self.init(isKeyglow: true, version: version, via: via, date: date)
+        case .usbOther(let version): self.init(isKeyglow: false, version: version, via: via, date: date)
+        case .bluetoothVerified(let build): self.init(isKeyglow: true, version: "build \(build)", via: via, date: date)
+        default: return nil
+        }
+    }
+    static func load(_ defaults: UserDefaults) -> FirmwareVersionRecord? {
+        guard let stored = defaults.dictionary(forKey: key), let version = stored["version"] as? String, !version.isEmpty, version.count <= 64,
+              let via = stored["via"] as? String, let date = stored["date"] as? Date, let isKeyglow = stored["keyglow"] as? Bool else { return nil }
+        return .init(isKeyglow: isKeyglow, version: version, via: via, date: date)
+    }
+    func save(_ defaults: UserDefaults) {
+        defaults.set(["version": version, "via": via, "date": date, "keyglow": isKeyglow] as [String: Any], forKey: Self.key)
+    }
+}
+
 /// Synchronous worker-only coordinator. All device, key and cache access is
 /// injected, allowing the complete state machine to run against offline fakes.
 final class FirmwareUpdateCoordinator {
@@ -507,6 +537,13 @@ final class FirmwareUpdateModel: ObservableObject {
     @Published private(set) var installed: InstalledFirmwareCheck = .unknown
     @Published private(set) var installedCheckedAt: Date?
     @Published private(set) var installedVia = ""
+    /// The last reading that found a firmware version, kept between launches and
+    /// always shown with its date: it is "last read", not the current state.
+    @Published private(set) var lastVersion: FirmwareVersionRecord?
+    /// True only for the read-only check, never for an update or its review.
+    var isChecking: Bool { installed == .checking }
+    var checkTimeout: TimeInterval = 30
+    private let records: UserDefaults?
     var onBusyChanged: (Bool) -> Void = { _ in }
     private var pendingRaw: Data?
     private var cancellation = OTAUpdateCancellation()
@@ -519,6 +556,18 @@ final class FirmwareUpdateModel: ObservableObject {
          provisioningAction: @escaping @Sendable () throws -> FirmwareUpdateFiles.Provisioning = FirmwareUpdateFiles.provisionOwnerKey,
          bluetoothIdentify: (@Sendable (Double, OTAUpdateCancellation) throws -> BluetoothFirmwareIdentity)? = nil) {
         self.reviewAction = reviewAction; self.provisioningAction = provisioningAction; self.bluetoothIdentify = bluetoothIdentify
+        // Injected transports mean a test or preview: nothing is stored then.
+        records = bluetoothIdentify == nil && reviewAction == nil ? UserDefaults.standard : nil
+        lastVersion = records.flatMap(FirmwareVersionRecord.load)
+    }
+    init(previewRecord: FirmwareVersionRecord?) {
+        reviewAction = nil; provisioningAction = FirmwareUpdateFiles.provisionOwnerKey; bluetoothIdentify = { _, _ in .responding }
+        records = nil; lastVersion = previewRecord
+    }
+    private func remember(_ outcome: InstalledFirmwareCheck, via: String, at date: Date) {
+        guard let record = FirmwareVersionRecord(outcome, via: via, date: date) else { return }
+        lastVersion = record
+        if let records { record.save(records) }
     }
 
     /// True when the failed exchange may have reached the keyboard, so a late
@@ -538,6 +587,7 @@ final class FirmwareUpdateModel: ObservableObject {
     func recordUSBReading(version: String, isKeyglow: Bool, at date: Date = Date()) {
         guard !isBusy else { return }
         installed = isKeyglow ? .usbKeyglow(version) : .usbOther(version); installedVia = "USB"; installedCheckedAt = date
+        remember(installed, via: "USB", at: date)
     }
     /// The keyboard changed: an earlier reading no longer describes it.
     func forgetInstalledReading() { if !isBusy, installed != .checking { installed = .unknown; installedCheckedAt = nil; installedVia = "" } }
@@ -556,6 +606,14 @@ final class FirmwareUpdateModel: ObservableObject {
         let id = actionID, token = cancellation, pause = transferPause, identify = bluetoothIdentify
         installed = .checking; installedVia = usb == nil ? "Bluetooth" : "USB"
         isBusy = true; canCancel = false; onBusyChanged(true)
+        // The check always ends: a transport that never returns is cut off.
+        let limit = checkTimeout
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: UInt64(limit * 1_000_000_000))
+            guard let self, self.actionID == id, self.installed == .checking else { return }
+            token.cancel()
+            self.finishInstalledCheck(.unreadable("La tastiera non ha risposto in tempo. Riprova tra un minuto oppure collega il cavo USB."), startedRequest: usb == nil, id: id)
+        }
         Task.detached(priority: .userInitiated) { [self] in
             let outcome: InstalledFirmwareCheck, startedRequest: Bool
             do {
@@ -580,9 +638,10 @@ final class FirmwareUpdateModel: ObservableObject {
         }
     }
     private func finishInstalledCheck(_ outcome: InstalledFirmwareCheck, startedRequest: Bool, id: UUID) {
-        guard id == actionID else { return }
+        guard id == actionID, installed == .checking else { return }
         if startedRequest { cooldownUntil = Date().addingTimeInterval(61) }
         installed = outcome; installedCheckedAt = Date()
+        remember(outcome, via: installedVia, at: installedCheckedAt ?? Date())
         endBusy()
     }
 

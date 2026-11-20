@@ -94,7 +94,7 @@ struct ProfilesWorkspaceView: View {
                     }.padding(.top, 14)
                 }
                 if !model.projectMessage.isEmpty { LText(model.projectMessage).font(.system(size: 12)).foregroundColor(Studio.accent) }
-            }.studioPage()
+            }.studioPage(maxWidth:920)
         }.disabled(model.busy)
     }
 }
@@ -172,7 +172,7 @@ struct AdvancedWorkspaceView: View {
                         LText("Debounce e polling non sono configurabili da questa versione. Le funzioni dei modelli HE non si applicano alla Q6 Max.").font(.system(size: 12)).foregroundColor(Studio.muted).frame(maxWidth: .infinity, alignment: .leading)
                     }.padding(.top, 14)
                 }.foregroundColor(Studio.muted)
-            }.studioPage()
+            }.studioPage(maxWidth:920)
         }.disabled(model.busy)
     }
     private func energyPreset(title: String, detail: String, description: String, minutes: Int, symbol: String) -> some View {
@@ -270,7 +270,7 @@ struct ConnectionWorkspaceView: View {
                     LText("Il ricevitore 2,4 GHz non è ancora gestito da Keyglow.").font(.system(size:12)).foregroundColor(Studio.muted)
                 }
                 AppSettingsPanel(settings:model.settings)
-            }.studioPage()
+            }.studioPage(maxWidth:920)
         }.onAppear {showSetup = !model.directBluetooth}
             .onChange(of:model.selectedUSBID) {_ in model.usbSnapshot=nil;model.baselineWorkspace=nil;model.cableModeConfirmed=false}
     }
@@ -305,7 +305,7 @@ struct FirmwareWorkspaceView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 26) {
                 Color.clear.frame(height:0).id("firmware-top")
-                InstalledFirmwareCard(model:model,updater:updater)
+                InstalledFirmwareCard(updater:updater,usbConnected:model.selectedUSBID != nil,busy:model.busy) { model.checkInstalledFirmware() }
                 FirmwareUpdateView(model: updater, showsProvisioning:$model.showFirmwareSetup,installer:installer).disabled(model.busy && !updater.isBusy && !installer.isBusy)
                 LDisclosureGroup("Diagnostica e recupero") {
                 VStack(alignment:.leading,spacing:24) {
@@ -387,7 +387,7 @@ struct FirmwareWorkspaceView: View {
                 LText("I file CAD ufficiali documentano scocca, plate e assemblaggio. Il layout dell’app usa la matrice ISO ufficiale e le legende italiane della tua tastiera.").font(.system(size: 12)).foregroundColor(Studio.muted).lineSpacing(3)
                 }.padding(.top,18)
                 }.disabled(model.busy || updater.isBusy)
-            }.studioPage()
+            }.studioPage(maxWidth:920)
         }.onAppear {
             updater.onBusyChanged = { model.busy = $0 }
             // With a cable the read is quiet and conclusive, so it runs by itself.
@@ -413,44 +413,107 @@ struct FirmwareWorkspaceView: View {
     }
 }
 
-/// What firmware is on the keyboard, how it was read and when, with the check button.
+/// What firmware is on the keyboard: the current reading, the version last
+/// read (always shown, with its date) and the check button. One activity
+/// indicator, inside the button; one message per state.
 struct InstalledFirmwareCard: View {
-    @ObservedObject var model: StudioModel
     @ObservedObject var updater: FirmwareUpdateModel
-    private var checking: Bool { updater.installed == .checking }
+    let usbConnected: Bool
+    let busy: Bool
+    let onCheck: () -> Void
+    private var state: InstalledFirmwareCheck { updater.installed }
     var body: some View {
         StudioSurface {
-            StudioAdaptiveStack(breakpoint:760,spacing:16) {
-                VStack(alignment:.leading,spacing:8) {
-                    LLabel("Firmware installato",systemImage:"cpu").font(.system(size:21,weight:.semibold))
-                    LLabel(InstalledFirmwareText.title(updater.installed),systemImage:InstalledFirmwareText.symbol(updater.installed))
-                        .font(.system(size:14,weight:.medium)).foregroundColor(color).fixedSize(horizontal:false,vertical:true)
-                    if let detail=InstalledFirmwareText.detail(updater.installed) {
-                        LText(detail).font(.system(size:12)).foregroundColor(Studio.muted).lineSpacing(3).fixedSize(horizontal:false,vertical:true)
-                    }
-                    if let date=updater.installedCheckedAt, !checking {
-                        LText("Ultimo controllo via \(updater.installedVia): \(L10n.date(date,includeDay:true))").font(.system(size:11)).foregroundColor(Studio.muted)
-                    }
+            HStack(alignment:.top,spacing:16) {
+                OnboardingIconTile(symbol:"cpu",color:Studio.accent)
+                VStack(alignment:.leading,spacing:4) {
+                    LText("Firmware installato").font(.system(size:21,weight:.semibold))
+                    LLabel(InstalledFirmwareText.title(state),systemImage:InstalledFirmwareText.symbol(state))
+                        .font(.system(size:13,weight:.medium)).foregroundColor(color).fixedSize(horizontal:false,vertical:true)
                 }.frame(maxWidth:.infinity,alignment:.leading)
-                HStack(spacing:10) {
-                    if checking { ProgressView().controlSize(.small) }
-                    Button { model.checkInstalledFirmware() } label:{ LLabel(checking ? "Controllo in corso…" : "Controlla firmware",systemImage:"arrow.clockwise") }
-                        .buttonStyle(StudioButton(primary:!updater.installed.foundKeyglow)).disabled(model.busy)
-                }
+                Button(action:onCheck) {
+                    HStack(spacing:8) {
+                        if state == .checking { ProgressView().controlSize(.small) } else { Image(systemName:"checkmark.shield") }
+                        LText("Controlla firmware")
+                    }
+                }.buttonStyle(StudioButton(primary:!state.foundKeyglow)).disabled(busy)
+                    .localizedHelp(usbConnected ? "Legge la versione via USB: non modifica nulla" : "Chiede al firmware di rispondere via Bluetooth: non digitare per qualche secondo")
             }
-            LText(model.selectedUSBID != nil
-                  ? "Con il cavo collegato il controllo legge la versione via USB: è la lettura certa e non modifica nulla."
-                  : "Senza cavo il controllo usa per pochi secondi gli indicatori della tastiera via Bluetooth: non digitare finché non termina. Collega USB per la lettura certa.")
-                .font(.system(size:11)).foregroundColor(Studio.muted).fixedSize(horizontal:false,vertical:true)
+            VStack(alignment:.leading,spacing:12) {
+                HStack(alignment:.firstTextBaseline,spacing:18) {
+                    LText("Versione").foregroundColor(Studio.muted).frame(width:92,alignment:.leading)
+                    VStack(alignment:.leading,spacing:3) {
+                        if let record=updater.lastVersion {
+                            Text(verbatim:(record.isKeyglow ? "Keyglow · " : "") + record.version).font(.system(size:13,weight:.medium,design:.monospaced)).textSelection(.enabled)
+                                .fixedSize(horizontal:false,vertical:true)
+                            LText("Ultima lettura via \(record.via): \(L10n.date(record.date,includeDay:true))").font(.system(size:11)).foregroundColor(Studio.muted)
+                        } else {
+                            LText("Non ancora letta").font(.system(size:13,weight:.medium))
+                        }
+                    }
+                }.font(.system(size:13))
+                if let detail=InstalledFirmwareText.detail(state,usbConnected:usbConnected) {
+                    LText(detail).font(.system(size:12)).foregroundColor(Studio.muted).lineSpacing(3)
+                        .fixedSize(horizontal:false,vertical:true).frame(maxWidth:640,alignment:.leading)
+                }
+            }.padding(.leading,60)
         }
     }
     private var color: Color {
-        switch updater.installed {
+        switch state {
         case .usbKeyglow, .bluetoothVerified, .bluetoothResponding: Studio.success
         case .usbOther, .bluetoothSilent, .unreadable: Color(hex:0xF1BD79)
         case .unknown, .checking: Studio.muted
         }
     }
+}
+
+/// The keyboard at the bottom of the sidebar: a lit status dot, what is
+/// connected and how, and the firmware last read. Opens the Connection page.
+struct SidebarDeviceStatus: View {
+    enum Link: Equatable { case none, bluetoothNeedsAccess, bluetoothReady, usbDetected, usbRead }
+    @ObservedObject var updater: FirmwareUpdateModel
+    let link: Link
+    let onOpen: () -> Void
+    static let warning = Color(hex:0xF1BD79)
+    private var dot: Color { link == .none ? Studio.muted.opacity(0.55) : link == .bluetoothNeedsAccess || link == .usbDetected ? Self.warning : Studio.success }
+    private var status: String {
+        switch link {
+        case .none: "Non collegata"
+        case .bluetoothNeedsAccess: "Bluetooth · accesso da abilitare"
+        case .bluetoothReady: "Collegata via Bluetooth"
+        case .usbDetected: "USB · configurazione da leggere"
+        case .usbRead: "Collegata via USB"
+        }
+    }
+    private var firmware: String {
+        if updater.installed == .checking { return "Controllo firmware…" }
+        guard let record=updater.lastVersion else { return "Firmware non verificato" }
+        return (record.isKeyglow ? "Keyglow · " : "Firmware · ") + record.version
+    }
+    var body: some View {
+        Button(action:onOpen) {
+            VStack(alignment:.leading,spacing:5) {
+                HStack(spacing:8) {
+                    Circle().fill(dot).frame(width:9,height:9)
+                        .overlay(Circle().stroke(dot.opacity(link == .none ? 0 : 0.3),lineWidth:3).padding(-2.5)).accessibilityHidden(true)
+                    LText("Q6 Max · ISO IT").font(.system(size:13,weight:.semibold)).lineLimit(1)
+                }
+                LText(status).font(.system(size:11,weight:.medium)).foregroundColor(link == .none ? Studio.muted : Studio.text.opacity(0.9))
+                    .fixedSize(horizontal:false,vertical:true)
+                if record != nil || updater.installed == .checking {
+                    Text(verbatim:L10n.string(firmware)).font(.system(size:10)).foregroundColor(Studio.muted).lineLimit(2).fixedSize(horizontal:false,vertical:true)
+                } else {
+                    LText(firmware).font(.system(size:10)).foregroundColor(Studio.muted)
+                }
+            }.padding(.horizontal,10).padding(.vertical,9).frame(maxWidth:.infinity,alignment:.leading)
+                .background(Studio.panel).clipShape(RoundedRectangle(cornerRadius:7)).contentShape(Rectangle())
+        }.buttonStyle(.plain)
+            .localizedHelp("Apri Connessione")
+            .accessibilityElement(children:.ignore)
+            .accessibilityLabel(Text(verbatim:"Q6 Max ISO IT, " + L10n.string(status) + ", " + L10n.string(firmware)))
+    }
+    private var record: FirmwareVersionRecord? { updater.lastVersion }
 }
 
 /// One wording of the installed-firmware reading for every place that shows it.
@@ -473,13 +536,14 @@ enum InstalledFirmwareText {
         case .bluetoothResponding: "checkmark.seal"
         case .usbOther, .bluetoothSilent, .unreadable: "exclamationmark.triangle"
         case .unknown: "questionmark.circle"
-        case .checking: "arrow.clockwise"
+        case .checking: "hourglass"
         }
     }
-    static func detail(_ state: InstalledFirmwareCheck) -> String? {
+    static func detail(_ state: InstalledFirmwareCheck, usbConnected: Bool = false) -> String? {
         switch state {
-        case .unknown: "Premi Controlla firmware per leggere cosa c’è sulla tastiera."
-        case .checking: "Se la tastiera è in Bluetooth, non digitare per qualche secondo."
+        case .unknown: usbConnected ? "Con il cavo collegato il controllo legge la versione via USB e non modifica nulla."
+            : "Senza cavo il controllo chiede al firmware di rispondere via Bluetooth e dura pochi secondi: non digitare finché non termina. La lettura certa è via USB."
+        case .checking: usbConnected ? "Lettura della versione via USB." : "Non digitare per qualche secondo: il controllo usa gli indicatori della tastiera."
         case .usbKeyglow: "È la build inclusa in questa app. Colori ed effetti via Bluetooth sono disponibili."
         case .usbOther: "Sulla tastiera c’è un altro firmware, per esempio quello originale. Per gli RGB via Bluetooth usa Prima installazione di Keyglow."
         case .bluetoothVerified: "La risposta è autenticata con la chiave proprietario conservata su questo Mac."
