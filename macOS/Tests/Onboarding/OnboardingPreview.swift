@@ -54,6 +54,10 @@ import SwiftUI
             let m = flow([usb], step: 2)
             if let ticket = m.beginFirmwareRecognition() { m.finishFirmwareRecognition(ticket, result: .success("v1.1.1 2026-01-02 03:04")) }
             return m }()))
+        scenes.append(("3-firmware-originale", access(.granted), {
+            let m = flow([usb], step: 2)
+            if let ticket = m.beginFirmwareRecognition() { m.finishFirmwareRecognition(ticket, result: .success("v1.1.1 2025-05-05 10:00")) }
+            return m }()))
         scenes.append(("4-riepilogo-installa", access(.granted), { let m = flow([iso], step: 3); m.firmwareChoice = .install; return m }()))
         scenes.append(("4-riepilogo-solo-usb", access(.denied), {
             let m = flow([usb], step: 1); m.advanceWithoutAccess(); m.step = 3; return m }()))

@@ -15,7 +15,7 @@ struct StudioButton:ButtonStyle {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     func makeBody(configuration:Configuration)->some View {
         configuration.label.font(.system(size:12,weight:.semibold)).padding(.horizontal,15).frame(height:40)
-            .foregroundColor(primary && enabled ? Studio.rail : enabled ? Studio.text : Studio.muted.opacity(0.65))
+            .foregroundColor(primary && enabled ? Studio.rail : enabled ? Studio.text : Studio.muted.opacity(0.85))
             .background(primary && enabled ? Studio.accent : .white.opacity(enabled ? (configuration.isPressed || hover ? 0.13:0.07):0.035))
             .clipShape(RoundedRectangle(cornerRadius:7)).contentShape(RoundedRectangle(cornerRadius:7))
             .opacity(configuration.isPressed ? 0.8:1).onHover { hover=$0 }

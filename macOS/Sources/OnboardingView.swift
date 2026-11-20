@@ -11,6 +11,9 @@ struct OnboardingView: View {
     let onRelaunch: () -> Void
     let onLater: () -> Void
     static let steps=["Tastiera","Accessi","Firmware","Riepilogo"]
+    /// One symbol per step, reused in the path, beside the title and in the summary.
+    static let stepSymbols=["keyboard","hand.raised","cpu","checklist"]
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     static let warning=Color(hex:0xF1BD79)
 
     var body: some View {
@@ -19,10 +22,13 @@ struct OnboardingView: View {
             Divider()
             ScrollView {
                 VStack(alignment:.leading,spacing:24) {
-                    VStack(alignment:.leading,spacing:8) {
-                        LText(title).font(.system(size:22,weight:.semibold)).tracking(-0.3).fixedSize(horizontal:false,vertical:true)
-                            .accessibilityAddTraits(.isHeader)
-                        LText(subtitle).font(.system(size:13)).foregroundColor(Studio.muted).fixedSize(horizontal:false,vertical:true)
+                    HStack(alignment:.top,spacing:16) {
+                        OnboardingIconTile(symbol:Self.stepSymbols[setup.step],color:Studio.accent)
+                        VStack(alignment:.leading,spacing:6) {
+                            LText(title).font(.system(size:22,weight:.semibold)).tracking(-0.3).fixedSize(horizontal:false,vertical:true)
+                                .accessibilityAddTraits(.isHeader)
+                            LText(subtitle).font(.system(size:13)).foregroundColor(Studio.muted).fixedSize(horizontal:false,vertical:true)
+                        }
                     }
                     switch setup.step {
                     case 0: keyboardStep
@@ -32,6 +38,9 @@ struct OnboardingView: View {
                     }
                 }.frame(maxWidth:576,alignment:.leading).padding(.horizontal,32).padding(.vertical,24)
                     .frame(maxWidth:.infinity,alignment:.leading)
+                    // A quiet cross-fade between steps; none with Reduce Motion.
+                    .id(setup.step).transition(.opacity)
+                    .animation(reduceMotion ? nil : .easeOut(duration:0.2),value:setup.step)
             }
             Divider()
             footer
@@ -48,7 +57,7 @@ struct OnboardingView: View {
                 Spacer(minLength:12)
                 LanguageMenu()
             }
-            OnboardingStepper(current:setup.step)
+            OnboardingStepper(current:setup.step) { step in setup.step=step }
         }.padding(.horizontal,32).padding(.top,16).padding(.bottom,20)
     }
     private var footer: some View {
@@ -169,7 +178,6 @@ struct OnboardingView: View {
         return VStack(alignment:.leading,spacing:16) {
             VStack(alignment:.leading,spacing:0) {
                 HStack(spacing:12) {
-                    Image(systemName:"hand.raised").font(.system(size:17)).foregroundColor(granted ? Studio.success : Self.warning).frame(width:24).accessibilityHidden(true)
                     LText("Monitoraggio input").font(.system(size:15,weight:.semibold))
                     OnboardingChip(text:granted ? "Consentito":"Da abilitare",symbol:granted ? "checkmark.circle.fill":"circle.dotted",color:granted ? Studio.success : Self.warning)
                     Spacer(minLength:0)
@@ -185,13 +193,13 @@ struct OnboardingView: View {
                 } else {
                     Divider()
                     instruction(1,"Apri Impostazioni di Sistema → Privacy e sicurezza → Monitoraggio input.") {
-                        LButton("Apri Impostazioni") {model.openPrivacySettings()}.buttonStyle(StudioButton(primary:!model.needsRelaunch))
+                        Button {model.openPrivacySettings()} label:{ LLabel("Apri Impostazioni",systemImage:"gearshape") }.buttonStyle(StudioButton(primary:!model.needsRelaunch))
                     }
                     Divider()
                     instruction(2,"Abilita Keyglow nell’elenco.") { EmptyView() }
                     Divider()
                     instruction(3,"Esci e riapri Keyglow: macOS applica il permesso solo alle app avviate dopo averlo concesso. La guida riprende da qui.") {
-                        LButton("Esci e riapri Keyglow",action:onRelaunch).buttonStyle(StudioButton(primary:model.needsRelaunch))
+                        Button(action:onRelaunch) { LLabel("Esci e riapri Keyglow",systemImage:"arrow.triangle.2.circlepath") }.buttonStyle(StudioButton(primary:model.needsRelaunch))
                     }
                 }
             }.onboardingCard(padding:0)
@@ -238,36 +246,43 @@ struct OnboardingView: View {
         VStack(alignment:.leading,spacing:16) {
             firmwareRecognitionNote
             VStack(spacing:10) {
-                ForEach(SetupFirmwareChoice.allCases,id:\.self) { choice in firmwareCard(choice) }
+                ForEach(SetupFirmwareChoice.allCases,id:\.self) { choice in
+                    OnboardingChoiceCard(symbol:choice.symbol,title:choice.title,summary:choice.summary,badge:firmwareBadge(choice),
+                                         selected:setup.firmwareChoice == choice) { setup.firmwareChoice=choice }
+                }
             }
-            LText(setup.firmwareChoice == .installed
-                 ? (firmwareRecognized
-                    ? "Riconosciuto dalla lettura USB. Gli aggiornamenti firmware via Bluetooth richiedono la chiave proprietario creata sul Mac usato per la prima installazione; la pagina Firmware esegue la verifica autenticata."
-                    : "È una tua dichiarazione, non una lettura del firmware. Gli aggiornamenti firmware via Bluetooth richiedono il loader Keyglow e la chiave proprietario creata sul Mac usato per la prima installazione; la pagina Firmware esegue la verifica autenticata.")
-                 : setup.firmwareChoice == .usb ? "Puoi usare l’editor USB e preparare profili. RGB e aggiornamenti via Bluetooth restano da configurare."
-                 : "La prima installazione richiede USB e DFU. L’app ti accompagna nel backup, prepara la chiave privata, chiede conferma dei file e installa il firmware; poi ripristina il profilo. Gli aggiornamenti successivi possono passare via Bluetooth.")
-                .font(.system(size:12)).foregroundColor(Studio.muted).lineSpacing(3).fixedSize(horizontal:false,vertical:true)
-            LDisclosureGroup("Firmware originale e firmware Keyglow") {
-                LText("Con il firmware originale, il collegamento Bluetooth serve a digitare. I controlli RGB di Keyglow richiedono il firmware personalizzato. Mappa, macro e RGB via USB restano disponibili con firmware compatibile VIA.")
-                    .fixedSize(horizontal:false,vertical:true).padding(.top,10)
+            // One line on what follows the selected choice.
+            LLabel(firmwareNote,systemImage:"info.circle").font(.system(size:12)).foregroundColor(Studio.text.opacity(0.86))
+                .fixedSize(horizontal:false,vertical:true)
+            LDisclosureGroup("Dettagli su questa scelta") {
+                VStack(alignment:.leading,spacing:10) {
+                    LText(setup.firmwareChoice == .installed
+                         ? (firmwareRecognized
+                            ? "Riconosciuto dalla lettura USB. Gli aggiornamenti firmware via Bluetooth richiedono la chiave proprietario creata sul Mac usato per la prima installazione; la pagina Firmware esegue la verifica autenticata."
+                            : "È una tua dichiarazione, non una lettura del firmware. Gli aggiornamenti firmware via Bluetooth richiedono il loader Keyglow e la chiave proprietario creata sul Mac usato per la prima installazione; la pagina Firmware esegue la verifica autenticata.")
+                         : setup.firmwareChoice == .usb ? "Puoi usare l’editor USB e preparare profili. RGB e aggiornamenti via Bluetooth restano da configurare."
+                         : "La prima installazione richiede USB e DFU. L’app ti accompagna nel backup, prepara la chiave privata, chiede conferma dei file e installa il firmware; poi ripristina il profilo. Gli aggiornamenti successivi possono passare via Bluetooth.")
+                    LText("Con il firmware originale, il collegamento Bluetooth serve a digitare. I controlli RGB di Keyglow richiedono il firmware personalizzato. Mappa, macro e RGB via USB restano disponibili con firmware compatibile VIA.")
+                }.lineSpacing(2).fixedSize(horizontal:false,vertical:true).padding(.top,10)
             }.font(.system(size:12)).foregroundColor(Studio.muted)
         }
     }
-    private func firmwareCard(_ choice:SetupFirmwareChoice) -> some View {
-        let selected=setup.firmwareChoice == choice
-        return Button {setup.firmwareChoice=choice} label:{
-            HStack(alignment:.top,spacing:14) {
-                Image(systemName:selected ? "largecircle.fill.circle":"circle").font(.system(size:18)).foregroundColor(selected ? Studio.accent : Studio.muted)
-                    .frame(width:24,height:24).accessibilityHidden(true)
-                VStack(alignment:.leading,spacing:4) {
-                    LText(choice.title).font(.system(size:14,weight:.semibold)).multilineTextAlignment(.leading).fixedSize(horizontal:false,vertical:true)
-                    LText(choice.summary).font(.system(size:12)).foregroundColor(Studio.muted).multilineTextAlignment(.leading).fixedSize(horizontal:false,vertical:true)
-                }
-                Spacer(minLength:0)
-            }.onboardingCard(selected:selected,padding:16).contentShape(Rectangle())
-        }.buttonStyle(.plain)
-            .accessibilityLabel(Text(verbatim:L10n.catalog.text(choice.title,language:language.language) + ". " + L10n.catalog.text(choice.summary,language:language.language)))
-            .accessibilityAddTraits(selected ? .isSelected:[])
+    /// "Rilevato" only for a USB reading; "Consigliato" only where a fact supports it.
+    private func firmwareBadge(_ choice:SetupFirmwareChoice) -> String? {
+        switch setup.firmwareRecognition {
+        case .recognized: return choice == .installed ? "Rilevato" : nil
+        case .unrecognized: return choice == (setup.skippedAccess ? .usb : .install) ? "Consigliato" : nil
+        default: return setup.skippedAccess && choice == .usb ? "Consigliato" : nil
+        }
+    }
+    private var firmwareNote:String {
+        switch setup.firmwareChoice {
+        case .install: "Poi: la pagina Firmware ti guida con cavo USB e modalità DFU. Nulla viene installato senza la tua conferma."
+        case .usb: "Poi: leggi la configurazione via USB. Gli RGB via Bluetooth restano da configurare."
+        case .installed: firmwareRecognized
+            ? "Verificato dalla lettura USB. Per aggiornare il firmware via Bluetooth serve la chiave proprietario creata sul Mac della prima installazione."
+            : "È una tua dichiarazione, non una lettura. Per aggiornare il firmware via Bluetooth serve la chiave proprietario creata sul Mac della prima installazione."
+        }
     }
     private var firmwareRecognized:Bool { if case .recognized = setup.firmwareRecognition { return true }; return false }
     @ViewBuilder private var firmwareRecognitionNote:some View {
@@ -300,13 +315,14 @@ struct OnboardingView: View {
     private var summaryStep:some View {
         VStack(alignment:.leading,spacing:20) {
             VStack(alignment:.leading,spacing:0) {
-                summaryRow(setup.selected?.modelTitle ?? "Tastiera da rilevare",state:setup.supportsSelection ? .ready : .pending)
+                summaryRow("keyboard",setup.selected?.modelTitle ?? "Tastiera da rilevare",state:setup.supportsSelection ? .ready : .pending)
                 Divider()
-                summaryRow(model.permission == .granted ? "Monitoraggio input consentito" : setup.skippedAccess ? "Senza Monitoraggio input: gli RGB via Bluetooth restano non disponibili" : "Permesso da verificare",
+                summaryRow("hand.raised",model.permission == .granted ? "Monitoraggio input consentito" : setup.skippedAccess ? "Senza Monitoraggio input: gli RGB via Bluetooth restano non disponibili" : "Permesso da verificare",
                            state:model.permission == .granted ? .ready : setup.skippedAccess ? .limited : .pending)
                 Divider()
-                summaryRow(firmwareSummary.text,state:firmwareSummary.state)
+                summaryRow("cpu",firmwareSummary.text,state:firmwareSummary.state)
             }.onboardingCard(padding:0)
+            LLabel(destinationNote,systemImage:"arrow.right.circle").font(.system(size:12,weight:.medium)).foregroundColor(Studio.accent).fixedSize(horizontal:false,vertical:true)
             VStack(alignment:.leading,spacing:10) {
                 switch setup.firmwareChoice {
                 case .install:
@@ -327,7 +343,6 @@ struct OnboardingView: View {
                         .fixedSize(horizontal:false,vertical:true)
                 }
             }
-            LLabel(destinationNote,systemImage:"arrow.right.circle").font(.system(size:12,weight:.medium)).foregroundColor(Studio.accent).fixedSize(horizontal:false,vertical:true)
             LText("Puoi riaprire questa procedura dal menu Keyglow → Configura tastiera e accessi.")
                 .font(.system(size:12)).foregroundColor(Studio.muted).fixedSize(horizontal:false,vertical:true)
         }
@@ -348,20 +363,28 @@ struct OnboardingView: View {
         case .usb: "Il pulsante apre la pagina Connessione."
         }
     }
-    private func summaryRow(_ text:String,state:SummaryState) -> some View {
+    private func summaryRow(_ category:String,_ text:String,state:SummaryState) -> some View {
         let symbol=state == .ready ? "checkmark.circle.fill" : state == .limited ? "exclamationmark.triangle.fill" : "circle.dotted"
         let color=state == .ready ? Studio.success : state == .limited ? Self.warning : Studio.muted
         return HStack(alignment:.center,spacing:14) {
-            Image(systemName:symbol).font(.system(size:16)).foregroundColor(color).frame(width:24).accessibilityHidden(true)
+            OnboardingIconTile(symbol:category,color:color,size:36)
             LText(text).font(.system(size:13,weight:.medium)).fixedSize(horizontal:false,vertical:true)
-            Spacer(minLength:0)
-        }.padding(.horizontal,20).padding(.vertical,14).frame(minHeight:48)
+            Spacer(minLength:8)
+            Image(systemName:symbol).font(.system(size:16)).foregroundColor(color).accessibilityHidden(true)
+        }.padding(.horizontal,20).padding(.vertical,10).frame(minHeight:56)
             .accessibilityElement(children:.ignore)
             .accessibilityLabel(Text(verbatim:L10n.catalog.text(text,language:language.language) + ", " + L10n.catalog.text(state == .ready ? "pronto" : state == .limited ? "con limiti" : "da completare",language:language.language)))
     }
 }
 
 extension SetupFirmwareChoice {
+    var symbol:String {
+        switch self {
+        case .install: "antenna.radiowaves.left.and.right"
+        case .installed: "checkmark.seal"
+        case .usb: "cable.connector"
+        }
+    }
     /// One line under the choice title; the consequences are spelled out below the list.
     var summary:String {
         switch self {
@@ -372,57 +395,113 @@ extension SetupFirmwareChoice {
     }
 }
 
-/// Numbered progress with connecting lines: done, current and upcoming are
-/// told apart by shape and text as well as by color.
+/// The guide's path: an icon per step, a line that fills as steps are done,
+/// and done steps that can be revisited. State is told by shape and words as
+/// well as by color.
 private struct OnboardingStepper: View {
     @ObservedObject private var language = AppLanguageStore.shared
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let current: Int
+    let onSelect: (Int) -> Void
     var body: some View {
         ViewThatFits(in:.horizontal) {
             row(labels:.all)
             row(labels:.currentOnly)
-        }.accessibilityElement(children:.ignore)
-            .accessibilityLabel(Text(verbatim:L10n.catalog.format("Passo {0} di {1}: {2}",arguments:[String(current+1),String(OnboardingView.steps.count),L10n.catalog.text(OnboardingView.steps[current],language:language.language)],language:language.language)))
+        }.animation(reduceMotion ? nil : .easeOut(duration:0.25),value:current)
+            .accessibilityElement(children:.contain)
     }
     private enum Labels { case all, currentOnly }
+    private func name(_ index:Int) -> String { L10n.catalog.text(OnboardingView.steps[index],language:language.language) }
     private func row(labels:Labels) -> some View {
         HStack(spacing:10) {
             ForEach(OnboardingView.steps.indices,id:\.self) { index in
-                HStack(spacing:8) {
-                    node(index)
-                    if labels == .all || index == current {
-                        LText(OnboardingView.steps[index]).font(.system(size:12,weight:index == current ? .semibold : .regular))
-                            .foregroundColor(index == current ? Studio.text : index < current ? Studio.accent : Studio.muted)
-                            .lineLimit(1).fixedSize()
-                    }
-                }
+                step(index,labelled:labels == .all || index == current)
                 if index != OnboardingView.steps.count-1 {
-                    Rectangle().fill(index < current ? Studio.accent.opacity(0.6) : Studio.line).frame(height:1).frame(minWidth:12,maxWidth:.infinity)
+                    Capsule().fill(index < current ? Studio.accent : Studio.line).frame(height:2).frame(minWidth:12,maxWidth:.infinity)
+                        .accessibilityHidden(true)
                 }
             }
         }
     }
+    @ViewBuilder private func step(_ index:Int,labelled:Bool) -> some View {
+        let content=HStack(spacing:8) {
+            node(index)
+            if labelled {
+                LText(OnboardingView.steps[index]).font(.system(size:12,weight:index == current ? .semibold : .medium))
+                    .foregroundColor(index == current ? Studio.text : index < current ? Studio.accent : Studio.muted)
+                    .lineLimit(1).fixedSize()
+            }
+        }
+        if index < current {
+            // A completed step is a way back.
+            Button { onSelect(index) } label:{ content.contentShape(Rectangle()) }.buttonStyle(.plain)
+                .accessibilityLabel(Text(verbatim:L10n.catalog.format("Torna al passo {0}: {1}",arguments:[String(index+1),name(index)],language:language.language)))
+                .help(Text(verbatim:L10n.catalog.format("Torna al passo {0}: {1}",arguments:[String(index+1),name(index)],language:language.language)))
+        } else {
+            content.accessibilityElement(children:.ignore)
+                .accessibilityLabel(Text(verbatim:L10n.catalog.format(index == current ? "Passo {0} di {1}: {2}" : "Passo {0} di {1}: {2}, da fare",arguments:[String(index+1),String(OnboardingView.steps.count),name(index)],language:language.language)))
+                .accessibilityAddTraits(index == current ? .isSelected : [])
+        }
+    }
     @ViewBuilder private func node(_ index:Int) -> some View {
         if index < current {
-            Image(systemName:"checkmark").font(.system(size:11,weight:.bold)).foregroundColor(Studio.rail)
-                .frame(width:24,height:24).background(Circle().fill(Studio.accent))
+            Image(systemName:"checkmark").font(.system(size:12,weight:.bold)).foregroundColor(Studio.rail)
+                .frame(width:28,height:28).background(Circle().fill(Studio.accent))
         } else if index == current {
-            Text(verbatim:"\(index+1)").font(.system(size:12,weight:.bold)).monospacedDigit().foregroundColor(Studio.rail)
-                .frame(width:24,height:24).background(Circle().fill(Studio.accent))
+            Image(systemName:OnboardingView.stepSymbols[index]).font(.system(size:12,weight:.semibold)).foregroundColor(Studio.rail)
+                .frame(width:28,height:28).background(Circle().fill(Studio.accent))
                 .overlay(Circle().stroke(Studio.accent.opacity(0.35),lineWidth:3).padding(-3))
         } else {
-            Text(verbatim:"\(index+1)").font(.system(size:12,weight:.medium)).monospacedDigit().foregroundColor(Studio.muted)
-                .frame(width:24,height:24).overlay(Circle().strokeBorder(Studio.line,lineWidth:1.5))
+            Image(systemName:OnboardingView.stepSymbols[index]).font(.system(size:12,weight:.medium)).foregroundColor(Studio.muted)
+                .frame(width:28,height:28).background(Circle().fill(Studio.panel)).overlay(Circle().strokeBorder(Studio.line,lineWidth:1.5))
         }
     }
 }
 
+/// The guide's icon container: one weight, one shape, a faint tint of its own color.
 private struct OnboardingIconTile: View {
     let symbol: String
     let color: Color
+    var size: CGFloat = 44
     var body: some View {
-        Image(systemName:symbol).font(.system(size:22,weight:.regular)).foregroundColor(color)
-            .frame(width:52,height:52).background(RoundedRectangle(cornerRadius:12).fill(Studio.rail)).accessibilityHidden(true)
+        Image(systemName:symbol).font(.system(size:size*0.45,weight:.medium)).foregroundColor(color)
+            .frame(width:size,height:size).background(RoundedRectangle(cornerRadius:size*0.27).fill(color.opacity(0.14))).accessibilityHidden(true)
+    }
+}
+
+/// A selectable choice: icon, short title, one line, optional fact badge.
+private struct OnboardingChoiceCard: View {
+    @ObservedObject private var language = AppLanguageStore.shared
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    let symbol: String
+    let title: String
+    let summary: String
+    let badge: String?
+    let selected: Bool
+    let action: () -> Void
+    @State private var hover = false
+    var body: some View {
+        Button(action:action) {
+            HStack(alignment:.center,spacing:14) {
+                OnboardingIconTile(symbol:symbol,color:selected ? Studio.accent : Studio.muted)
+                VStack(alignment:.leading,spacing:4) {
+                    HStack(alignment:.firstTextBaseline,spacing:8) {
+                        LText(title).font(.system(size:14,weight:.semibold)).multilineTextAlignment(.leading).fixedSize(horizontal:false,vertical:true)
+                        if let badge { OnboardingChip(text:badge,symbol:badge == "Rilevato" ? "checkmark.seal.fill" : "star.fill",color:Studio.accent) }
+                    }
+                    LText(summary).font(.system(size:12)).foregroundColor(Studio.muted).multilineTextAlignment(.leading).fixedSize(horizontal:false,vertical:true)
+                }
+                Spacer(minLength:0)
+                Image(systemName:selected ? "largecircle.fill.circle":"circle").font(.system(size:18)).foregroundColor(selected ? Studio.accent : Studio.muted)
+                    .accessibilityHidden(true)
+            }.padding(14).frame(maxWidth:.infinity,alignment:.leading)
+                .background(RoundedRectangle(cornerRadius:14).fill(selected ? Studio.accent.opacity(0.12) : hover ? Color.white.opacity(0.07) : Studio.panel))
+                .overlay(RoundedRectangle(cornerRadius:14).strokeBorder(selected ? Studio.accent : Color.clear,lineWidth:1.5))
+                .contentShape(Rectangle())
+        }.buttonStyle(.plain).onHover { hover=$0 }
+            .animation(reduceMotion ? nil : .easeOut(duration:0.14),value:hover)
+            .accessibilityLabel(Text(verbatim:[title,badge,summary].compactMap { $0 }.map { L10n.catalog.text($0,language:language.language) }.joined(separator:". ")))
+            .accessibilityAddTraits(selected ? .isSelected:[])
     }
 }
 

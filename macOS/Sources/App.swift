@@ -530,6 +530,8 @@ import Combine
     @objc func quitKeyglow(_ sender: Any?) {
         guard mayClose() else { return }
         onboarding.dismissForTermination()
+        // Any other sheet would block termination in the same way.
+        for candidate in NSApp.windows { if let sheet = candidate.attachedSheet { candidate.endSheet(sheet) } }
         DispatchQueue.main.async { NSApp.terminate(nil) }
     }
     private func buildMenu() {

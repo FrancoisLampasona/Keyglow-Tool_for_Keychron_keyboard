@@ -5187,10 +5187,6 @@
     "en": "What Keyglow does with this access",
     "fr": "Ce que Keyglow fait de cet accès"
   },
-  "Firmware originale e firmware Keyglow": {
-    "en": "Original firmware and Keyglow firmware",
-    "fr": "Firmware d’origine et firmware Keyglow"
-  },
   "Prima installazione guidata, con cavo USB.": {
     "en": "Guided first installation, with a USB cable.",
     "fr": "Première installation guidée, avec un câble USB."
@@ -5238,5 +5234,37 @@
   "da completare": {
     "en": "to complete",
     "fr": "à terminer"
+  },
+  "Torna al passo {0}: {1}": {
+    "en": "Go back to step {0}: {1}",
+    "fr": "Revenir à l’étape {0} : {1}"
+  },
+  "Passo {0} di {1}: {2}, da fare": {
+    "en": "Step {0} of {1}: {2}, to do",
+    "fr": "Étape {0} sur {1} : {2}, à faire"
+  },
+  "Dettagli su questa scelta": {
+    "en": "Details on this choice",
+    "fr": "Détails sur ce choix"
+  },
+  "Consigliato": {
+    "en": "Recommended",
+    "fr": "Recommandé"
+  },
+  "Poi: la pagina Firmware ti guida con cavo USB e modalità DFU. Nulla viene installato senza la tua conferma.": {
+    "en": "Next: the Firmware page guides you with a USB cable and DFU mode. Nothing is installed without your confirmation.",
+    "fr": "Ensuite : la page Firmware vous guide avec un câble USB et le mode DFU. Rien n’est installé sans votre confirmation."
+  },
+  "Poi: leggi la configurazione via USB. Gli RGB via Bluetooth restano da configurare.": {
+    "en": "Next: read the configuration over USB. Bluetooth RGB still needs to be set up.",
+    "fr": "Ensuite : lisez la configuration en USB. Le RGB en Bluetooth reste à configurer."
+  },
+  "Verificato dalla lettura USB. Per aggiornare il firmware via Bluetooth serve la chiave proprietario creata sul Mac della prima installazione.": {
+    "en": "Verified by the USB read. Updating the firmware over Bluetooth needs the owner key created on the Mac used for the first installation.",
+    "fr": "Vérifié par la lecture USB. La mise à jour du firmware en Bluetooth nécessite la clé propriétaire créée sur le Mac de la première installation."
+  },
+  "È una tua dichiarazione, non una lettura. Per aggiornare il firmware via Bluetooth serve la chiave proprietario creata sul Mac della prima installazione.": {
+    "en": "This is your declaration, not a read. Updating the firmware over Bluetooth needs the owner key created on the Mac used for the first installation.",
+    "fr": "Il s’agit de votre déclaration, pas d’une lecture. La mise à jour du firmware en Bluetooth nécessite la clé propriétaire créée sur le Mac de la première installation."
   }
 }
