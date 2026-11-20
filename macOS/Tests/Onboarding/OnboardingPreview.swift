@@ -66,7 +66,7 @@ import SwiftUI
         for language in languages {
             AppLanguageStore.shared.language = language
             for (name, model, setup) in scenes {
-                let view = OnboardingView(model: model, setup: setup, onContinue: {}, onRelaunch: {}, onLater: {}).preferredColorScheme(.dark)
+                let view = OnboardingView(model: model, setup: setup, firmware: FirmwareUpdateModel(), onContinue: {}, onRelaunch: {}, onLater: {}).preferredColorScheme(.dark)
                 let host = NSHostingView(rootView: view)
                 let window = NSWindow(contentRect: NSRect(origin: .zero, size: size), styleMask: [.borderless], backing: .buffered, defer: false)
                 window.appearance = NSAppearance(named: .darkAqua)

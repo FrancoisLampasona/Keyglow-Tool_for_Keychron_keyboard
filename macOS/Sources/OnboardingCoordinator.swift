@@ -9,6 +9,11 @@ import Combine
     /// The app delegate owns quitting: it applies the same busy check as Quit.
     var onRelaunchRequested: (() -> Void)?
     private var leftAppOnAccessStep = false
+    /// The app-wide installed-firmware reading; the guide shows and feeds the same value.
+    var firmwareUpdater: FirmwareUpdateModel?
+    /// Explicit read-only check, run by the app model on the available connection.
+    var onFirmwareCheck: (() -> Void)?
+    private var usbReading: AnyCancellable?
     private var setupWindow: NSWindow?
     private var languageSubscription: AnyCancellable?
 
@@ -44,14 +49,28 @@ import Combine
         sheet.title = L10n.string("Configura \(model.appName)")
         sheet.isReleasedWhenClosed = false
         sheet.delegate = self
-        sheet.contentView = NSHostingView(rootView: OnboardingView(model: model, setup:setup, onContinue: { [weak self] in
+        // A USB reading made by the guide becomes the app's reading too.
+        usbReading = setup.$firmwareRecognition.sink { [weak self] recognition in
+            Task { @MainActor in
+                switch recognition {
+                case .recognized(let version): self?.firmwareUpdater?.recordUSBReading(version: version, isKeyglow: true)
+                case .unrecognized(let version): self?.firmwareUpdater?.recordUSBReading(version: version, isKeyglow: false)
+                default: break
+                }
+            }
+        }
+        sheet.contentView = NSHostingView(rootView: OnboardingView(model: model, setup:setup, firmware: firmwareUpdater ?? FirmwareUpdateModel(), onContinue: { [weak self] in
             guard let self else { return }
             self.model.refresh()
             if self.setup.step < 3 {
                 self.setup.advance(permissionGranted:self.model.canContinue)
                 if self.setup.step == 1 { self.model.beginAutomaticSetup() }
                 // Read-only USB identification, only on reaching the firmware step.
-                if self.setup.step == 2 { self.setup.recognizeFirmware() }
+                if self.setup.step == 2 {
+                    self.setup.recognizeFirmware()
+                    // In Bluetooth a remembered "already installed" is checked at once.
+                    if self.setup.firmwareRecognition == .bluetooth && self.setup.firmwareChoice == .installed { self.onFirmwareCheck?() }
+                }
                 return
             }
             guard self.model.completeSetup(withoutAccess:self.setup.skippedAccess), self.setup.complete(permissionGranted:self.model.canContinue) else { return }
@@ -60,6 +79,8 @@ import Combine
             self.onCompletion?(choice,destination)
         }, onRelaunch: { [weak self] in
             self?.onRelaunchRequested?()
+        }, onCheckFirmware: { [weak self] in
+            self?.onFirmwareCheck?()
         }, onLater: { [weak self] in
             self?.model.deferSetup()
             self?.dismiss()

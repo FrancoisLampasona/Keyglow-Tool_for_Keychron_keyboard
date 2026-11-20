@@ -236,6 +236,7 @@ struct ConnectionWorkspaceView: View {
                     LDisclosureGroup("Firmware e compatibilità",isExpanded:$showSetup) {
                         VStack(alignment:.leading,spacing:14) {
                             LToggle("Firmware Keyglow con RGB diretti installato",isOn:$model.directBluetooth).toggleStyle(.checkbox).disabled(model.busy)
+                            InstalledFirmwareLine(updater:model.firmwareUpdater)
                             LText("Questa scelta ricorda la configurazione. La verifica della versione installata si trova nella pagina Firmware.")
                                 .font(.system(size:12)).foregroundColor(Studio.muted).fixedSize(horizontal:false,vertical:true)
                             if !model.directBluetooth {
@@ -304,6 +305,7 @@ struct FirmwareWorkspaceView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 26) {
                 Color.clear.frame(height:0).id("firmware-top")
+                InstalledFirmwareCard(model:model,updater:updater)
                 FirmwareUpdateView(model: updater, showsProvisioning:$model.showFirmwareSetup,installer:installer).disabled(model.busy && !updater.isBusy && !installer.isBusy)
                 LDisclosureGroup("Diagnostica e recupero") {
                 VStack(alignment:.leading,spacing:24) {
@@ -388,6 +390,9 @@ struct FirmwareWorkspaceView: View {
             }.studioPage()
         }.onAppear {
             updater.onBusyChanged = { model.busy = $0 }
+            // With a cable the read is quiet and conclusive, so it runs by itself.
+            // Over Bluetooth it uses the indicator channel and waits for the button.
+            if model.selectedUSBID != nil && updater.installed == .unknown { model.checkInstalledFirmware() }
             installer.onBusyChanged = { model.busy = $0; if $0 {model.stopCapture()} }
             installer.onRestored = { snapshot in
                 if model.hasLocalChanges {model.archiveRecoveryCopy(suffix:" · prima del ripristino")}
@@ -405,5 +410,92 @@ struct FirmwareWorkspaceView: View {
     }
     private func info(_ label: String, _ value: String) -> some View {
         HStack(alignment: .firstTextBaseline) { LText(label).foregroundColor(Studio.muted); Spacer(); LText(value).font(.system(size: 12, weight: .medium, design: .monospaced)).multilineTextAlignment(.trailing).fixedSize(horizontal:false,vertical:true).textSelection(.enabled) }
+    }
+}
+
+/// What firmware is on the keyboard, how it was read and when, with the check button.
+struct InstalledFirmwareCard: View {
+    @ObservedObject var model: StudioModel
+    @ObservedObject var updater: FirmwareUpdateModel
+    private var checking: Bool { updater.installed == .checking }
+    var body: some View {
+        StudioSurface {
+            StudioAdaptiveStack(breakpoint:760,spacing:16) {
+                VStack(alignment:.leading,spacing:8) {
+                    LLabel("Firmware installato",systemImage:"cpu").font(.system(size:21,weight:.semibold))
+                    LLabel(InstalledFirmwareText.title(updater.installed),systemImage:InstalledFirmwareText.symbol(updater.installed))
+                        .font(.system(size:14,weight:.medium)).foregroundColor(color).fixedSize(horizontal:false,vertical:true)
+                    if let detail=InstalledFirmwareText.detail(updater.installed) {
+                        LText(detail).font(.system(size:12)).foregroundColor(Studio.muted).lineSpacing(3).fixedSize(horizontal:false,vertical:true)
+                    }
+                    if let date=updater.installedCheckedAt, !checking {
+                        LText("Ultimo controllo via \(updater.installedVia): \(L10n.date(date,includeDay:true))").font(.system(size:11)).foregroundColor(Studio.muted)
+                    }
+                }.frame(maxWidth:.infinity,alignment:.leading)
+                HStack(spacing:10) {
+                    if checking { ProgressView().controlSize(.small) }
+                    Button { model.checkInstalledFirmware() } label:{ LLabel(checking ? "Controllo in corso…" : "Controlla firmware",systemImage:"arrow.clockwise") }
+                        .buttonStyle(StudioButton(primary:!updater.installed.foundKeyglow)).disabled(model.busy)
+                }
+            }
+            LText(model.selectedUSBID != nil
+                  ? "Con il cavo collegato il controllo legge la versione via USB: è la lettura certa e non modifica nulla."
+                  : "Senza cavo il controllo usa per pochi secondi gli indicatori della tastiera via Bluetooth: non digitare finché non termina. Collega USB per la lettura certa.")
+                .font(.system(size:11)).foregroundColor(Studio.muted).fixedSize(horizontal:false,vertical:true)
+        }
+    }
+    private var color: Color {
+        switch updater.installed {
+        case .usbKeyglow, .bluetoothVerified, .bluetoothResponding: Studio.success
+        case .usbOther, .bluetoothSilent, .unreadable: Color(hex:0xF1BD79)
+        case .unknown, .checking: Studio.muted
+        }
+    }
+}
+
+/// One wording of the installed-firmware reading for every place that shows it.
+enum InstalledFirmwareText {
+    static func title(_ state: InstalledFirmwareCheck) -> String {
+        switch state {
+        case .unknown: "Non ancora verificato"
+        case .checking: "Controllo in corso…"
+        case .usbKeyglow(let version): "Firmware Keyglow rilevato via USB · \(version)"
+        case .usbOther(let version): "Firmware Keyglow non trovato: via USB risponde \(version)"
+        case .bluetoothVerified(let build): "Firmware Keyglow verificato via Bluetooth · build \(build)"
+        case .bluetoothResponding: "Firmware Keyglow rilevato via Bluetooth, non autenticato"
+        case .bluetoothSilent: "Nessuna risposta Keyglow via Bluetooth"
+        case .unreadable: "Non riesco a leggere la tastiera"
+        }
+    }
+    static func symbol(_ state: InstalledFirmwareCheck) -> String {
+        switch state {
+        case .usbKeyglow, .bluetoothVerified: "checkmark.seal.fill"
+        case .bluetoothResponding: "checkmark.seal"
+        case .usbOther, .bluetoothSilent, .unreadable: "exclamationmark.triangle"
+        case .unknown: "questionmark.circle"
+        case .checking: "arrow.clockwise"
+        }
+    }
+    static func detail(_ state: InstalledFirmwareCheck) -> String? {
+        switch state {
+        case .unknown: "Premi Controlla firmware per leggere cosa c’è sulla tastiera."
+        case .checking: "Se la tastiera è in Bluetooth, non digitare per qualche secondo."
+        case .usbKeyglow: "È la build inclusa in questa app. Colori ed effetti via Bluetooth sono disponibili."
+        case .usbOther: "Sulla tastiera c’è un altro firmware, per esempio quello originale. Per gli RGB via Bluetooth usa Prima installazione di Keyglow."
+        case .bluetoothVerified: "La risposta è autenticata con la chiave proprietario conservata su questo Mac."
+        case .bluetoothResponding: "La tastiera risponde come il loader Keyglow, ma su questo Mac manca la chiave proprietario per autenticarla. Gli RGB funzionano; gli aggiornamenti firmware via Bluetooth richiedono quella chiave."
+        case .bluetoothSilent: "Può essere il firmware originale, oppure la tastiera non era raggiungibile. La conferma certa è via USB: collega il cavo e ripeti il controllo. Attendi un minuto prima di riprovare in Bluetooth."
+        case .unreadable(let reason): reason
+        }
+    }
+}
+
+/// The same reading, as one line, where the firmware choice is remembered.
+struct InstalledFirmwareLine: View {
+    @ObservedObject var updater: FirmwareUpdateModel
+    var body: some View {
+        LLabel(InstalledFirmwareText.title(updater.installed),systemImage:InstalledFirmwareText.symbol(updater.installed))
+            .font(.system(size:12,weight:.medium)).foregroundColor(updater.installed.foundKeyglow ? Studio.success : Studio.muted)
+            .fixedSize(horizontal:false,vertical:true)
     }
 }

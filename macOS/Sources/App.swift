@@ -6,6 +6,9 @@ import Combine
     @Published var section: StudioSection = .lighting { didSet { flushWorkspaceSave(); refreshLiveRGBContext(); batteryMonitor.reconcile() } }
     let batteryMonitor = KeyboardStatusMonitor()
     let settings = AppSettingsModel()
+    /// Owns the installed-firmware reading shared by the guide and the pages.
+    let firmwareUpdater = FirmwareUpdateModel()
+    private var firmwareReading: AnyCancellable?
     @Published var workspace = KeyboardWorkspace() { didSet {
         if !loadingWorkspace {
             if !restoringHistory { draftHistory.record(previous: oldValue, current: workspace, now: ProcessInfo.processInfo.systemUptime) }
@@ -43,7 +46,7 @@ import Combine
     @Published var testedKeys: Set<String> = []
     @Published var lastTestKey = "Premi un tasto nella finestra di Keyglow."
     @Published var usbDevices: [VIADevice] = []
-    @Published var selectedUSBID: UInt64? { didSet { refreshLiveRGBContext() } }
+    @Published var selectedUSBID: UInt64? { didSet { if oldValue != selectedUSBID { firmwareUpdater.forgetInstalledReading() }; refreshLiveRGBContext() } }
     @Published var usbSnapshot: VIASnapshot?
     @Published var baselineWorkspace: KeyboardWorkspace?
     @Published var usbMessage = "Leggi la configurazione della Q6 Max per abilitare l’applicazione delle modifiche."
@@ -120,6 +123,15 @@ import Combine
                 paused:self.busy || self.section == .firmware, deviceID:self.deviceID, usbConnected:self.selectedUSBID != nil)
         }, refreshConnection: { [weak self] in self?.refreshConnectionMetadata() })
         settings.attach(to: batteryMonitor)
+        firmwareUpdater.onBusyChanged = { [weak self] in self?.busy = $0 }
+        // The remembered firmware choice follows a reading, never the reverse.
+        firmwareReading = firmwareUpdater.$installed.sink { [weak self] reading in
+            Task { @MainActor in
+                guard let self else { return }
+                if reading.foundKeyglow && !self.directBluetooth { self.directBluetooth = true }
+                if reading.foundOther && self.directBluetooth { self.directBluetooth = false }
+            }
+        }
     }
     var nsColor: NSColor {
         let sector = (hue * 6).truncatingRemainder(dividingBy: 6)
@@ -437,6 +449,8 @@ import Combine
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
         model.onBluetoothAccessStateChanged = { [weak self] state in self?.onboarding.model.updateDeviceState(state) }
+        onboarding.firmwareUpdater = model.firmwareUpdater
+        onboarding.onFirmwareCheck = { [weak self] in self?.model.checkInstalledFirmware() }
         onboarding.onRelaunchRequested = { [weak self] in self?.relaunchForPermission(resumeGuide: true) }
         model.onRelaunchRequested = { [weak self] in self?.relaunchForPermission(resumeGuide: false) }
         onboarding.onCompletion = { [weak self] choice,destination in

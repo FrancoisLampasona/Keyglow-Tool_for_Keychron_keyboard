@@ -7,8 +7,10 @@ struct OnboardingView: View {
     @ObservedObject private var language = AppLanguageStore.shared
     @ObservedObject var model: OnboardingModel
     @ObservedObject var setup: KeyboardSetupModel
+    @ObservedObject var firmware: FirmwareUpdateModel
     let onContinue: () -> Void
     let onRelaunch: () -> Void
+    var onCheckFirmware: () -> Void = {}
     let onLater: () -> Void
     static let steps=["Tastiera","Accessi","Firmware","Riepilogo"]
     /// One symbol per step, reused in the path, beside the title and in the summary.
@@ -77,7 +79,7 @@ struct OnboardingView: View {
             }
             LButton(setup.step == 3 ? finishTitle : "Continua",action:onContinue)
                 .buttonStyle(StudioButton(primary:true)).keyboardShortcut(.defaultAction)
-                .disabled(setup.step == 0 ? !setup.supportsSelection : setup.step == 1 ? !model.canContinue : false)
+                .disabled(setup.step == 0 ? !setup.supportsSelection : setup.step == 1 ? !model.canContinue : setup.step == 2 ? setup.installedChoiceContradicted || firmware.installed == .checking : false)
         }.padding(.horizontal,32).padding(.vertical,20)
     }
     private var title:String { ["Benvenuto in Keyglow","Consenti l’accesso in macOS","Prepara la tastiera","Il tuo prossimo passo"][setup.step] }
@@ -248,8 +250,12 @@ struct OnboardingView: View {
             VStack(spacing:10) {
                 ForEach(SetupFirmwareChoice.allCases,id:\.self) { choice in
                     OnboardingChoiceCard(symbol:choice.symbol,title:choice.title,summary:choice.summary,badge:firmwareBadge(choice),
-                                         selected:setup.firmwareChoice == choice) { setup.firmwareChoice=choice }
+                                         selected:setup.firmwareChoice == choice) { choose(choice) }
                 }
+            }
+            if setup.installedChoiceContradicted {
+                LLabel("La lettura USB mostra un altro firmware: scegli di installare Keyglow oppure la configurazione via USB.",systemImage:"exclamationmark.triangle")
+                    .font(.system(size:12,weight:.medium)).foregroundColor(Self.warning).fixedSize(horizontal:false,vertical:true)
             }
             // One line on what follows the selected choice.
             LLabel(firmwareNote,systemImage:"info.circle").font(.system(size:12)).foregroundColor(Studio.text.opacity(0.86))
@@ -267,8 +273,19 @@ struct OnboardingView: View {
             }.font(.system(size:12)).foregroundColor(Studio.muted)
         }
     }
-    /// "Rilevato" only for a USB reading; "Consigliato" only where a fact supports it.
+    /// Selecting "already installed" checks it at once on the available connection.
+    private func choose(_ choice:SetupFirmwareChoice) {
+        setup.firmwareChoice=choice
+        guard choice == .installed else { return }
+        switch setup.firmwareRecognition {
+        case .bluetooth: if !firmware.installed.foundKeyglow && firmware.installed != .checking { onCheckFirmware() }
+        case .failed, .idle: setup.recognizeFirmware()
+        default: break
+        }
+    }
+    /// "Rilevato" only for a reading; "Consigliato" only where a fact supports it.
     private func firmwareBadge(_ choice:SetupFirmwareChoice) -> String? {
+        if setup.firmwareRecognition == .bluetooth && firmware.installed.foundKeyglow { return choice == .installed ? "Rilevato" : nil }
         switch setup.firmwareRecognition {
         case .recognized: return choice == .installed ? "Rilevato" : nil
         case .unrecognized: return choice == (setup.skippedAccess ? .usb : .install) ? "Consigliato" : nil
@@ -279,12 +296,35 @@ struct OnboardingView: View {
         switch setup.firmwareChoice {
         case .install: "Poi: la pagina Firmware ti guida con cavo USB e modalità DFU. Nulla viene installato senza la tua conferma."
         case .usb: "Poi: leggi la configurazione via USB. Gli RGB via Bluetooth restano da configurare."
-        case .installed: firmwareRecognized
-            ? "Verificato dalla lettura USB. Per aggiornare il firmware via Bluetooth serve la chiave proprietario creata sul Mac della prima installazione."
+        case .installed: firmwareRecognized || firmware.installed.foundKeyglow
+            ? "Verificato da una lettura. Per aggiornare il firmware via Bluetooth serve la chiave proprietario creata sul Mac della prima installazione."
             : "È una tua dichiarazione, non una lettura. Per aggiornare il firmware via Bluetooth serve la chiave proprietario creata sul Mac della prima installazione."
         }
     }
     private var firmwareRecognized:Bool { if case .recognized = setup.firmwareRecognition { return true }; return false }
+    /// The Bluetooth reading, in the same words as the Firmware page.
+    @ViewBuilder private var bluetoothFirmwareNote:some View {
+        let state=firmware.installed
+        if state == .unknown {
+            LLabel("In Bluetooth il firmware si controlla quando scegli “Ho già installato il firmware Keyglow”. La lettura certa è via USB.",systemImage:"info.circle")
+                .font(.system(size:12)).foregroundColor(Studio.muted).fixedSize(horizontal:false,vertical:true)
+        } else {
+            VStack(alignment:.leading,spacing:6) {
+                HStack(spacing:8) {
+                    if state == .checking { ProgressView().controlSize(.small) }
+                    LLabel(InstalledFirmwareText.title(state),systemImage:InstalledFirmwareText.symbol(state)).font(.system(size:13,weight:.medium))
+                        .foregroundColor(state.foundKeyglow ? Studio.success : state == .checking ? Studio.text : Self.warning).fixedSize(horizontal:false,vertical:true)
+                }
+                if let detail=InstalledFirmwareText.detail(state) {
+                    LText(detail).font(.system(size:12)).foregroundColor(Studio.muted).fixedSize(horizontal:false,vertical:true)
+                }
+                if !state.foundKeyglow && state != .checking {
+                    Button(action:onCheckFirmware) { LLabel("Riprova",systemImage:"arrow.clockwise").font(.system(size:12,weight:.medium)) }
+                        .buttonStyle(.plain).foregroundColor(Studio.accent).frame(minHeight:28).contentShape(Rectangle())
+                }
+            }
+        }
+    }
     @ViewBuilder private var firmwareRecognitionNote:some View {
         switch setup.firmwareRecognition {
         case .idle: EmptyView()
@@ -304,9 +344,7 @@ struct OnboardingView: View {
                     .foregroundColor(Self.warning).fixedSize(horizontal:false,vertical:true)
                 LText(reason).font(.system(size:12)).foregroundColor(Studio.muted).fixedSize(horizontal:false,vertical:true)
             }
-        case .bluetooth:
-            LLabel("In Bluetooth non è possibile riconoscere con certezza il firmware senza la chiave proprietario. Per verificarlo collega la tastiera via USB oppure usa la pagina Firmware.",systemImage:"info.circle")
-                .font(.system(size:12)).foregroundColor(Studio.muted).fixedSize(horizontal:false,vertical:true)
+        case .bluetooth: bluetoothFirmwareNote
         }
     }
 
@@ -353,7 +391,9 @@ struct OnboardingView: View {
         case .install: ("Firmware Keyglow da installare via USB",.pending)
         case .usb: ("Configurazione via USB, senza firmware Keyglow",.ready)
         // A recognized firmware is a reading; otherwise it stays the user's statement.
-        case .installed: firmwareRecognized ? ("Firmware Keyglow riconosciuto via USB",.ready) : ("Firmware Keyglow dichiarato, da verificare nella pagina Firmware",.pending)
+        case .installed: firmwareRecognized ? ("Firmware Keyglow riconosciuto via USB",.ready)
+            : firmware.installed.foundKeyglow ? ("Firmware Keyglow rilevato via Bluetooth",.ready)
+            : ("Firmware Keyglow dichiarato, non verificato",.pending)
         }
     }
     private var destinationNote:String {

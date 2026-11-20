@@ -163,6 +163,19 @@ extension StudioModel {
             }
         }
     }
+    /// Explicit, read-only: USB when a cable is connected (conclusive), otherwise one
+    /// Bluetooth HELLO over the indicator channel.
+    func checkInstalledFirmware() {
+        guard !busy else { return }
+        let build = FirmwareBuildInfo.bundled
+        var usb: (@Sendable () throws -> String)?
+        if let id=selectedUSBID {
+            usb = { try VIAUSBTransport.withSession(deviceID:id) { exchange in
+                try VIAClient(exchange:exchange,productID:0x0861).readFirmwareIdentity().firmwareVersion
+            } }
+        }
+        firmwareUpdater.checkInstalledFirmware(usb:usb,isKeyglow:{ version in build?.supportsDirectRGB(version) == true })
+    }
     func scanUSB() {
         do {
             usbDevices = try VIAUSBTransport.enumerate().filter { $0.productID == 0x0861 }
@@ -184,6 +197,7 @@ extension StudioModel {
                     sourceProfileID=nil
                     usbSnapshot=snapshot; workspace=document(from:snapshot); baselineWorkspace=workspace; draftHistory.reset(); selectedMacro=0;selectedMixLayer=0;selectedKeys=[];loadLightDraft()
                     directBluetooth = FirmwareBuildInfo.bundled?.supportsDirectRGB(snapshot.firmwareVersion) == true
+                    firmwareUpdater.recordUSBReading(version:snapshot.firmwareVersion,isKeyglow:directBluetooth)
                     usbMessage="Configurazione letta dalla Q6 Max. Le modifiche successive restano locali fino ad Applica."
                     projectMessage=profileStorageError
                     message="Lettura USB completata."

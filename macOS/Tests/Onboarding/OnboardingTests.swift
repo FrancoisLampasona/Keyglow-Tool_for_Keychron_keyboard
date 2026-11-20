@@ -280,6 +280,21 @@ private struct ProbeFailure: LocalizedError { var errorDescription: String? { "L
         firmwareFlow.finishFirmwareRecognition(touched,result:.success("v1.1.1 2026-01-02 03:04"))
         expect(firmwareFlow.firmwareChoice == .usb && firmwareFlow.firmwareRecognition == .recognized("v1.1.1 2026-01-02 03:04"),
                "a choice made during the read is not overridden")
+        // A reading of another firmware contradicts "already installed".
+        let contradicted = KeyboardSetupModel(defaults:firmwareDefaults,inventory:{[iso]},firmwareVersion:{ _ in fatalError() },firmwareBuild:{build})
+        contradicted.step = 2
+        let contradiction = contradicted.beginFirmwareRecognition()!
+        contradicted.finishFirmwareRecognition(contradiction,result:.success("v1.1.1 2025-05-05 10:00"))
+        contradicted.firmwareChoice = .installed
+        contradicted.advance(permissionGranted:true)
+        expect(contradicted.installedChoiceContradicted && contradicted.step == 2, "the guide does not continue with 'already installed' when USB shows another firmware")
+        contradicted.firmwareChoice = .install
+        contradicted.advance(permissionGranted:true)
+        expect(!contradicted.installedChoiceContradicted && contradicted.step == 3, "choosing to install Keyglow continues")
+        let unverified = KeyboardSetupModel(defaults:firmwareDefaults,inventory:{[SetupKeyboard(id:31,name:"Keychron Q6 Max",vendor:0x3434,product:0x0861,transport:"Bluetooth Low Energy")]},firmwareVersion:{ _ in fatalError() },firmwareBuild:{build})
+        unverified.step = 2; _ = unverified.beginFirmwareRecognition(); unverified.firmwareChoice = .installed
+        unverified.advance(permissionGranted:true)
+        expect(unverified.step == 3, "without a reading, 'already installed' may continue as an unverified statement")
         let failing = firmwareFlow.beginFirmwareRecognition()!
         firmwareFlow.finishFirmwareRecognition(failing,result:.failure(ProbeFailure()))
         expect(firmwareFlow.firmwareRecognition == .failed("Lettura simulata non riuscita") && firmwareFlow.firmwareChoice == .usb, "a failed read claims nothing")

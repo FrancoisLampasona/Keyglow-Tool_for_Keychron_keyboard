@@ -44,7 +44,7 @@ struct PreviewRoot:View {
             Picker("Anteprima",selection:$index) {
                 ForEach(Array(["Backup","DFU","Riepilogo","Scrittura","Ripristino","Completato","Errore","Chiave","Errore loader","Sessione illeggibile","Riepilogo iniziale"].enumerated()),id:\.offset){i,title in Text(title).tag(i)}
             }.pickerStyle(.menu).padding(16)
-            if index == 10 {OnboardingView(model:onboarding,setup:setup,onContinue:{},onRelaunch:{},onLater:{})} else {
+            if index == 10 {OnboardingView(model:onboarding,setup:setup,firmware:FirmwareUpdateModel(),onContinue:{},onRelaunch:{},onLater:{})} else {
             ScrollViewReader {proxy in
                 ScrollView {StudioSurface {FirstInstallView(model:models[index],onBluetooth:{})}.studioPage().id("top")}
                     .onChange(of:index){_ in proxy.scrollTo("top",anchor:.top)}

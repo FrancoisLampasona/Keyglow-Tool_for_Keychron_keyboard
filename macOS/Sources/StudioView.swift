@@ -25,7 +25,6 @@ struct StudioButton:ButtonStyle {
 struct StudioView:View {
     @ObservedObject private var language = AppLanguageStore.shared
     @ObservedObject var model:StudioModel
-    @StateObject private var firmwareUpdater = FirmwareUpdateModel()
     @StateObject private var firstInstaller = FirstInstallModel()
     var body:some View {
         GeometryReader { geometry in
@@ -44,7 +43,7 @@ struct StudioView:View {
                     case .profiles: ProfilesWorkspaceView(model:model)
                     case .energy: AdvancedWorkspaceView(model:model)
                     case .connection: ConnectionWorkspaceView(model:model)
-                    case .firmware: FirmwareWorkspaceView(model:model, updater:firmwareUpdater,installer:firstInstaller)
+                    case .firmware: FirmwareWorkspaceView(model:model, updater:model.firmwareUpdater,installer:firstInstaller)
                     case .quickLaunch: QuickLaunchView()
                     }
                 // Firmware keeps Interrompi available; lighting may queue the

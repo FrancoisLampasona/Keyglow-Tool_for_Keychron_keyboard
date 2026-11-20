@@ -117,8 +117,13 @@ enum SetupFirmwareProbe {
         // Do not silently select one of several connected keyboards.
         if selectedID == nil && keyboards.count == 1 { selectedID=keyboards[0].id }
     }
+    /// A USB reading that shows another firmware contradicts "already installed".
+    var installedChoiceContradicted:Bool {
+        if case .unrecognized = firmwareRecognition { return firmwareChoice == .installed }
+        return false
+    }
     func advance(permissionGranted:Bool) {
-        guard (step == 0 && supportsSelection) || (step == 1 && permissionGranted) || step == 2 else { return }
+        guard (step == 0 && supportsSelection) || (step == 1 && permissionGranted) || (step == 2 && !installedChoiceContradicted) else { return }
         if step == 1 { skippedAccess=false }
         step += 1
     }
