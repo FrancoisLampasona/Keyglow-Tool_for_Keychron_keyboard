@@ -1,25 +1,63 @@
 import SwiftUI
 import AppKit
 
+/// Everything the keyboard drawing depends on. Progress, messages and other
+/// model changes leave it equal, so the 110 keycaps are not rebuilt for them.
+struct KeyboardCanvasState: Equatable {
+    let keys: [PhysicalKey]
+    let selectedKeys: Set<String>
+    let pressedKeys: Set<String>
+    let testedKeys: Set<String>
+    /// Keycodes of the layer being shown, by matrix index.
+    let layer: [UInt16]
+    let effect: Int
+    let lightingTab: Int
+    let perKey: [String: String]
+    let mix: [MixLayerDraft]
+    let color: Color
+    let brightness: Double
+    let busy: Bool
+    let showsAssignments: Bool
+    let testMode: Bool
+    let language: AppLanguage
+}
+
+/// Observes the model only to derive the drawing state; the drawing itself is
+/// an equatable view that SwiftUI skips while that state is unchanged.
 struct PhysicalKeyboardView: View {
     @ObservedObject var model: StudioModel
     @ObservedObject private var language = AppLanguageStore.shared
     var showsAssignments = false
     var testMode = false
     var body: some View {
+        KeyboardCanvas(state: KeyboardCanvasState(
+            keys: model.definition.keys, selectedKeys: model.selectedKeys, pressedKeys: model.pressedKeys, testedKeys: model.testedKeys,
+            layer: model.workspace.layers[model.selectedLayer], effect: model.workspace.lighting.effect, lightingTab: model.lightingTab,
+            perKey: model.workspace.lighting.perKey, mix: model.workspace.lighting.mix, color: model.color, brightness: model.brightness,
+            busy: model.busy, showsAssignments: showsAssignments, testMode: testMode, language: language.language),
+            onSelect: { [model] key in model.selectKey(key) }).equatable()
+    }
+}
+
+private struct KeyboardCanvas: View, Equatable {
+    let state: KeyboardCanvasState
+    /// Always the same action on the same model; not part of equality.
+    let onSelect: (PhysicalKey) -> Void
+    nonisolated static func == (lhs: Self, rhs: Self) -> Bool { lhs.state == rhs.state }
+    var body: some View {
         GeometryReader { geometry in
             let u = geometry.size.width / 23.4
             ZStack(alignment:.topLeading) {
                 RoundedRectangle(cornerRadius:u*0.18).fill(Color(hex:0x0A0E0F))
                     .overlay(RoundedRectangle(cornerRadius:u*0.18).stroke(Color(hex:0x3E4546),lineWidth:1))
-                ForEach(model.definition.keys) { key in
+                ForEach(state.keys) { key in
                     let offset = min(0,key.secondary?.x ?? 0)
                     let width = max(key.width,(key.secondary?.width ?? key.width)+offset)-offset
-                    let selected=model.selectedKeys.contains(key.id)
-                    let held=model.pressedKeys.contains(key.id)
-                    let tested=model.testedKeys.contains(key.id)
-                    let fill=held ? Color(hex:0x57D9C1) : testMode && tested ? Color(hex:0x8BAF9D) : keyColor(key)
-                    Button { model.selectKey(key) } label: {
+                    let selected=state.selectedKeys.contains(key.id)
+                    let held=state.pressedKeys.contains(key.id)
+                    let tested=state.testedKeys.contains(key.id)
+                    let fill=held ? Color(hex:0x57D9C1) : state.testMode && tested ? Color(hex:0x8BAF9D) : keyColor(key)
+                    Button { onSelect(key) } label: {
                         ZStack {
                             KeycapShape(iso:key.secondary != nil,knob:key.isEncoder).fill(fill)
                             KeycapShape(iso:key.secondary != nil,knob:key.isEncoder)
@@ -30,8 +68,8 @@ struct PhysicalKeyboardView: View {
                                 if selected { Circle().stroke(Studio.accent,lineWidth:2) }
                             } else {
                                 VStack(spacing:max(1,u*0.05)) {
-                                    if showsAssignments {
-                                        LText(KeycodeCatalog.display(model.workspace.layers[model.selectedLayer][key.matrixIndex]))
+                                    if state.showsAssignments {
+                                        LText(KeycodeCatalog.display(state.layer[key.matrixIndex]))
                                             .font(.system(size:max(6.5,u*0.21),weight:.medium)).lineLimit(1).minimumScaleFactor(0.65).multilineTextAlignment(.center)
                                     } else {
                                         if let symbol=key.symbolName { Image(systemName:symbol).font(.system(size:max(7,u*0.22))) }
@@ -39,7 +77,7 @@ struct PhysicalKeyboardView: View {
                                         if !key.legend.isEmpty { Text(verbatim: key.legend).font(.system(size:max(6.5,u*0.23),weight:.medium)).lineLimit(1).minimumScaleFactor(0.65) }
                                     }
                                 }.padding(3).offset(x:key.secondary == nil ? 0 : u*0.05)
-                                    .foregroundColor(key.appearance == .light || held || (testMode && tested) ? Color(hex:0x242D2F) : Color(hex:0xE3E9E7))
+                                    .foregroundColor(key.appearance == .light || held || (state.testMode && tested) ? Color(hex:0x242D2F) : Color(hex:0xE3E9E7))
                             }
                         }.contentShape(KeycapShape(iso:key.secondary != nil,knob:key.isEncoder))
                     }.buttonStyle(KeycapButtonStyle())
@@ -48,7 +86,7 @@ struct PhysicalKeyboardView: View {
                         .localizedHelp(keyHelp(key))
                         .localizedAccessibilityLabel(keyHelp(key))
                         .accessibilityAddTraits(selected ? .isSelected : [])
-                        .disabled(model.busy || testMode)
+                        .disabled(state.busy || state.testMode)
                 }
             }
         }.aspectRatio(23.4/7.15,contentMode:.fit)
@@ -58,14 +96,14 @@ struct PhysicalKeyboardView: View {
         switch key.appearance { case .light: Color(hex:0xD9DFDC); case .dark: Color(hex:0x2C3336); case .accent: Color(hex:0x238C9C); case .knob: Color(hex:0x434B4B) }
     }
     private func rgbEdge(_ key:PhysicalKey)->Color {
-        if model.workspace.lighting.effect == 0 || key.ledIndex == nil { return Color.black.opacity(0.5) }
-        if model.lightingTab == 1, let hex=model.workspace.lighting.perKey[key.id], let value=UInt32(hex,radix:16) { return Color(hex:value).opacity(0.85) }
-        if model.lightingTab == 2, let group=model.workspace.lighting.mix.first(where: { $0.keys.contains(key.id) }), let hex=group.sequence.first?.hex, let value=UInt32(hex,radix:16) { return Color(hex:value) }
-        return model.color.opacity(0.25+model.brightness/100*0.65)
+        if state.effect == 0 || key.ledIndex == nil { return Color.black.opacity(0.5) }
+        if state.lightingTab == 1, let hex=state.perKey[key.id], let value=UInt32(hex,radix:16) { return Color(hex:value).opacity(0.85) }
+        if state.lightingTab == 2, let group=state.mix.first(where: { $0.keys.contains(key.id) }), let hex=group.sequence.first?.hex, let value=UInt32(hex,radix:16) { return Color(hex:value) }
+        return state.color.opacity(0.25+state.brightness/100*0.65)
     }
     private func keyHelp(_ key:PhysicalKey)->String {
         let name=key.isEncoder ? L10n.string("Manopola · pressione") : key.legend.isEmpty ? L10n.format("Tasto {0}", [key.id]) : key.legend
-        return L10n.catalog.format("{0} · {1} · riga {2}, colonna {3}", arguments: [name, L10n.string(KeycodeCatalog.display(model.workspace.layers[model.selectedLayer][key.matrixIndex])), String(key.row), String(key.col)], language: language.language)
+        return L10n.catalog.format("{0} · {1} · riga {2}, colonna {3}", arguments: [name, L10n.string(KeycodeCatalog.display(state.layer[key.matrixIndex])), String(key.row), String(key.col)], language: state.language)
     }
 }
 private struct KeycapButtonStyle:ButtonStyle {
