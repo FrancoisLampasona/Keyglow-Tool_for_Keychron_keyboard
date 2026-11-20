@@ -488,6 +488,76 @@ struct FirmwareUpdateTests {
         precondition(setupFinished)
         for _ in 0..<20 where setupModel != nil { try await Task.sleep(for: .milliseconds(10)) }
         precondition(setupModel == nil)
-        print("Firmware workflow: package, authenticated identity, delta/literal, resume, cancellation, corruption, mutation failures and post-reboot verification passed; fake transport and synthetic key only")
+
+        // Installed-firmware check: one read-only HELLO, fake transport only.
+        let probe = try Device(old); probe.build = 12
+        let verifiedIdentity = try probe.worker().identify(cancellation: .init())
+        precondition(verifiedIdentity == .verified(build: 12))
+        precondition(probe.operations == [8] && probe.keyLoads == 1, "The check sends a single HELLO and nothing else")
+        let foreignMac = try Device(old)
+        let foreignIdentity = try foreignMac.worker(keyPresent: false).identify(cancellation: .init())
+        precondition(foreignIdentity == .responding, "Keyglow answers, but this Mac has no owner key")
+        precondition(foreignMac.operations == [8])
+        let lockedKeychain = try Device(old); lockedKeychain.keyLoadFails = true
+        let lockedIdentity = try lockedKeychain.worker().identify(cancellation: .init())
+        precondition(lockedIdentity == .responding, "An unavailable Keychain leaves the reply unauthenticated")
+        let forged = try Device(old); forged.forgeHello = true
+        rejects { _ = try forged.worker().identify(cancellation: .init()) }
+        let silentDevice = try Device(old); silentDevice.failBefore = 8; silentDevice.failure = OTAChannelFailure.deadline
+        rejects { _ = try silentDevice.worker().identify(cancellation: .init()) }
+        precondition(silentDevice.operations == [8] && silentDevice.keyLoads == 0)
+        let typingDuringCheck = try Device(old); typingDuringCheck.typingBefore = 8
+        rejects { _ = try typingDuringCheck.worker().identify(cancellation: .init()) }
+        let cancelledToken = OTAUpdateCancellation(); cancelledToken.cancel()
+        let untouched = try Device(old)
+        rejects { _ = try untouched.worker().identify(cancellation: cancelledToken) }
+        precondition(untouched.operations.isEmpty, "A cancelled check sends nothing")
+
+        /// Runs the model's check against injected transports and returns its states.
+        @MainActor func check(usb: (@Sendable () throws -> String)?, bluetooth: @escaping @Sendable () throws -> BluetoothFirmwareIdentity,
+                              prepare: (FirmwareUpdateModel) -> Void = { _ in }) async throws -> (InstalledFirmwareCheck, FirmwareUpdateModel, [Bool]) {
+            let model = FirmwareUpdateModel(bluetoothIdentify: { _, _ in try bluetooth() })
+            var busy = [Bool]()
+            model.onBusyChanged = { busy.append($0) }
+            prepare(model)
+            model.checkInstalledFirmware(usb: usb, isKeyglow: { $0 == "v1.1.1 keyglow" })
+            for _ in 0..<200 where model.isBusy { try await Task.sleep(for: .milliseconds(5)) }
+            return (model.installed, model, busy)
+        }
+        let neverBluetooth: @Sendable () throws -> BluetoothFirmwareIdentity = { preconditionFailure("USB check must not use Bluetooth") }
+        var outcome = try await check(usb: { "v1.1.1 keyglow" }, bluetooth: neverBluetooth)
+        precondition(outcome.0 == .usbKeyglow("v1.1.1 keyglow") && outcome.0.foundKeyglow && outcome.1.installedVia == "USB" && outcome.1.installedCheckedAt != nil)
+        precondition(outcome.2 == [true, false] && outcome.1.cooldownUntil == nil && outcome.1.phase == .idle, "The check holds the device once and leaves the update workflow untouched")
+        outcome = try await check(usb: { "v1.1.1 2025-05-05" }, bluetooth: neverBluetooth)
+        precondition(outcome.0 == .usbOther("v1.1.1 2025-05-05") && outcome.0.foundOther && !outcome.0.foundKeyglow, "USB can show the original firmware")
+        outcome = try await check(usb: { throw OTAChannelFailure.noDevice }, bluetooth: neverBluetooth)
+        if case .unreadable = outcome.0 {} else { preconditionFailure("A failed USB read claims nothing") }
+        precondition(outcome.1.cooldownUntil == nil)
+        outcome = try await check(usb: nil, bluetooth: { .verified(build: 12) })
+        precondition(outcome.0 == .bluetoothVerified(12) && outcome.0.foundKeyglow && outcome.1.installedVia == "Bluetooth" && outcome.1.cooldownUntil == nil)
+        outcome = try await check(usb: nil, bluetooth: { .responding })
+        precondition(outcome.0 == .bluetoothResponding && outcome.0.foundKeyglow)
+        outcome = try await check(usb: nil, bluetooth: { throw OTAChannelFailure.deadline })
+        if case .bluetoothSilent = outcome.0 {} else { preconditionFailure("No Keyglow reply is reported as silence") }
+        precondition(!outcome.0.foundKeyglow && !outcome.0.foundOther, "Bluetooth silence is neither Keyglow nor proof of the original firmware")
+        precondition(outcome.1.cooldownUntil != nil, "A request that went out waits before the next one")
+        outcome.1.checkInstalledFirmware(usb: nil, isKeyglow: { _ in true })
+        if case .unreadable = outcome.1.installed {} else { preconditionFailure("A second Bluetooth check during the wait is refused") }
+        precondition(!outcome.1.isBusy)
+        outcome = try await check(usb: nil, bluetooth: { throw OTAChannelFailure.disconnected })
+        if case .unreadable = outcome.0 {} else { preconditionFailure("A keyboard that disconnects mid-check is unreadable, not original firmware") }
+        precondition(outcome.1.cooldownUntil != nil)
+        for early in [OTAChannelFailure.noDevice, .permissionDenied] {
+            outcome = try await check(usb: nil, bluetooth: { throw early })
+            if case .unreadable = outcome.0 {} else { preconditionFailure("No keyboard or no permission is unreadable") }
+            precondition(outcome.1.cooldownUntil == nil, "Nothing was sent, so no wait is imposed")
+        }
+        outcome = try await check(usb: nil, bluetooth: { throw BluetoothOTAWire.Failure.inputActivity })
+        if case .unreadable = outcome.0 {} else { preconditionFailure("Typing during the check stops it without a verdict") }
+        outcome = try await check(usb: { "v1.1.1 keyglow" }, bluetooth: neverBluetooth) { $0.recordUSBReading(version: "old", isKeyglow: false) }
+        precondition(outcome.0 == .usbKeyglow("v1.1.1 keyglow"), "A new reading replaces a recorded one")
+        outcome.1.forgetInstalledReading()
+        precondition(outcome.1.installed == .unknown && outcome.1.installedCheckedAt == nil, "Another keyboard starts unverified")
+        print("Firmware workflow: package, authenticated identity, delta/literal, resume, cancellation, corruption, mutation failures post-reboot verification and the read-only installed-firmware check passed; fake transport and synthetic key only")
     }
 }

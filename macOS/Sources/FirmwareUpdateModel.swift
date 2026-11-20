@@ -117,6 +117,33 @@ struct FirmwareUpdateProgress: Sendable {
     }
 }
 
+/// What one HELLO over Bluetooth establishes about the installed firmware.
+enum BluetoothFirmwareIdentity: Equatable, Sendable {
+    /// Authenticated with the owner key stored on this Mac.
+    case verified(build: UInt32)
+    /// A well-formed Keyglow reply, but this Mac has no owner key to authenticate it.
+    case responding
+}
+
+/// Result of the user's "check installed firmware" action, shared by the guide,
+/// the Firmware page and the Connection page. Only USB can show a foreign firmware.
+enum InstalledFirmwareCheck: Equatable, Sendable {
+    case unknown, checking
+    case usbKeyglow(String)
+    case usbOther(String)
+    case bluetoothVerified(UInt32)
+    case bluetoothResponding
+    /// No Keyglow reply. It may be the original firmware or an unreachable keyboard.
+    case bluetoothSilent(String)
+    case unreadable(String)
+    /// A reading says Keyglow firmware is present.
+    var foundKeyglow: Bool {
+        switch self { case .usbKeyglow, .bluetoothVerified, .bluetoothResponding: true; default: false }
+    }
+    /// A reading says another firmware is present.
+    var foundOther: Bool { if case .usbOther = self { return true }; return false }
+}
+
 /// Synchronous worker-only coordinator. All device, key and cache access is
 /// injected, allowing the complete state machine to run against offline fakes.
 final class FirmwareUpdateCoordinator {
@@ -243,6 +270,24 @@ final class FirmwareUpdateCoordinator {
             }
         }
         throw FirmwareUpdateFailure.installationUnconfirmed
+    }
+
+    /// One read-only HELLO. A valid framed reply can only come from the Keyglow
+    /// loader; it is authenticated when this Mac holds the matching owner key.
+    /// No authorization, staging or transfer operation is sent.
+    func identify(cancellation: OTAUpdateCancellation) throws -> BluetoothFirmwareIdentity {
+        actionKey = nil
+        defer { actionKey = nil }
+        progress(.init(stage: .reading, completedBytes: 0, totalBytes: 0))
+        let challenge = try nonce()
+        guard challenge.count == 16 else { throw FirmwareAuthorization.Failure.invalidNonce }
+        let reply = try transact(operation: 8, payload: Array(challenge), cancellation: cancellation)
+        let payload = Data(reply.payload)
+        let id = try FirmwareAuthorization.helloKeyID(payload)
+        progress(.init(stage: .keyAccess, completedBytes: 0, totalBytes: 0))
+        // A missing or unavailable key leaves the reply unauthenticated; it never fails the reading.
+        guard let key = try? loadKey(id), key.keyID == id else { return .responding }
+        return .verified(build: try FirmwareAuthorization.verifyHelloPayload(payload, ownerKey: key, expectedNonce: challenge).build)
     }
 
     private func ownerKey(for id: Data, totalBytes: Int) throws -> FirmwareOwnerKey {
@@ -458,16 +503,87 @@ final class FirmwareUpdateModel: ObservableObject {
     @Published var replaceUncommitted = false
     @Published var transferPause: Double = 0.08
     @Published private(set) var cooldownUntil: Date?
+    /// The single installed-firmware reading used across the app.
+    @Published private(set) var installed: InstalledFirmwareCheck = .unknown
+    @Published private(set) var installedCheckedAt: Date?
+    @Published private(set) var installedVia = ""
     var onBusyChanged: (Bool) -> Void = { _ in }
     private var pendingRaw: Data?
     private var cancellation = OTAUpdateCancellation()
     private var actionID = UUID()
     private let reviewAction: (@Sendable (FirmwareUpdateArtifact, Double, OTAUpdateCancellation) throws -> FirmwareUpdateReview)?
     private let provisioningAction: @Sendable () throws -> FirmwareUpdateFiles.Provisioning
+    private let bluetoothIdentify: (@Sendable (Double, OTAUpdateCancellation) throws -> BluetoothFirmwareIdentity)?
 
     init(reviewAction: (@Sendable (FirmwareUpdateArtifact, Double, OTAUpdateCancellation) throws -> FirmwareUpdateReview)? = nil,
-         provisioningAction: @escaping @Sendable () throws -> FirmwareUpdateFiles.Provisioning = FirmwareUpdateFiles.provisionOwnerKey) {
-        self.reviewAction = reviewAction; self.provisioningAction = provisioningAction
+         provisioningAction: @escaping @Sendable () throws -> FirmwareUpdateFiles.Provisioning = FirmwareUpdateFiles.provisionOwnerKey,
+         bluetoothIdentify: (@Sendable (Double, OTAUpdateCancellation) throws -> BluetoothFirmwareIdentity)? = nil) {
+        self.reviewAction = reviewAction; self.provisioningAction = provisioningAction; self.bluetoothIdentify = bluetoothIdentify
+    }
+
+    /// True when the failed exchange may have reached the keyboard, so a late
+    /// reply must be allowed to expire before another request.
+    nonisolated static func requestMayHaveStarted(_ error: Error) -> Bool {
+        if let channel = error as? OTAChannelFailure {
+            switch channel {
+            case .permissionDenied, .noDevice, .ambiguousDevice, .incompatibleDescriptor,
+                 .openFailed, .snapshotFailed, .invalidSnapshot, .invalidInterval:
+                return false
+            default: return true
+            }
+        }
+        return error is BluetoothOTAWire.Failure || error is OTAInputReportFailure
+    }
+    /// Records a USB reading made elsewhere (the guide or a full configuration read).
+    func recordUSBReading(version: String, isKeyglow: Bool, at date: Date = Date()) {
+        guard !isBusy else { return }
+        installed = isKeyglow ? .usbKeyglow(version) : .usbOther(version); installedVia = "USB"; installedCheckedAt = date
+    }
+    /// The keyboard changed: an earlier reading no longer describes it.
+    func forgetInstalledReading() { if !isBusy, installed != .checking { installed = .unknown; installedCheckedAt = nil; installedVia = "" } }
+
+    /// Explicit read-only check. USB reads the version string and is conclusive.
+    /// Bluetooth sends one HELLO over the indicator channel: the user must not
+    /// type for a few seconds, and silence is not proof of the original firmware.
+    func checkInstalledFirmware(usb: (@Sendable () throws -> String)?, isKeyglow: @escaping @Sendable (String) -> Bool, now: Date = Date()) {
+        guard !isBusy else { return }
+        if usb == nil, let cooldownUntil, now < cooldownUntil {
+            installed = .unreadable("Attendi la scadenza della risposta precedente prima di rileggere la tastiera.")
+            installedVia = "Bluetooth"; installedCheckedAt = now
+            return
+        }
+        actionID = UUID(); cancellation = OTAUpdateCancellation()
+        let id = actionID, token = cancellation, pause = transferPause, identify = bluetoothIdentify
+        installed = .checking; installedVia = usb == nil ? "Bluetooth" : "USB"
+        isBusy = true; canCancel = false; onBusyChanged(true)
+        Task.detached(priority: .userInitiated) { [self] in
+            let outcome: InstalledFirmwareCheck, startedRequest: Bool
+            do {
+                if let usb {
+                    let version = try usb()
+                    outcome = isKeyglow(version) ? .usbKeyglow(version) : .usbOther(version); startedRequest = false
+                } else {
+                    switch try (identify.map { try $0(pause, token) } ?? Self.worker(pause: pause).identify(cancellation: token)) {
+                    case .verified(let build): outcome = .bluetoothVerified(build)
+                    case .responding: outcome = .bluetoothResponding
+                    }
+                    startedRequest = false
+                }
+            } catch {
+                startedRequest = usb == nil && Self.requestMayHaveStarted(error)
+                // A request that went out and got no valid Keyglow answer is "silent";
+                // anything that stopped earlier is "could not read".
+                let silent = usb == nil && ((error as? OTAChannelFailure) == .deadline || (error as? BluetoothOTAWire.Failure) == .timedOut || (error as? BluetoothOTAWire.Failure) == .incomplete)
+                outcome = silent ? .bluetoothSilent(error.localizedDescription) : .unreadable(error.localizedDescription)
+            }
+            await finishInstalledCheck(outcome, startedRequest: startedRequest, id: id)
+        }
+    }
+    private func finishInstalledCheck(_ outcome: InstalledFirmwareCheck, startedRequest: Bool, id: UUID) {
+        guard id == actionID else { return }
+        if startedRequest { cooldownUntil = Date().addingTimeInterval(61) }
+        installed = outcome; installedCheckedAt = Date()
+        endBusy()
     }
 
     func selectArtifact(_ value: FirmwareUpdateArtifact) {
@@ -625,16 +741,7 @@ final class FirmwareUpdateModel: ObservableObject {
     }
     private func endBusy() { isBusy = false; canCancel = false; onBusyChanged(false) }
     private func fail(_ error: Error) {
-        let requestMayHaveStarted: Bool
-        if let channel = error as? OTAChannelFailure {
-            switch channel {
-            case .permissionDenied, .noDevice, .ambiguousDevice, .incompatibleDescriptor,
-                 .openFailed, .snapshotFailed, .invalidSnapshot, .invalidInterval:
-                requestMayHaveStarted = false
-            default: requestMayHaveStarted = true
-            }
-        } else { requestMayHaveStarted = error is BluetoothOTAWire.Failure || error is OTAInputReportFailure }
-        if requestMayHaveStarted {
+        if Self.requestMayHaveStarted(error) {
             cooldownUntil = Date().addingTimeInterval(61)
         }
         review = nil
