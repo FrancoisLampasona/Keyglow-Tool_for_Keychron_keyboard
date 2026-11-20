@@ -80,7 +80,13 @@ extension StudioModel {
         defer { loadingWorkspace = false }
         if let data = UserDefaults.standard.data(forKey:"workspace.v3"), let saved = try? JSONDecoder().decode(KeyboardWorkspace.self,from:data), (try? saved.validate()) != nil { workspace = saved }
         else { workspace.lighting.hue = hue; workspace.lighting.saturation = saturation; workspace.lighting.value = value; workspace.lighting.brightness = brightness }
-        if let data = UserDefaults.standard.data(forKey:"profiles.v3"), let saved = try? JSONDecoder().decode([KeyboardWorkspace].self,from:data) { savedProfiles = saved.filter { (try? $0.validate()) != nil } }
+        let stored = profileStore.load()
+        savedProfiles = stored.profiles.filter { (try? $0.validate()) != nil }
+        switch stored.notice {
+        case .none: break
+        case .usedPreviousFile: profileLoadNotice = "Il file dei profili non era leggibile: Keyglow ha caricato la copia precedente. Controlla le ultime modifiche ai profili."
+        case .usedLegacyAfterMigration: profileLoadNotice = "I file dei profili non erano leggibili: Keyglow ha ricaricato i profili conservati nelle preferenze prima del passaggio ai file."
+        }
         sourceProfileID = UserDefaults.standard.string(forKey:"workspace.sourceProfile").flatMap { UUID(uuidString:$0) }
         loadLightDraft()
     }
@@ -301,10 +307,8 @@ extension StudioModel {
         } catch { usbMessage=error.localizedDescription; message=usbMessage }
     }
     private func saveDeviceBackup(_ snapshot: VIASnapshot) throws {
-        let root=try FileManager.default.url(for:.applicationSupportDirectory,in:.userDomainMask,appropriateFor:nil,create:true).appendingPathComponent("Tastiera/Backups",isDirectory:true)
-        try FileManager.default.createDirectory(at:root,withIntermediateDirectories:true)
-        let stamp=ISO8601DateFormatter().string(from:Date()).replacingOccurrences(of:":",with:"-")
-        try JSONEncoder().encode(snapshot).write(to:root.appendingPathComponent("q6-max-\(stamp).json"),options:.atomic)
+        // New backups go to Keyglow/Backups (newest 50 kept). Earlier ones in Tastiera/Backups stay where they are.
+        try DeviceBackupStore.write(try JSONEncoder().encode(snapshot),date:Date(),in:DeviceBackupStore.standardDirectory)
     }
     func hsv(_ hex:String) throws -> VIAHSV {
         guard KeyboardWorkspace.validHex(hex), let n=UInt32(hex,radix:16) else { throw VIAError.invalid("Colore HEX non valido.") }
@@ -381,7 +385,11 @@ extension StudioModel {
     }
     @discardableResult private func saveProfiles() -> Bool {
         do {
-            UserDefaults.standard.set(try JSONEncoder().encode(savedProfiles),forKey:"profiles.v3")
+            if case .legacy(let reason) = try profileStore.save(savedProfiles), !reason.isEmpty {
+                // Nothing is lost, but the user should know where the list went.
+                profileStorageError="Impossibile scrivere i file dei profili (\(reason)). I profili sono stati salvati nelle preferenze di macOS."
+                projectMessage=profileStorageError; return true
+            }
             profileStorageError=""; return true
         } catch {
             profileStorageError="Salvataggio dei profili non riuscito (\(error.localizedDescription)). L’elenco resta in memoria fino alla chiusura dell’app: esporta i profili importanti."

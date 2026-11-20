@@ -66,6 +66,8 @@ Verde con effetto Respiro è stato verificato su una Q6 Max ISO reale, senza USB
 
 Collega USB e seleziona Cable. Usa **Leggi tastiera**, modifica la bozza, salva un profilo e applica. L'app controlla eventuali conflitti e rilegge il risultato. Mappa, macro, RGB per tasto, Mix e impostazioni avanzate usano ancora USB.
 
+I profili salvati si trovano in `~/Library/Application Support/Keyglow/Profiles/profiles.json` (con `profiles.previous.json` come copia precedente). Al primo avvio della versione che introduce i file, Keyglow li copia dalle preferenze, li rilegge e li confronta; la vecchia copia nelle preferenze non viene cancellata e viene riusata se i file mancano o non sono leggibili. I backup creati prima di **Applica via USB** vanno in `~/Library/Application Support/Keyglow/Backups/` (restano i 50 più recenti); quelli delle versioni precedenti in `Tastiera/Backups/` non vengono toccati.
+
 Keyglow non richiede un account e non invia telemetria. L'unica richiesta di rete è il comando **Keyglow → Controlla aggiornamenti…**: solo quando lo scegli, l'app legge l'elenco pubblico delle release del progetto su GitHub, senza inviare dati personali e senza scaricare o installare nulla. La registrazione delle macro e il test tasti sono azioni esplicite in primo piano. Avvio rapido registra solo le scorciatoie selezionate e richiede l'app aperta. I profili possono contenere dati personali: non pubblicarli nelle segnalazioni GitHub.
 
 Il preset **Reattiva** riduce la sospensione lato tastiera con salvaguardie per la batteria. Latenza e consumi non sono ancora misurati; non garantisce la connessione immediata mentre il Mac si avvia o si risveglia.

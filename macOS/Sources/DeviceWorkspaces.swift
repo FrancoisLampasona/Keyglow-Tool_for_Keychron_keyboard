@@ -33,6 +33,9 @@ struct ProfilesWorkspaceView: View {
                         LButton("Salva una copia") { model.archiveCurrentProfile() }.buttonStyle(StudioButton(primary: true))
                     }
                 }
+                if !model.profileLoadNotice.isEmpty {
+                    LLabel(model.profileLoadNotice, systemImage: "exclamationmark.triangle").font(.system(size: 12)).foregroundColor(Studio.accent).fixedSize(horizontal: false, vertical: true)
+                }
                 StudioAdaptiveStack(breakpoint: 650, spacing: 14) {
                     HStack(alignment: .firstTextBaseline, spacing: 10) {
                         LText(collection == 0 ? "I tuoi profili" : collection == 1 ? "Copie di recupero" : "Cestino").font(.system(size: 19, weight: .semibold))

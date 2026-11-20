@@ -21,6 +21,10 @@ import Combine
         else { UserDefaults.standard.removeObject(forKey: "workspace.sourceProfile") }
     } }
     var profileStorageError = ""
+    /// Set when the profile list had to be loaded from a fallback copy.
+    @Published var profileLoadNotice = ""
+    /// Saved profiles live in Application Support; the old preference stays as a fallback.
+    var profileStore = ProfileStore.standard()
     /// Undo/redo of draft edits only. Loading, reading or applying clears it.
     var draftHistory = DraftHistory<KeyboardWorkspace>()
     var restoringHistory = false

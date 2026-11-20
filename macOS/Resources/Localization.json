@@ -5134,5 +5134,17 @@
   "Apri Keyglow": {
     "en": "Open Keyglow",
     "fr": "Ouvrir Keyglow"
+  },
+  "Il file dei profili non era leggibile: Keyglow ha caricato la copia precedente. Controlla le ultime modifiche ai profili.": {
+    "en": "The profiles file could not be read: Keyglow loaded the previous copy. Check your latest profile changes.",
+    "fr": "Le fichier des profils était illisible : Keyglow a chargé la copie précédente. Vérifiez vos dernières modifications de profils."
+  },
+  "I file dei profili non erano leggibili: Keyglow ha ricaricato i profili conservati nelle preferenze prima del passaggio ai file.": {
+    "en": "The profile files could not be read: Keyglow reloaded the profiles kept in preferences from before the move to files.",
+    "fr": "Les fichiers de profils étaient illisibles : Keyglow a rechargé les profils conservés dans les préférences avant le passage aux fichiers."
+  },
+  "Impossibile scrivere i file dei profili ({0}). I profili sono stati salvati nelle preferenze di macOS.": {
+    "en": "The profile files could not be written ({0}). The profiles were saved in macOS preferences.",
+    "fr": "Impossible d’écrire les fichiers de profils ({0}). Les profils ont été enregistrés dans les préférences de macOS."
   }
 }
