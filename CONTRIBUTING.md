@@ -28,6 +28,7 @@ sh macOS/Tests/DraftHistory/run.sh
 sh macOS/Tests/UpdateCheck/run.sh
 sh macOS/Tests/BatteryAlert/run.sh
 sh macOS/Tests/ProfileStore/run.sh
+sh macOS/Tests/AppRelaunch/run.sh
 zsh scripts/build-app.sh
 ```
 
