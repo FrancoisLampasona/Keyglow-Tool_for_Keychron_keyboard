@@ -399,7 +399,12 @@ import Combine
     private var setupReady = false
     private var checkingUpdates = false
     private var menuBar: MenuBarController?
+    private var secondLaunch: AnyCancellable?
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // Quit requests from the Dock, logout or another app arrive as an Apple
+        // event; route them through the same sheet-aware quit as the menu.
+        NSAppleEventManager.shared().setEventHandler(self, andSelector: #selector(handleQuitEvent(_:reply:)),
+            forEventClass: AEEventClass(kCoreEventClass), andEventID: AEEventID(kAEQuitApplication))
         buildMenu()
         languageSubscription = NotificationCenter.default.publisher(for: AppLanguageStore.didChange).sink { [weak self] _ in
             Task { @MainActor in self?.buildMenu() }
@@ -441,7 +446,11 @@ import Combine
             self.model.section = StudioSection(rawValue: destination) ?? .lighting
             self.model.refreshBluetoothAccess()
         }
-        menuBar = MenuBarController(model: model) { [weak self] in self?.showMainWindow() }
+        menuBar = MenuBarController(model: model, openWindow: { [weak self] in self?.showMainWindow() }, quit: { [weak self] in self?.quitKeyglow(nil) })
+        // A second launch asks the running copy to show its window instead of starting.
+        secondLaunch = DistributedNotificationCenter.default().publisher(for: AppRelaunch.showWindowNotification).sink { [weak self] _ in
+            Task { @MainActor in self?.showMainWindow() }
+        }
         model.settings.onMenuBarChanged = { [weak self] visible in self?.menuBar?.setVisible(visible) }
         menuBar?.setVisible(model.settings.showsMenuBarItem)
         model.scan()
@@ -495,17 +504,33 @@ import Combine
         if resumeGuide { onboarding.setup.saveResumePoint() }
         model.flushWorkspaceSave()
         UserDefaults.standard.synchronize()
-        let configuration = NSWorkspace.OpenConfiguration()
-        configuration.createsNewApplicationInstance = true
-        NSWorkspace.shared.openApplication(at: Bundle.main.bundleURL, configuration: configuration) { _, error in
-            let failure = error?.localizedDescription
-            Task { @MainActor in
-                guard let failure else { NSApp.terminate(nil); return }
-                let alert = NSAlert(); alert.messageText = L10n.string("Riapertura non riuscita")
-                alert.informativeText = L10n.string("Esci da Keyglow e riaprilo manualmente.") + "\n" + failure
-                alert.runModal()
-            }
+        // The new copy must start only after this process is gone: a helper waits
+        // for that, and opens nothing if this process does not exit.
+        let helper: Process
+        do { helper = try AppRelaunch.startHelper(waitingFor: getpid(), bundlePath: Bundle.main.bundlePath) }
+        catch {
+            let alert = NSAlert(); alert.messageText = L10n.string("Riapertura non riuscita")
+            alert.informativeText = L10n.string("Esci da Keyglow e riaprilo manualmente.") + "\n" + error.localizedDescription
+            alert.runModal(); return
         }
+        quitKeyglow(nil)
+        // Quitting did not happen within a moment (refused by the system): finish
+        // the same shutdown steps and leave, so the helper can reopen one copy.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
+            guard let self else { return }
+            guard self.mayClose() else { helper.terminate(); return }
+            self.applicationWillTerminate(Notification(name: NSApplication.willTerminateNotification))
+            UserDefaults.standard.synchronize()
+            exit(0)
+        }
+    }
+    /// Quit from the menus. AppKit does not terminate while a sheet is attached,
+    /// so the setup guide is closed first; the busy check still applies.
+    @objc private func handleQuitEvent(_ event: NSAppleEventDescriptor, reply: NSAppleEventDescriptor) { quitKeyglow(nil) }
+    @objc func quitKeyglow(_ sender: Any?) {
+        guard mayClose() else { return }
+        onboarding.dismissForTermination()
+        DispatchQueue.main.async { NSApp.terminate(nil) }
     }
     private func buildMenu() {
         let menu = NSMenu(); let item = NSMenuItem(); menu.addItem(item)
@@ -516,7 +541,7 @@ import Combine
         let setup = app.addItem(withTitle: L10n.string("Configura tastiera e accessi…"), action: #selector(showSetup(_:)), keyEquivalent: ",")
         setup.target = self
         app.addItem(.separator())
-        app.addItem(withTitle: L10n.string("Esci da Keyglow"), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        let quit = app.addItem(withTitle: L10n.string("Esci da Keyglow"), action: #selector(quitKeyglow(_:)), keyEquivalent: "q"); quit.target = self
         let editItem = NSMenuItem(); let edit = NSMenu(title: L10n.string("Modifica")); editItem.submenu = edit; menu.addItem(editItem)
         let undo = edit.addItem(withTitle: L10n.string("Annulla modifica"), action: #selector(undoEdit(_:)), keyEquivalent: "z"); undo.target = self
         let redo = edit.addItem(withTitle: L10n.string("Ripeti modifica"), action: #selector(redoEdit(_:)), keyEquivalent: "Z"); redo.target = self

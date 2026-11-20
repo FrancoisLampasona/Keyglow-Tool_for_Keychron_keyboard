@@ -11,11 +11,12 @@ import Combine
     static let profileLimit = 12
     private let model: StudioModel
     private let openWindow: () -> Void
+    private let quit: () -> Void
     private var item: NSStatusItem?
     private var subscription: AnyCancellable?
 
-    init(model: StudioModel, openWindow: @escaping () -> Void) {
-        self.model = model; self.openWindow = openWindow
+    init(model: StudioModel, openWindow: @escaping () -> Void, quit: @escaping () -> Void) {
+        self.model = model; self.openWindow = openWindow; self.quit = quit
         super.init()
     }
 
@@ -88,8 +89,7 @@ import Combine
         if profiles.count > Self.profileLimit { info(L10n.format("Altri {0} nella pagina Profili", [String(profiles.count - Self.profileLimit)])) }
         menu.addItem(.separator())
         _ = action(L10n.string("Apri Keyglow"), #selector(open(_:)))
-        let quit = menu.addItem(withTitle: L10n.string("Esci da Keyglow"), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "")
-        quit.target = NSApp
+        _ = action(L10n.string("Esci da Keyglow"), #selector(quitFromMenu(_:)))
     }
 
     private static func swatch(_ hex: String) -> NSImage? {
@@ -118,4 +118,5 @@ import Combine
         model.loadProfile(profile)
     }
     @objc private func open(_ sender: Any?) { openWindow() }
+    @objc private func quitFromMenu(_ sender: Any?) { quit() }
 }

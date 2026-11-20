@@ -99,6 +99,11 @@ import Combine
         return false
     }
 
+    /// AppKit refuses to quit while a sheet is attached to the window. The guide is
+    /// closed first; nothing is recorded as deferred or completed.
+    func dismissForTermination() { dismiss() }
+    var isPresented: Bool { setupWindow != nil }
+
     private func dismiss() {
         guard let sheet = setupWindow else { return }
         sheet.sheetParent?.endSheet(sheet)
