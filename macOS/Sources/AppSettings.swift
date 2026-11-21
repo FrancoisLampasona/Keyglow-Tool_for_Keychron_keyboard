@@ -132,8 +132,9 @@ struct AppSettingsPanel: View {
     private func option(_ title: String, isOn: Binding<Bool>, detail: String, message: String) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             LToggle(title, isOn: isOn).toggleStyle(.checkbox)
-            LText(detail).font(.system(size: 12)).foregroundColor(Studio.muted).fixedSize(horizontal: false, vertical: true)
-            if !message.isEmpty { LText(message).font(.system(size: 12)).foregroundColor(Studio.accent).fixedSize(horizontal: false, vertical: true) }
+            // Aligned with the option's label, not with its checkbox.
+            LText(detail).font(.system(size: 12)).foregroundColor(Studio.muted).fixedSize(horizontal: false, vertical: true).frame(maxWidth: 640, alignment: .leading).padding(.leading, 22)
+            if !message.isEmpty { LText(message).font(.system(size: 12)).foregroundColor(Studio.accent).fixedSize(horizontal: false, vertical: true).frame(maxWidth: 640, alignment: .leading).padding(.leading, 22) }
         }
     }
 }

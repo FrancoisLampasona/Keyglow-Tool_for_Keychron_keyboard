@@ -123,6 +123,14 @@ import SwiftUI
                     render(InstalledFirmwareCard(updater: model, usbConnected: usb, busy: model.isBusy, onCheck: {}), width: width, name: "firmware-\(name)-\(Int(width))-\(language.rawValue).png")
                 }
             }
+            // The update card in its empty state and while a firmware check runs.
+            for width in [CGFloat(672), 872] {
+                render(FirmwareUpdateView(model: readings[0].1, showsProvisioning: .constant(false), installer: FirstInstallModel(previewJournal: nil))
+                    .environment(\.studioContentWidth, width), width: width, name: "aggiornamento-vuoto-\(Int(width))-\(language.rawValue).png")
+                render(FirmwareUpdateView(model: checking, showsProvisioning: .constant(false), installer: FirstInstallModel(previewJournal: nil))
+                    .environment(\.studioContentWidth, width), width: width, name: "aggiornamento-durante-controllo-\(Int(width))-\(language.rawValue).png")
+                render(AppSettingsPanel(settings: AppSettingsModel(defaults: defaults)), width: width, name: "impostazioni-app-\(Int(width))-\(language.rawValue).png")
+            }
             let links: [(String, SidebarDeviceStatus.Link, FirmwareUpdateModel)] = [("non-collegata", .none, readings[0].1), ("bluetooth-accesso", .bluetoothNeedsAccess, readings[0].1),
                 ("bluetooth-pronta", .bluetoothReady, readings[1].1), ("usb-letta", .usbRead, keyglow), ("usb-da-leggere", .usbDetected, other)]
             for (name, link, model) in links {

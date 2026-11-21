@@ -35,7 +35,7 @@ struct ProfilesWorkspaceView: View {
                     }
                 }
                 if !model.profileLoadNotice.isEmpty {
-                    LLabel(model.profileLoadNotice, systemImage: "exclamationmark.triangle").font(.system(size: 12)).foregroundColor(Studio.accent).fixedSize(horizontal: false, vertical: true)
+                    LLabel(model.profileLoadNotice, systemImage: "exclamationmark.triangle").font(.system(size: 12)).foregroundColor(Studio.accent).fixedSize(horizontal:false,vertical:true).frame(maxWidth:640,alignment:.leading)
                 }
                 StudioAdaptiveStack(breakpoint: 650, spacing: 14) {
                     HStack(alignment: .firstTextBaseline, spacing: 10) {
@@ -57,7 +57,7 @@ struct ProfilesWorkspaceView: View {
                     LText("Cestino").tag(2)
                 }.pickerStyle(.segmented).labelsHidden().frame(maxWidth:460)
                 LText(collection == 0 ? "Carica un profilo nella bozza, poi applica le modifiche alla tastiera." : collection == 1 ? "Copie create prima di una lettura o sostituzione della bozza, solo se contiene modifiche non salvate. Restano le 20 più recenti; non occupano l’elenco dei tuoi profili." : "I profili rimossi restano qui e possono essere ripristinati.")
-                    .font(.system(size:12)).foregroundColor(Studio.muted).fixedSize(horizontal:false,vertical:true)
+                    .font(.system(size:12)).foregroundColor(Studio.muted).fixedSize(horizontal:false,vertical:true).frame(maxWidth:640,alignment:.leading)
                 if collection == 2 && model.trashCount > 0 {
                     LButton("Svuota cestino") { model.emptyTrash() }.buttonStyle(StudioButton())
                 }
@@ -109,7 +109,7 @@ struct AdvancedWorkspaceView: View {
                     VStack(alignment: .leading, spacing: 12) {
                         LText("Pronta quando torni.").font(.system(size: 29, weight: .semibold)).tracking(-0.6)
                         LText("Scegli quanto tenere attiva la tastiera. Le luci hanno un timer separato: possono spegnersi mentre la connessione resta disponibile.")
-                            .font(.system(size: 14)).foregroundColor(Studio.muted).lineSpacing(4).fixedSize(horizontal: false, vertical: true)
+                            .font(.system(size: 14)).foregroundColor(Studio.muted).lineSpacing(4).fixedSize(horizontal:false,vertical:true).frame(maxWidth:640,alignment:.leading)
                     }
                     Spacer(minLength: 0)
                     VStack(alignment: .trailing, spacing: 7) {
@@ -128,7 +128,7 @@ struct AdvancedWorkspaceView: View {
                         VStack(alignment: .leading, spacing: 6) {
                             LText(model.reactiveFirmwareRecognized ? "Firmware reattivo riconosciuto" : "Modalità reattiva: serve il firmware Keyglow aggiornato").fontWeight(.semibold)
                             LText("Il controller resta attivo solo con Bluetooth connesso e una lettura valida della batteria a livello non basso. Il consumo può aumentare. Il timer radio resta finito; l’avvio e il risveglio del Mac richiedono comunque una connessione.")
-                                .font(.system(size: 12)).foregroundColor(Studio.muted).lineSpacing(3).fixedSize(horizontal: false, vertical: true)
+                                .font(.system(size: 12)).foregroundColor(Studio.muted).lineSpacing(3).fixedSize(horizontal:false,vertical:true).frame(maxWidth:640,alignment:.leading)
                         }
                     }.padding(18).background(Studio.accent.opacity(0.065)).clipShape(RoundedRectangle(cornerRadius: 12))
                 }
@@ -182,7 +182,7 @@ struct AdvancedWorkspaceView: View {
             VStack(alignment: .leading, spacing: 12) {
                 HStack { Image(systemName: symbol).font(.system(size: 22)); Spacer(); Image(systemName: selected ? "checkmark.circle.fill" : "circle").font(.system(size: 17)) }.foregroundColor(selected ? Studio.accent : Studio.muted)
                 HStack(alignment: .firstTextBaseline) { LText(title).font(.system(size: 21, weight: .semibold)); Spacer(); LText(detail).font(.system(size: 12, weight: .medium)).monospacedDigit().foregroundColor(Studio.muted) }
-                LText(description).font(.system(size: 12)).foregroundColor(Studio.muted).lineSpacing(3).multilineTextAlignment(.leading).fixedSize(horizontal: false, vertical: true)
+                LText(description).font(.system(size: 12)).foregroundColor(Studio.muted).lineSpacing(3).multilineTextAlignment(.leading).fixedSize(horizontal:false,vertical:true).frame(maxWidth:640,alignment:.leading)
                 Spacer(minLength: 0)
             }.padding(20).frame(maxWidth: .infinity, minHeight: 172, alignment: .topLeading)
                 .background(selected ? Studio.accent.opacity(0.09) : Studio.panel)
@@ -219,9 +219,9 @@ struct ConnectionWorkspaceView: View {
                         LButton("Vai all’illuminazione") {model.section = .lighting}.buttonStyle(StudioButton(primary:true))
                     } else if !model.available {
                         LText("Seleziona BT sulla tastiera e collegala nelle impostazioni Bluetooth del Mac, poi scegli Rileva dispositivi.")
-                            .foregroundColor(Studio.muted).fixedSize(horizontal:false,vertical:true)
+                            .foregroundColor(Studio.muted).fixedSize(horizontal:false,vertical:true).frame(maxWidth:640,alignment:.leading)
                     } else if !model.accessVerified {
-                        LText(model.accessMessage).font(.system(size:12)).foregroundColor(Studio.muted).fixedSize(horizontal:false,vertical:true)
+                        LText(model.accessMessage).font(.system(size:12)).foregroundColor(Studio.muted).fixedSize(horizontal:false,vertical:true).frame(maxWidth:640,alignment:.leading)
                         HStack(spacing:10) {
                             if model.systemPermission == .granted {
                                 LButton("Verifica accesso") {model.checkAccess()}.buttonStyle(StudioButton(primary:true)).disabled(model.busy)
@@ -239,16 +239,16 @@ struct ConnectionWorkspaceView: View {
                             LToggle("Firmware Keyglow con RGB diretti installato",isOn:$model.directBluetooth).toggleStyle(.checkbox).disabled(model.busy)
                             InstalledFirmwareLine(updater:model.firmwareUpdater)
                             LText("Questa scelta ricorda la configurazione. La verifica della versione installata si trova nella pagina Firmware.")
-                                .font(.system(size:12)).foregroundColor(Studio.muted).fixedSize(horizontal:false,vertical:true)
+                                .font(.system(size:12)).foregroundColor(Studio.muted).fixedSize(horizontal:false,vertical:true).frame(maxWidth:640,alignment:.leading)
                             if !model.directBluetooth {
                                 LText("Il firmware originale non riceve colori via Bluetooth. Con le prime versioni sperimentali di Keyglow, attiva la ricezione prima di inviare.")
-                                    .font(.system(size:12)).foregroundColor(Studio.muted).fixedSize(horizontal:false,vertical:true)
+                                    .font(.system(size:12)).foregroundColor(Studio.muted).fixedSize(horizontal:false,vertical:true).frame(maxWidth:640,alignment:.leading)
                                 HStack(spacing:8) {KeycapLabel(text:"fn");LText("+");KeycapLabel(text:"○");LText("Tieni premuto per 2 secondi").font(.system(size:12))}
                                 LToggle("Ricezione attivata · invia entro 30 s",isOn:$model.firmwareArmed).toggleStyle(.checkbox).disabled(model.busy)
                                 LButton("Apri controlli RGB") {model.section = .lighting}.buttonStyle(StudioButton())
                             }
                             if model.accessVerified {
-                                LText(model.accessMessage).font(.system(size:12)).foregroundColor(Studio.muted).fixedSize(horizontal:false,vertical:true)
+                                LText(model.accessMessage).font(.system(size:12)).foregroundColor(Studio.muted).fixedSize(horizontal:false,vertical:true).frame(maxWidth:640,alignment:.leading)
                                 LButton("Ricontrolla accesso") {model.checkAccess()}.buttonStyle(StudioButton()).disabled(model.busy)
                             }
                             LButton("Apri aggiornamento firmware") {model.section = .firmware}.buttonStyle(StudioButton())
@@ -259,14 +259,14 @@ struct ConnectionWorkspaceView: View {
                     PanelTitle(title:"Configurazione completa via USB",subtitle:"Mappa dei tasti, macro, RGB per tasto, Mix e timer si salvano con il cavo.")
                     if model.usbDevices.isEmpty {
                         LLabel("Collega USB, seleziona Cable e premi Rileva dispositivi.",systemImage:"cable.connector")
-                            .font(.system(size:13)).foregroundColor(Studio.muted).fixedSize(horizontal:false,vertical:true)
+                            .font(.system(size:13)).foregroundColor(Studio.muted).fixedSize(horizontal:false,vertical:true).frame(maxWidth:640,alignment:.leading)
                     } else {
                         LPicker("Q6 Max USB",selection:$model.selectedUSBID) {
                             LText("Seleziona").tag(Optional<UInt64>.none)
                             ForEach(model.usbDevices) {LText("\($0.name) · USB").tag(Optional($0.id))}
                         }.frame(maxWidth:530)
                         LButton("Leggi configurazione") {model.readUSB()}.buttonStyle(StudioButton(primary:true)).disabled(model.selectedUSBID == nil || model.busy)
-                        LText(model.usbMessage).font(.system(size:12)).foregroundColor(Studio.muted).fixedSize(horizontal:false,vertical:true)
+                        LText(model.usbMessage).font(.system(size:12)).foregroundColor(Studio.muted).fixedSize(horizontal:false,vertical:true).frame(maxWidth:640,alignment:.leading)
                     }
                     LText("Il ricevitore 2,4 GHz non è ancora gestito da Keyglow.").font(.system(size:12)).foregroundColor(Studio.muted)
                 }
@@ -291,7 +291,7 @@ struct BluetoothSaveChoice: View {
         VStack(alignment: .leading, spacing: 6) {
             LToggle("Salva nella tastiera", isOn: $model.saveBluetoothOnKeyboard).toggleStyle(.checkbox)
             LText(model.saveBluetoothOnKeyboard ? "Mantieni gli RGB anche dopo lo spegnimento." : "Prova temporanea, fino al riavvio della tastiera.")
-                .font(.system(size: 11)).foregroundColor(Studio.muted).fixedSize(horizontal: false, vertical: true)
+                .font(.system(size: 11)).foregroundColor(Studio.muted).fixedSize(horizontal:false,vertical:true).frame(maxWidth:640,alignment:.leading)
         }.disabled(model.lightingControlsDisabled)
     }
 }
@@ -312,7 +312,7 @@ struct FirmwareWorkspaceView: View {
                 VStack(alignment:.leading,spacing:24) {
                 PanelTitle(title: "Due firmware, una tastiera", subtitle: "Il controller gestisce tasti e luci. Il modulo radio gestisce Bluetooth e riconnessione.")
                 StudioSurface {
-                    LLabel("Controller Q6 Max ISO", systemImage: "cpu").font(.system(size: 18, weight: .semibold))
+                    LLabel("Controller Q6 Max ISO", systemImage: "memorychip").font(.system(size: 18, weight: .semibold))
                     info("Versione letta", model.usbSnapshot?.firmwareVersion ?? "Collega USB e leggi la tastiera")
                     info("Protocollo VIA", model.usbSnapshot.map { String($0.protocolVersion) } ?? "—")
                     info("Firmware reattivo", model.reactiveFirmwareRecognized ? "Riconosciuta via USB" : "Non verificata sul dispositivo")
@@ -328,7 +328,7 @@ struct FirmwareWorkspaceView: View {
                         info("Versione firmware", radio.firmwareVersion)
                         info("Versione hardware", radio.hardwareVersion)
                     }
-                    LText(model.radioMessage).font(.system(size: 12)).foregroundColor(Studio.muted).fixedSize(horizontal: false, vertical: true)
+                    LText(model.radioMessage).font(.system(size: 12)).foregroundColor(Studio.muted).fixedSize(horizontal:false,vertical:true).frame(maxWidth:640,alignment:.leading)
                     LText("La lettura recupera informazioni: non avvia l’aggiornamento.").font(.system(size: 11)).foregroundColor(Studio.muted)
                 }
                 StudioSurface {
@@ -345,7 +345,7 @@ struct FirmwareWorkspaceView: View {
                             LButton("Verifica Bluetooth") { bluetooth.start() }.buttonStyle(StudioButton())
                         }
                     }
-                    LText(bluetooth.message).font(.system(size: 12)).foregroundColor(Studio.muted).fixedSize(horizontal: false, vertical: true)
+                    LText(bluetooth.message).font(.system(size: 12)).foregroundColor(Studio.muted).fixedSize(horizontal:false,vertical:true).frame(maxWidth:640,alignment:.leading)
                     if bluetooth.permissionDenied {
                         LButton("Apri permessi Bluetooth") { model.openURL("x-apple.systempreferences:com.apple.preference.security?Privacy_Bluetooth") }.buttonStyle(StudioButton())
                     }
@@ -355,7 +355,7 @@ struct FirmwareWorkspaceView: View {
                         info("Batteria letta", result.batteryPercent.map { "\($0)%" } ?? "Non esposta")
                         info("Ultima lettura", L10n.date(result.inspectedAt, includeDay: true))
                         LText(result.vendorServicePresent ? "È presente un servizio proprietario della radio. La sua presenza non conferma un canale di aggiornamento del controller." : "Nessun servizio proprietario riconosciuto in questa lettura.")
-                            .font(.system(size: 12)).foregroundColor(Studio.muted).fixedSize(horizontal: false, vertical: true)
+                            .font(.system(size: 12)).foregroundColor(Studio.muted).fixedSize(horizontal:false,vertical:true).frame(maxWidth:640,alignment:.leading)
                         LDisclosureGroup("Servizi e caratteristiche rilevati") {
                             VStack(alignment: .leading, spacing: 12) {
                                 LText("Servizi: \(result.serviceIDs.joined(separator: ", "))").font(.system(size: 10, design: .monospaced)).textSelection(.enabled)
@@ -369,7 +369,7 @@ struct FirmwareWorkspaceView: View {
                         }
                     }
                     LText("La verifica legge solo identità, firmware e batteria. Le caratteristiche proprietarie vengono elencate senza leggerne i valori. Nessuna scrittura o aggiornamento viene avviato.")
-                        .font(.system(size: 11)).foregroundColor(Studio.muted).fixedSize(horizontal: false, vertical: true)
+                        .font(.system(size: 11)).foregroundColor(Studio.muted).fixedSize(horizontal:false,vertical:true).frame(maxWidth:640,alignment:.leading)
                 }
                 StudioSurface {
                     PanelTitle(title: "Backup e recupero", subtitle: "Conserva un profilo prima di modificare il firmware.")
@@ -377,8 +377,8 @@ struct FirmwareWorkspaceView: View {
                         LButton("Esporta profilo") { model.exportProfile() }.buttonStyle(StudioButton())
                         LButton("Identifica file firmware") { model.inspectFirmwareFile() }.buttonStyle(StudioButton())
                     }
-                    if !model.firmwareFileDescription.isEmpty { LText(model.firmwareFileDescription).font(.system(size: 12, design: .monospaced)).textSelection(.enabled).fixedSize(horizontal: false, vertical: true) }
-                    LText("Il firmware 0.6 richiede USB/DFU. Il nuovo percorso Bluetooth richiede la prima installazione del loader e la chiave proprietario: usa la sezione di aggiornamento qui sopra.").font(.system(size: 12)).foregroundColor(Studio.muted).fixedSize(horizontal: false, vertical: true)
+                    if !model.firmwareFileDescription.isEmpty { LText(model.firmwareFileDescription).font(.system(size: 12, design: .monospaced)).textSelection(.enabled).fixedSize(horizontal:false,vertical:true).frame(maxWidth:640,alignment:.leading) }
+                    LText("Il firmware 0.6 richiede USB/DFU. Il nuovo percorso Bluetooth richiede la prima installazione del loader e la chiave proprietario: usa la sezione di aggiornamento qui sopra.").font(.system(size: 12)).foregroundColor(Studio.muted).fixedSize(horizontal:false,vertical:true).frame(maxWidth:640,alignment:.leading)
                 }
                 StudioAdaptiveStack(breakpoint:950,spacing:10) {
                     LButton("Launcher Keychron") { model.openURL("https://launcher.keychron.com/") }.buttonStyle(StudioButton())
@@ -430,7 +430,7 @@ struct InstalledFirmwareCard: View {
                 VStack(alignment:.leading,spacing:4) {
                     LText("Firmware installato").font(.system(size:21,weight:.semibold))
                     LLabel(InstalledFirmwareText.title(state),systemImage:InstalledFirmwareText.symbol(state))
-                        .font(.system(size:13,weight:.medium)).foregroundColor(color).fixedSize(horizontal:false,vertical:true)
+                        .font(.system(size:13,weight:.medium)).foregroundColor(color).fixedSize(horizontal:false,vertical:true).frame(maxWidth:640,alignment:.leading)
                 }.frame(maxWidth:.infinity,alignment:.leading)
                 // After an unanswered Bluetooth request the button counts down instead of failing.
                 TimelineView(.periodic(from:.now,by:1)) { context in
@@ -451,7 +451,7 @@ struct InstalledFirmwareCard: View {
                     VStack(alignment:.leading,spacing:3) {
                         if let record=updater.lastVersion {
                             Text(verbatim:(record.isKeyglow ? "Keyglow · " : "") + record.version).font(.system(size:13,weight:.medium,design:.monospaced)).textSelection(.enabled)
-                                .fixedSize(horizontal:false,vertical:true)
+                                .fixedSize(horizontal:false,vertical:true).frame(maxWidth:640,alignment:.leading)
                             LText("Ultima lettura via \(record.via): \(L10n.date(record.date,includeDay:true))").font(.system(size:11)).foregroundColor(Studio.muted)
                         } else {
                             LText("Non ancora letta").font(.system(size:13,weight:.medium))
@@ -476,7 +476,7 @@ struct InstalledFirmwareCard: View {
                     LDisclosureGroup("Dettagli dell’ultimo controllo") {
                         VStack(alignment:.leading,spacing:8) {
                             Text(verbatim:updater.lastCheckDetails).font(.system(size:11,design:.monospaced)).textSelection(.enabled)
-                                .fixedSize(horizontal:false,vertical:true)
+                                .fixedSize(horizontal:false,vertical:true).frame(maxWidth:640,alignment:.leading)
                             LButton("Copia dettagli") {
                                 NSPasteboard.general.clearContents(); NSPasteboard.general.setString(updater.lastCheckDetails,forType:.string)
                             }.buttonStyle(StudioButton())
@@ -527,9 +527,9 @@ struct SidebarDeviceStatus: View {
                     LText("Q6 Max · ISO IT").font(.system(size:13,weight:.semibold)).lineLimit(1)
                 }
                 LText(status).font(.system(size:11,weight:.medium)).foregroundColor(link == .none ? Studio.muted : Studio.text.opacity(0.9))
-                    .fixedSize(horizontal:false,vertical:true)
+                    .fixedSize(horizontal:false,vertical:true).frame(maxWidth:640,alignment:.leading)
                 if record != nil || updater.installed == .checking {
-                    Text(verbatim:L10n.string(firmware)).font(.system(size:10)).foregroundColor(Studio.muted).lineLimit(2).fixedSize(horizontal:false,vertical:true)
+                    Text(verbatim:L10n.string(firmware)).font(.system(size:10)).foregroundColor(Studio.muted).lineLimit(2).fixedSize(horizontal:false,vertical:true).frame(maxWidth:640,alignment:.leading)
                 } else {
                     LText(firmware).font(.system(size:10)).foregroundColor(Studio.muted)
                 }
@@ -587,6 +587,6 @@ struct InstalledFirmwareLine: View {
     var body: some View {
         LLabel(InstalledFirmwareText.title(updater.installed),systemImage:InstalledFirmwareText.symbol(updater.installed))
             .font(.system(size:12,weight:.medium)).foregroundColor(updater.installed.foundKeyglow ? Studio.success : Studio.muted)
-            .fixedSize(horizontal:false,vertical:true)
+            .fixedSize(horizontal:false,vertical:true).frame(maxWidth:640,alignment:.leading)
     }
 }

@@ -15,11 +15,14 @@ struct FirmwareUpdateView: View {
                 if model.isBusy && !model.isChecking { transferNotice }
                 Group {
                 StudioAdaptiveStack(breakpoint: 1120, spacing: 16) {
-                    VStack(alignment: .leading, spacing: 6) {
-                        LLabel("Aggiornamento del controller", systemImage: "square.and.arrow.down")
-                            .font(.system(size: 21, weight: .semibold))
-                        LText("Via Bluetooth, dopo la prima configurazione USB del loader Keyglow.")
-                            .font(.system(size: 12)).foregroundColor(Studio.muted).lineSpacing(3).fixedSize(horizontal:false,vertical:true).frame(maxWidth:640,alignment:.leading)
+                    // Same card heading as "Firmware installato": tinted icon, title, one line.
+                    HStack(alignment: .top, spacing: 16) {
+                        OnboardingIconTile(symbol: "square.and.arrow.down", color: Studio.accent)
+                        VStack(alignment: .leading, spacing: 4) {
+                            LText("Aggiornamento del controller").font(.system(size: 21, weight: .semibold))
+                            LText("Via Bluetooth, dopo la prima configurazione USB del loader Keyglow.")
+                                .font(.system(size: 13)).foregroundColor(Studio.muted).fixedSize(horizontal:false,vertical:true).frame(maxWidth:640,alignment:.leading)
+                        }
                     }.frame(maxWidth: .infinity, alignment: .leading)
                     HStack(spacing: 10) {
                     if model.hasBundledFirmware {
@@ -141,11 +144,14 @@ struct FirmwareUpdateView: View {
                         .font(.system(size: 11)).monospacedDigit().foregroundColor(Studio.muted)
                 }
 
+                // In the empty state the line above already says what to do.
+                if model.phase != .idle || model.artifact != nil || model.pendingRawName != nil {
                 HStack(alignment: .top, spacing: 9) {
                     if model.phase == .complete { Image(systemName: "checkmark.circle.fill").foregroundColor(Studio.success) }
                     else if model.phase == .failed || model.phase == .paused { Image(systemName: "exclamationmark.circle").foregroundColor(Studio.accent) }
                     LText(model.message).font(.system(size: 13)).fixedSize(horizontal:false,vertical:true).frame(maxWidth:640,alignment:.leading)
                 }.accessibilityElement(children: .combine)
+                }
 
                 if model.canStart {
                     LToggle("Sono pronto: userò solo il mouse fino alla fine",isOn:$mouseOnlyConfirmed).toggleStyle(.checkbox)
@@ -172,14 +178,24 @@ struct FirmwareUpdateView: View {
                 }
                 }
                 }
-                if model.canStart || model.isBusy {
+                if model.canStart || (model.isBusy && !model.isChecking) {
                     LText("Usa solo il mouse durante verifica e aggiornamento. Tasti e manopola interrompono il trasferimento; puoi poi verificare di nuovo e riprendere i blocchi già salvati. La fine sarà confermata dopo il riavvio.")
                         .font(.system(size: 12)).foregroundColor(Studio.muted).fixedSize(horizontal:false,vertical:true).frame(maxWidth:640,alignment:.leading)
                 }
 
                 Divider()
-                LButton("Prima installazione di Keyglow…") {showsProvisioning=true}
-                    .buttonStyle(StudioButton()).disabled(model.isBusy)
+                // The other way in: a keyboard that still has the original firmware.
+                StudioAdaptiveStack(breakpoint: 640, spacing: 14) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        LText("La tastiera ha ancora il firmware originale?").font(.system(size: 13, weight: .semibold))
+                        LText(model.isChecking ? "Disponibile al termine del controllo del firmware."
+                              : model.isBusy ? "Disponibile al termine dell’operazione in corso."
+                              : "La prima installazione si fa con il cavo USB: backup, modalità DFU e installazione guidata. Nulla parte senza la tua conferma.")
+                            .font(.system(size: 12)).foregroundColor(Studio.muted).fixedSize(horizontal:false,vertical:true).frame(maxWidth:520,alignment:.leading)
+                    }.frame(maxWidth: .infinity, alignment: .leading)
+                    Button {showsProvisioning=true} label: { LLabel("Prima installazione di Keyglow…", systemImage: "cable.connector") }
+                        .buttonStyle(StudioButton()).disabled(model.isBusy)
+                }
             }.controlSize(.large).onChange(of:model.phase) { _ in mouseOnlyConfirmed=false }
             }
         }

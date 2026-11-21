@@ -5438,5 +5438,21 @@
   "Copia dettagli": {
     "en": "Copy Details",
     "fr": "Copier les détails"
+  },
+  "La tastiera ha ancora il firmware originale?": {
+    "en": "Does the keyboard still have the original firmware?",
+    "fr": "Le clavier a-t-il encore le firmware d’origine ?"
+  },
+  "Disponibile al termine del controllo del firmware.": {
+    "en": "Available when the firmware check ends.",
+    "fr": "Disponible à la fin du contrôle du firmware."
+  },
+  "Disponibile al termine dell’operazione in corso.": {
+    "en": "Available when the current operation ends.",
+    "fr": "Disponible à la fin de l’opération en cours."
+  },
+  "La prima installazione si fa con il cavo USB: backup, modalità DFU e installazione guidata. Nulla parte senza la tua conferma.": {
+    "en": "The first installation uses the USB cable: backup, DFU mode and a guided installation. Nothing starts without your confirmation.",
+    "fr": "La première installation se fait avec le câble USB : sauvegarde, mode DFU et installation guidée. Rien ne démarre sans votre confirmation."
   }
 }
