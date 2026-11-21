@@ -4,9 +4,9 @@ Keyglow è un'app macOS nativa per **Keychron Q6 Max ISO**, con layout italiano 
 
 ## Installazione e primo avvio
 
-Scarica il **[DMG Keyglow 0.11.0](https://github.com/FrancoisLampasona/Keyglow-Tool_for_Keychron_keyboard/releases/tag/v0.11.1)**, aprilo e trascina Keyglow in Applicazioni. Avvia l’app da lì ed espelli il disco. Servono un Mac Apple Silicon e macOS 13 o successivo. Il pacchetto contiene già firmware e strumenti USB.
+Scarica il DMG più recente dalla **[pagina delle release](https://github.com/FrancoisLampasona/Keyglow-Tool_for_Keychron_keyboard/releases)**, aprilo e trascina Keyglow in Applicazioni. Avvia l’app da lì ed espelli il disco. Servono un Mac Apple Silicon e macOS 13 o successivo. Le note di ogni release dicono se il DMG contiene anche firmware e strumenti USB per la prima installazione. Novità della 0.12.0: [note di rilascio](release-notes-0.12.0.md).
 
-È una versione sperimentale con firma locale, non notarizzata da Apple. La nuova prima installazione guidata è verificata tramite test software, ma non ancora provata fisicamente dall’inizio alla fine. La prima scrittura del loader non resiste a un’interruzione di alimentazione: l’app richiede una conferma esplicita prima di iniziare.
+È una versione sperimentale. Dalla 0.12.0 l’app è firmata con un certificato Developer ID Apple; le note di ogni release dicono se il DMG è anche notarizzato. Un DMG notarizzato si apre senza avvisi; uno non notarizzato viene bloccato da macOS finché non approvi quella singola app in Impostazioni di Sistema → Privacy e sicurezza. Le release fino alla 0.11.1 avevano firma locale e non erano notarizzate. La nuova prima installazione guidata è verificata tramite test software, ma non ancora provata fisicamente dall’inizio alla fine. La prima scrittura del loader non resiste a un’interruzione di alimentazione: l’app richiede una conferma esplicita prima di iniziare.
 
 Per compilare dai sorgenti servono Xcode/Command Line Tools con Swift 6:
 
@@ -83,3 +83,11 @@ La richiesta di macOS parte al passo Accessi della configurazione. Se l’access
 Caricare un profilo aggiorna la bozza locale. Aprire RGB per tasto o Mix non cambia da solo l’effetto: scegli esplicitamente la modalità quando vuoi usarla. Queste sezioni si applicano via USB e non generano anteprime Bluetooth.
 
 La pagina Firmware conserva il file scelto e la verifica durante la navigazione. Il percorso principale segue **Scegli file → Verifica → Installa**; diagnostica e preparazione iniziale sono sezioni espandibili.
+
+## Problemi frequenti
+
+- **Il permesso resta “Da abilitare” dopo averlo attivato.** macOS applica Monitoraggio input solo alle app avviate dopo la concessione: usa **Esci e riapri Keyglow**.
+- **Keyglow è attivo in Monitoraggio input ma l’app non lo vede.** La voce appartiene a una copia o a una build precedente. Rimuovila con **−**, aggiungi di nuovo l’app con **+**, poi esci e riapri.
+- **Il controllo del firmware via Bluetooth è lento o non riceve risposta.** Dura circa 45 secondi per costruzione: non digitare e non toccare la manopola. Dopo una richiesta senza risposta il pulsante conta alla rovescia per un minuto. Una mancata risposta non prova che ci sia il firmware originale: per la certezza collega il cavo e ripeti il controllo.
+- **I colori non cambiano via Bluetooth.** Serve il firmware Keyglow; l’invio RGB non ha conferma dalla tastiera, quindi controlla la tastiera stessa.
+- **Uscita.** Gira una sola copia di Keyglow. Con l’icona nella barra dei menu attiva, chiudere la finestra non chiude l’app: usa **Esci da Keyglow**.
