@@ -319,8 +319,13 @@ struct OnboardingView: View {
                     LText(detail).font(.system(size:12)).foregroundColor(Studio.muted).fixedSize(horizontal:false,vertical:true)
                 }
                 if !state.foundKeyglow && state != .checking {
-                    Button(action:onCheckFirmware) { LLabel("Riprova",systemImage:"arrow.clockwise").font(.system(size:12,weight:.medium)) }
-                        .buttonStyle(.plain).foregroundColor(Studio.accent).frame(minHeight:28).contentShape(Rectangle())
+                    TimelineView(.periodic(from:.now,by:1)) { context in
+                        let wait=firmware.bluetoothWait(at:context.date)
+                        Button(action:onCheckFirmware) {
+                            if wait > 0 { LLabel("Riprova tra \(wait) s",systemImage:"timer").font(.system(size:12,weight:.medium)).monospacedDigit() }
+                            else { LLabel("Riprova",systemImage:"arrow.clockwise").font(.system(size:12,weight:.medium)) }
+                        }.buttonStyle(.plain).foregroundColor(wait > 0 ? Studio.muted : Studio.accent).frame(minHeight:28).contentShape(Rectangle()).disabled(wait > 0)
+                    }
                 }
             }
         }

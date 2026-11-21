@@ -542,7 +542,19 @@ final class FirmwareUpdateModel: ObservableObject {
     @Published private(set) var lastVersion: FirmwareVersionRecord?
     /// True only for the read-only check, never for an update or its review.
     var isChecking: Bool { installed == .checking }
-    var checkTimeout: TimeInterval = 30
+    /// One HELLO on the indicator channel is slow by design: 129 indicator writes
+    /// for the request, 223 input reports for the reply at 100 ms, 77 writes for
+    /// the receipt. At the default 80 ms pause that is about 45 seconds.
+    static func expectedBluetoothCheck(pause: Double) -> TimeInterval {
+        Double(129 + 77) * (pause + 0.026) + 223 * 0.1 + 1
+    }
+    /// Well above a healthy exchange, so only a transport that never returns is cut off.
+    var checkTimeout: TimeInterval = 120
+    @Published private(set) var checkStartedAt: Date?
+    @Published private(set) var checkExpectedSeconds: TimeInterval = 0
+    /// Plain-text facts about the last check, for the user to copy when it fails.
+    /// No key, nonce, payload or typed data is ever included.
+    @Published private(set) var lastCheckDetails = ""
     private let records: UserDefaults?
     var onBusyChanged: (Bool) -> Void = { _ in }
     private var pendingRaw: Data?
@@ -583,6 +595,23 @@ final class FirmwareUpdateModel: ObservableObject {
         }
         return error is BluetoothOTAWire.Failure || error is OTAInputReportFailure
     }
+    private static func diagnosticName(_ outcome: InstalledFirmwareCheck) -> String {
+        switch outcome {
+        case .unknown: "unknown"
+        case .checking: "checking"
+        case .usbKeyglow(let version): "usbKeyglow \(version)"
+        case .usbOther(let version): "usbOther \(version)"
+        case .bluetoothVerified(let build): "bluetoothVerified build \(build)"
+        case .bluetoothResponding: "bluetoothResponding"
+        case .bluetoothSilent(let reason): "bluetoothSilent · \(reason)"
+        case .unreadable(let reason): "unreadable · \(reason)"
+        }
+    }
+    /// Whole seconds before another Bluetooth request may be sent; 0 when free.
+    func bluetoothWait(at now: Date = Date()) -> Int {
+        guard let cooldownUntil else { return 0 }
+        return max(0, Int(cooldownUntil.timeIntervalSince(now).rounded(.up)))
+    }
     /// Records a USB reading made elsewhere (the guide or a full configuration read).
     func recordUSBReading(version: String, isKeyglow: Bool, at date: Date = Date()) {
         guard !isBusy else { return }
@@ -597,14 +626,13 @@ final class FirmwareUpdateModel: ObservableObject {
     /// type for a few seconds, and silence is not proof of the original firmware.
     func checkInstalledFirmware(usb: (@Sendable () throws -> String)?, isKeyglow: @escaping @Sendable (String) -> Bool, now: Date = Date()) {
         guard !isBusy else { return }
-        if usb == nil, let cooldownUntil, now < cooldownUntil {
-            installed = .unreadable("Attendi la scadenza della risposta precedente prima di rileggere la tastiera.")
-            installedVia = "Bluetooth"; installedCheckedAt = now
-            return
-        }
+        // While a late reply may still arrive, a Bluetooth check is not started and
+        // the previous result stays on screen; the button shows the remaining wait.
+        if usb == nil, bluetoothWait(at: now) > 0 { return }
         actionID = UUID(); cancellation = OTAUpdateCancellation()
         let id = actionID, token = cancellation, pause = transferPause, identify = bluetoothIdentify
         installed = .checking; installedVia = usb == nil ? "Bluetooth" : "USB"
+        checkStartedAt = now; checkExpectedSeconds = usb == nil ? Self.expectedBluetoothCheck(pause: pause) : 2
         isBusy = true; canCancel = false; onBusyChanged(true)
         // The check always ends: a transport that never returns is cut off.
         let limit = checkTimeout
@@ -612,10 +640,11 @@ final class FirmwareUpdateModel: ObservableObject {
             try? await Task.sleep(nanoseconds: UInt64(limit * 1_000_000_000))
             guard let self, self.actionID == id, self.installed == .checking else { return }
             token.cancel()
-            self.finishInstalledCheck(.unreadable("La tastiera non ha risposto in tempo. Riprova tra un minuto oppure collega il cavo USB."), startedRequest: usb == nil, id: id)
+            self.finishInstalledCheck(.unreadable("La tastiera non ha risposto in tempo. Riprova tra un minuto oppure collega il cavo USB."), startedRequest: usb == nil, id: id, cause: "timeout dopo \(Int(limit)) s")
         }
         Task.detached(priority: .userInitiated) { [self] in
             let outcome: InstalledFirmwareCheck, startedRequest: Bool
+            var cause = "risposta valida"
             do {
                 if let usb {
                     let version = try usb()
@@ -629,18 +658,31 @@ final class FirmwareUpdateModel: ObservableObject {
                 }
             } catch {
                 startedRequest = usb == nil && Self.requestMayHaveStarted(error)
+                cause = "\(type(of: error)).\(error)"
                 // A request that went out and got no valid Keyglow answer is "silent";
                 // anything that stopped earlier is "could not read".
                 let silent = usb == nil && ((error as? OTAChannelFailure) == .deadline || (error as? BluetoothOTAWire.Failure) == .timedOut || (error as? BluetoothOTAWire.Failure) == .incomplete)
                 outcome = silent ? .bluetoothSilent(error.localizedDescription) : .unreadable(error.localizedDescription)
             }
-            await finishInstalledCheck(outcome, startedRequest: startedRequest, id: id)
+            await finishInstalledCheck(outcome, startedRequest: startedRequest, id: id, cause: cause)
         }
     }
-    private func finishInstalledCheck(_ outcome: InstalledFirmwareCheck, startedRequest: Bool, id: UUID) {
+    private func finishInstalledCheck(_ outcome: InstalledFirmwareCheck, startedRequest: Bool, id: UUID, cause: String) {
         guard id == actionID, installed == .checking else { return }
         if startedRequest { cooldownUntil = Date().addingTimeInterval(61) }
-        installed = outcome; installedCheckedAt = Date()
+        let started = checkStartedAt ?? Date(), ended = Date()
+        let stamp = ISO8601DateFormatter()
+        lastCheckDetails = [
+            "Keyglow · controllo firmware",
+            "Inizio: \(stamp.string(from: started))",
+            "Durata: \(String(format: "%.1f", ended.timeIntervalSince(started))) s (attesa prevista \(Int(checkExpectedSeconds)) s, limite \(Int(checkTimeout)) s)",
+            "Collegamento: \(installedVia)" + (installedVia == "Bluetooth" ? " · pausa \(Int(transferPause * 1000)) ms" : ""),
+            "Esito: \(Self.diagnosticName(outcome))",
+            "Causa: \(cause)",
+            "Attesa imposta: \(startedRequest ? "61 s" : "nessuna")"
+        ].joined(separator: "\n")
+        checkStartedAt = nil
+        installed = outcome; installedCheckedAt = ended
         remember(outcome, via: installedVia, at: installedCheckedAt ?? Date())
         endBusy()
     }

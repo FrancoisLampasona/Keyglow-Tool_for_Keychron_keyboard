@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 struct ProfilesWorkspaceView: View {
     @ObservedObject var model: StudioModel
@@ -431,13 +432,18 @@ struct InstalledFirmwareCard: View {
                     LLabel(InstalledFirmwareText.title(state),systemImage:InstalledFirmwareText.symbol(state))
                         .font(.system(size:13,weight:.medium)).foregroundColor(color).fixedSize(horizontal:false,vertical:true)
                 }.frame(maxWidth:.infinity,alignment:.leading)
-                Button(action:onCheck) {
-                    HStack(spacing:8) {
-                        if state == .checking { ProgressView().controlSize(.small) } else { Image(systemName:"checkmark.shield") }
-                        LText("Controlla firmware")
-                    }
-                }.buttonStyle(StudioButton(primary:!state.foundKeyglow)).disabled(busy)
-                    .localizedHelp(usbConnected ? "Legge la versione via USB: non modifica nulla" : "Chiede al firmware di rispondere via Bluetooth: non digitare per qualche secondo")
+                // After an unanswered Bluetooth request the button counts down instead of failing.
+                TimelineView(.periodic(from:.now,by:1)) { context in
+                    let wait=usbConnected ? 0 : updater.bluetoothWait(at:context.date)
+                    Button(action:onCheck) {
+                        HStack(spacing:8) {
+                            if state == .checking { ProgressView().controlSize(.small) } else { Image(systemName:wait > 0 ? "timer" : "checkmark.shield") }
+                            if wait > 0 { LText("Riprova tra \(wait) s").monospacedDigit() } else { LText("Controlla firmware") }
+                        }
+                    }.buttonStyle(StudioButton(primary:!state.foundKeyglow && wait == 0)).disabled(busy || wait > 0)
+                        .localizedHelp(wait > 0 ? "Dopo una richiesta Bluetooth senza risposta serve un minuto di attesa. Con il cavo USB puoi controllare subito."
+                                       : usbConnected ? "Legge la versione via USB: non modifica nulla" : "Chiede al firmware di rispondere via Bluetooth: dura meno di un minuto, non digitare")
+                }
             }
             VStack(alignment:.leading,spacing:12) {
                 HStack(alignment:.firstTextBaseline,spacing:18) {
@@ -452,9 +458,30 @@ struct InstalledFirmwareCard: View {
                         }
                     }
                 }.font(.system(size:13))
+                if state == .checking, let started=updater.checkStartedAt, updater.checkExpectedSeconds > 3 {
+                    // An honest estimate: the exchange has a known length.
+                    TimelineView(.periodic(from:.now,by:0.5)) { context in
+                        let elapsed=max(0,context.date.timeIntervalSince(started)), expected=updater.checkExpectedSeconds
+                        VStack(alignment:.leading,spacing:6) {
+                            ProgressView(value:min(elapsed,expected),total:expected).tint(Studio.accent).frame(maxWidth:360)
+                            LText(elapsed < expected ? "Circa \(Int((expected-elapsed).rounded(.up))) s" : "Quasi finito…").font(.system(size:11)).monospacedDigit().foregroundColor(Studio.muted)
+                        }
+                    }
+                }
                 if let detail=InstalledFirmwareText.detail(state,usbConnected:usbConnected) {
                     LText(detail).font(.system(size:12)).foregroundColor(Studio.muted).lineSpacing(3)
                         .fixedSize(horizontal:false,vertical:true).frame(maxWidth:640,alignment:.leading)
+                }
+                if !updater.lastCheckDetails.isEmpty && state != .checking {
+                    LDisclosureGroup("Dettagli dell’ultimo controllo") {
+                        VStack(alignment:.leading,spacing:8) {
+                            Text(verbatim:updater.lastCheckDetails).font(.system(size:11,design:.monospaced)).textSelection(.enabled)
+                                .fixedSize(horizontal:false,vertical:true)
+                            LButton("Copia dettagli") {
+                                NSPasteboard.general.clearContents(); NSPasteboard.general.setString(updater.lastCheckDetails,forType:.string)
+                            }.buttonStyle(StudioButton())
+                        }.padding(.top,8)
+                    }.font(.system(size:12)).foregroundColor(Studio.muted)
                 }
             }.padding(.leading,60)
         }
@@ -526,7 +553,7 @@ enum InstalledFirmwareText {
         case .usbOther(let version): "Firmware Keyglow non trovato: via USB risponde \(version)"
         case .bluetoothVerified(let build): "Firmware Keyglow verificato via Bluetooth · build \(build)"
         case .bluetoothResponding: "Firmware Keyglow rilevato via Bluetooth, non autenticato"
-        case .bluetoothSilent: "Nessuna risposta Keyglow via Bluetooth"
+        case .bluetoothSilent: "Keyglow non ha risposto via Bluetooth"
         case .unreadable: "Non riesco a leggere la tastiera"
         }
     }
@@ -542,13 +569,13 @@ enum InstalledFirmwareText {
     static func detail(_ state: InstalledFirmwareCheck, usbConnected: Bool = false) -> String? {
         switch state {
         case .unknown: usbConnected ? "Con il cavo collegato il controllo legge la versione via USB e non modifica nulla."
-            : "Senza cavo il controllo chiede al firmware di rispondere via Bluetooth e dura pochi secondi: non digitare finché non termina. La lettura certa è via USB."
-        case .checking: usbConnected ? "Lettura della versione via USB." : "Non digitare per qualche secondo: il controllo usa gli indicatori della tastiera."
+            : "Senza cavo il controllo chiede al firmware di rispondere via Bluetooth e dura meno di un minuto: non digitare finché non termina. La lettura certa è via USB."
+        case .checking: usbConnected ? "Lettura della versione via USB." : "Dura meno di un minuto: non digitare e non toccare la manopola finché non termina. Il controllo usa gli indicatori della tastiera."
         case .usbKeyglow: "È la build inclusa in questa app. Colori ed effetti via Bluetooth sono disponibili."
         case .usbOther: "Sulla tastiera c’è un altro firmware, per esempio quello originale. Per gli RGB via Bluetooth usa Prima installazione di Keyglow."
         case .bluetoothVerified: "La risposta è autenticata con la chiave proprietario conservata su questo Mac."
         case .bluetoothResponding: "La tastiera risponde come il loader Keyglow, ma su questo Mac manca la chiave proprietario per autenticarla. Gli RGB funzionano; gli aggiornamenti firmware via Bluetooth richiedono quella chiave."
-        case .bluetoothSilent: "Può essere il firmware originale, oppure la tastiera non era raggiungibile. La conferma certa è via USB: collega il cavo e ripeti il controllo. Attendi un minuto prima di riprovare in Bluetooth."
+        case .bluetoothSilent: "Non è una prova che il firmware manchi: in Bluetooth la tastiera può non rispondere anche con Keyglow installato, oppure può avere il firmware originale. Collega il cavo, seleziona Cable e ripeti il controllo: via USB la lettura è certa."
         case .unreadable(let reason): reason
         }
     }

@@ -541,9 +541,14 @@ struct FirmwareUpdateTests {
         if case .bluetoothSilent = outcome.0 {} else { preconditionFailure("No Keyglow reply is reported as silence") }
         precondition(!outcome.0.foundKeyglow && !outcome.0.foundOther, "Bluetooth silence is neither Keyglow nor proof of the original firmware")
         precondition(outcome.1.cooldownUntil != nil, "A request that went out waits before the next one")
+        let silentResult = outcome.0, waitStarted = Date()
+        precondition((1...61).contains(outcome.1.bluetoothWait(at: waitStarted)), "The remaining wait is known, for the countdown")
         outcome.1.checkInstalledFirmware(usb: nil, isKeyglow: { _ in true })
-        if case .unreadable = outcome.1.installed {} else { preconditionFailure("A second Bluetooth check during the wait is refused") }
-        precondition(!outcome.1.isBusy)
+        precondition(outcome.1.installed == silentResult && !outcome.1.isBusy, "A second Bluetooth check during the wait sends nothing and keeps the previous result on screen")
+        precondition(outcome.1.bluetoothWait(at: waitStarted.addingTimeInterval(62)) == 0, "After the wait the check is available again")
+        outcome.1.checkInstalledFirmware(usb: { "v1.1.1 keyglow" }, isKeyglow: { $0 == "v1.1.1 keyglow" })
+        for _ in 0..<200 where outcome.1.isBusy { try await Task.sleep(for: .milliseconds(5)) }
+        precondition(outcome.1.installed == .usbKeyglow("v1.1.1 keyglow"), "The USB check is never held back by the Bluetooth wait")
         outcome = try await check(usb: nil, bluetooth: { throw OTAChannelFailure.disconnected })
         if case .unreadable = outcome.0 {} else { preconditionFailure("A keyboard that disconnects mid-check is unreadable, not original firmware") }
         precondition(outcome.1.cooldownUntil != nil)
@@ -556,6 +561,14 @@ struct FirmwareUpdateTests {
         if case .unreadable = outcome.0 {} else { preconditionFailure("Typing during the check stops it without a verdict") }
         outcome = try await check(usb: { "v1.1.1 keyglow" }, bluetooth: neverBluetooth) { $0.recordUSBReading(version: "old", isKeyglow: false) }
         precondition(outcome.0 == .usbKeyglow("v1.1.1 keyglow"), "A new reading replaces a recorded one")
+        // A healthy Bluetooth exchange takes about 45 s at the default pause: the
+        // limit must leave it room (the first build cut it off at 30 s).
+        let healthy = FirmwareUpdateModel.expectedBluetoothCheck(pause: 0.08)
+        precondition((40...50).contains(healthy), "129 + 77 indicator writes and 223 reply reports")
+        let patient = FirmwareUpdateModel(bluetoothIdentify: { _, _ in .responding })
+        precondition(patient.checkTimeout >= healthy * 2, "The limit is at least twice a healthy exchange")
+        for pause in [0.08, 0.04, 0.02] { precondition(FirmwareUpdateModel.expectedBluetoothCheck(pause: pause) < patient.checkTimeout / 2) }
+        precondition(outcome.1.lastCheckDetails.contains("Esito: usbKeyglow") && outcome.1.lastCheckDetails.contains("Collegamento: USB"), "The last check leaves copyable details")
         // A transport that never returns cannot leave the check running for ever.
         let stuckModel = FirmwareUpdateModel(bluetoothIdentify: { _, token in
             while !token.isCancelled { Thread.sleep(forTimeInterval: 0.01) }
